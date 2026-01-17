@@ -1,0 +1,28 @@
+# Build artifacts
+target/
+
+# Version control
+.git/
+.gitignore
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Docker files (not needed in build context)
+Dockerfile
+.dockerignore
+
+# Documentation
+*.md
+README*
+
+# CI/CD
+.github/
+
+# Misc
+.DS_Store
+*.log

@@ -1,6 +1,11 @@
 [package]
 name = "scorekeeper"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+actix-web = "4"
+actix-rt = "2"
+
+[dev-dependencies]
+actix-web = { version = "4", features = ["macros"] }

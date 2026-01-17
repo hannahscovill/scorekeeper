@@ -1,0 +1,119 @@
+import * as cdk from 'aws-cdk-lib/core';
+import { Template } from 'aws-cdk-lib/assertions';
+import { ScorekeeperStack } from '../lib/infra-stack';
+
+describe('ScorekeeperStack', () => {
+  test('creates ECR repository', () => {
+    const app = new cdk.App();
+    const stack = new ScorekeeperStack(app, 'TestStack', {
+      environmentName: 'dev',
+    });
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties('AWS::ECR::Repository', {
+      RepositoryName: 'scorekeeper-dev',
+    });
+  });
+
+  test('creates VPC with 2 AZs', () => {
+    const app = new cdk.App();
+    const stack = new ScorekeeperStack(app, 'TestStack', {
+      environmentName: 'dev',
+    });
+    const template = Template.fromStack(stack);
+
+    // VPC should exist
+    template.hasResourceProperties('AWS::EC2::VPC', {});
+
+    // Should have subnets (2 public + 2 private = 4 subnets for 2 AZs)
+    template.resourceCountIs('AWS::EC2::Subnet', 4);
+  });
+
+  test('creates ECS cluster', () => {
+    const app = new cdk.App();
+    const stack = new ScorekeeperStack(app, 'TestStack', {
+      environmentName: 'dev',
+    });
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties('AWS::ECS::Cluster', {
+      ClusterName: 'scorekeeper-cluster-dev',
+    });
+  });
+
+  test('creates Fargate service with correct configuration', () => {
+    const app = new cdk.App();
+    const stack = new ScorekeeperStack(app, 'TestStack', {
+      environmentName: 'dev',
+    });
+    const template = Template.fromStack(stack);
+
+    // Check task definition
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      Cpu: '256',
+      Memory: '512',
+      RequiresCompatibilities: ['FARGATE'],
+    });
+
+    // Check service exists
+    template.hasResourceProperties('AWS::ECS::Service', {
+      ServiceName: 'scorekeeper-service-dev',
+    });
+  });
+
+  test('creates Application Load Balancer', () => {
+    const app = new cdk.App();
+    const stack = new ScorekeeperStack(app, 'TestStack', {
+      environmentName: 'dev',
+    });
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
+      Scheme: 'internet-facing',
+      Type: 'application',
+    });
+  });
+
+  test('configures health check on /health endpoint', () => {
+    const app = new cdk.App();
+    const stack = new ScorekeeperStack(app, 'TestStack', {
+      environmentName: 'dev',
+    });
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+      HealthCheckPath: '/health',
+      HealthCheckPort: '8080',
+    });
+  });
+
+  test('prod environment enables auto-scaling', () => {
+    const app = new cdk.App();
+    const stack = new ScorekeeperStack(app, 'TestStack', {
+      environmentName: 'prod',
+    });
+    const template = Template.fromStack(stack);
+
+    // Auto-scaling target should exist for prod
+    template.hasResourceProperties('AWS::ApplicationAutoScaling::ScalableTarget', {
+      MinCapacity: 2,
+      MaxCapacity: 10,
+    });
+  });
+
+  test('dev environment has 1 NAT gateway, prod has 2', () => {
+    const appDev = new cdk.App();
+    const stackDev = new ScorekeeperStack(appDev, 'DevStack', {
+      environmentName: 'dev',
+    });
+    const templateDev = Template.fromStack(stackDev);
+    templateDev.resourceCountIs('AWS::EC2::NatGateway', 1);
+
+    const appProd = new cdk.App();
+    const stackProd = new ScorekeeperStack(appProd, 'ProdStack', {
+      environmentName: 'prod',
+    });
+    const templateProd = Template.fromStack(stackProd);
+    templateProd.resourceCountIs('AWS::EC2::NatGateway', 2);
+  });
+});

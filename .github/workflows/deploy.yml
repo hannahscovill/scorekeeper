@@ -1,0 +1,178 @@
+# Deploy Scorekeeper to AWS via CDK
+#
+# This workflow deploys the scorekeeper service to AWS ECS Fargate using CDK.
+# It triggers after the CI workflow passes on the main branch.
+#
+# Required GitHub Secrets/Variables:
+# ---------------------------------
+# AWS_ACCOUNT_ID: Your AWS account ID (e.g., 123456789012)
+# AWS_REGION: AWS region to deploy to (e.g., us-east-1)
+# AWS_OIDC_ROLE_ARN: The ARN of the IAM role for GitHub OIDC authentication
+#                    (e.g., arn:aws:iam::123456789012:role/GitHubActionsRole)
+#
+# AWS OIDC Setup:
+# ---------------
+# 1. Create an OIDC identity provider in AWS IAM:
+#    - Provider URL: https://token.actions.githubusercontent.com
+#    - Audience: sts.amazonaws.com
+#
+# 2. Create an IAM role with the following trust policy:
+#    {
+#      "Version": "2012-10-17",
+#      "Statement": [
+#        {
+#          "Effect": "Allow",
+#          "Principal": {
+#            "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+#          },
+#          "Action": "sts:AssumeRoleWithWebIdentity",
+#          "Condition": {
+#            "StringEquals": {
+#              "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+#            },
+#            "StringLike": {
+#              "token.actions.githubusercontent.com:sub": "repo:<ORG>/<REPO>:ref:refs/heads/main"
+#            }
+#          }
+#        }
+#      ]
+#    }
+#
+# 3. Attach the following permissions to the role:
+#    - AmazonEC2ContainerRegistryPowerUser (for ECR push)
+#    - CloudFormation full access (for CDK deploy)
+#    - ECS full access (for service updates)
+#    - IAM limited access (for CDK to create/update roles)
+#    - VPC/EC2 permissions (for CDK infrastructure)
+#    - S3 access (for CDK assets bucket)
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types:
+      - completed
+
+# Prevent concurrent deployments
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  ECR_REPOSITORY: scorekeeper-prod
+
+jobs:
+  # Only run if CI workflow succeeded
+  check-ci:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+    steps:
+      - name: CI passed - proceeding with deployment
+        id: check
+        run: echo "should_deploy=true" >> $GITHUB_OUTPUT
+
+  build-and-push:
+    needs: check-ci
+    if: ${{ needs.check-ci.outputs.should_deploy == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      image_tag: ${{ steps.meta.outputs.sha_tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata for Docker
+        id: meta
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "sha_tag=${SHA_SHORT}" >> $GITHUB_OUTPUT
+          echo "full_image=${ECR_REGISTRY}/${ECR_REPOSITORY}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.full_image }}:${{ steps.meta.outputs.sha_tag }}
+            ${{ steps.meta.outputs.full_image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install CDK dependencies
+        working-directory: infra
+        run: npm ci
+
+      - name: Deploy CDK stack
+        working-directory: infra
+        run: npx cdk deploy --require-approval never -c env=prod
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster scorekeeper-cluster-prod \
+            --service scorekeeper-service-prod \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for deployment to stabilize
+        run: |
+          echo "Waiting for ECS service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster scorekeeper-cluster-prod \
+            --services scorekeeper-service-prod \
+            --region ${{ env.AWS_REGION }}
+          echo "Deployment complete!"
