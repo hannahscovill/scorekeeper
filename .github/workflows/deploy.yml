@@ -62,10 +62,10 @@ on:
       cdk_action:
         description: 'The CDK action to take'
         required: true
-        default: 'create'
+        default: 'deploy'
         type: choice
         options:
-          - create
+          - deploy
           - destroy
 
 # Prevent concurrent deployments
