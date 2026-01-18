@@ -62,7 +62,7 @@ on:
       cdk_action:
         description: 'The CDK action to take'
         required: true
-        default: 'deploy'
+        default: &default_cdk_action 'destroy' # note: had to also hardcode in the with block below
         type: choice
         options:
           - deploy
@@ -76,7 +76,7 @@ concurrency:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   ECR_REPOSITORY: scorekeeper
-  DEFAULT_CDK_ACTION: destroy
+  DEFAULT_CDK_ACTION: *default_cdk_action
 
 jobs:
   # Only run if CI workflow succeeded
@@ -96,7 +96,8 @@ jobs:
     if: ${{ needs.check-ci.outputs.should_deploy == 'true' }}
     uses: ./.github/workflows/prerequisite-infra.yml
     with:
-      cdk_action: ${{ inputs.cdk_action || env.DEFAULT_CDK_ACTION }}
+      # NOTE: env context not available in 'with:' - must hardcode fallback
+      cdk_action: ${{ inputs.cdk_action || 'destroy' }}
     permissions:
       id-token: write
       contents: read

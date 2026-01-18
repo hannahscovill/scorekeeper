@@ -14,7 +14,7 @@ on:
       cdk_action:
         description: 'The CDK action to take'
         required: true
-        default: 'destroy'
+        default: &default_cdk_action 'destroy'
         type: choice
         options:
           - deploy
@@ -24,7 +24,7 @@ on:
       cdk_action:
         description: 'The CDK action to take'
         required: false
-        default: 'destroy'
+        default: *default_cdk_action
         type: string
     outputs:
       ecr_repository_uri:
@@ -33,7 +33,7 @@ on:
 
 env:
   AWS_REGION: us-west-2
-  DEFAULT_CDK_ACTION: destroy
+  DEFAULT_CDK_ACTION: *default_cdk_action # still has to be added to the env because yaml anchors wont work in expressions
 
 jobs:
   deploy-prerequisite:
