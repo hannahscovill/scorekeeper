@@ -4,4 +4,4 @@ pub mod health;
 pub mod scores;
 
 pub use health::*;
-pub use scores::*;
+pub use scores::{get_scores, list_scores};

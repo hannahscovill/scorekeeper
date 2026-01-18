@@ -45,6 +45,11 @@ impl Config {
     pub fn bind_address(&self) -> (String, u16) {
         (self.host.clone(), self.port)
     }
+
+    /// Returns the JWT secret.
+    pub fn jwt_secret(&self) -> &str {
+        &self.jwt_secret
+    }
 }
 
 #[cfg(test)]

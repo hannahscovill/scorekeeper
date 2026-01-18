@@ -1,6 +1,6 @@
 //! Scorekeeper API - Sports score tracking server.
 
-use actix_web::{get, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -12,7 +12,9 @@ pub mod routes;
 pub mod services;
 
 use config::Config;
-use routes::{health_check, list_scores};
+use db::InMemoryDb;
+use middleware::auth::JwtAuth;
+use routes::{get_scores, health_check, list_scores};
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -29,13 +31,20 @@ async fn main() -> std::io::Result<()> {
     let config = Config::from_env();
     let bind_addr = config.bind_address();
 
+    // Initialize shared state
+    let db = web::Data::new(InMemoryDb::new());
+    let jwt_auth = web::Data::new(JwtAuth::new(config.jwt_secret().to_string()));
+
     info!("Starting server at http://{}:{}", bind_addr.0, bind_addr.1);
 
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
+            .app_data(db.clone())
+            .app_data(jwt_auth.clone())
             .service(hello)
             .service(health_check)
             .service(list_scores)
+            .service(get_scores)
     })
     .bind(bind_addr)?
     .run()
