@@ -1,0 +1,45 @@
+scores-by-game:
+  get:
+    summary: Get scores for a game
+    description: |
+      Retrieves scores for a specific game.
+    operationId: getScoresByGame
+    tags:
+      - Scores
+    parameters:
+      - $ref: '../components/schemas/parameters.yaml#/GameIdPath'
+      - $ref: '../components/schemas/parameters.yaml#/TeamIdHeader'
+    responses:
+      '200':
+        $ref: '../components/responses/scores.yaml#/ScoreListResponse'
+      '401':
+        $ref: '../components/responses/errors.yaml#/UnauthorizedError'
+      '403':
+        $ref: '../components/responses/errors.yaml#/ForbiddenError'
+      '404':
+        $ref: '../components/responses/errors.yaml#/NotFoundError'
+
+scores:
+  post:
+    summary: Submit scores
+    description: Submit one or more scores for the authenticated user
+    operationId: createScores
+    tags:
+      - Scores
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas/score.yaml#/ScoreCreateList'
+          example:
+            - score: 6
+    responses:
+      '201':
+        $ref: '../components/responses/scores.yaml#/ScoreCreatedResponse'
+      '400':
+        $ref: '../components/responses/errors.yaml#/BadRequestError'
+      '401':
+        $ref: '../components/responses/errors.yaml#/UnauthorizedError'
+      '422':
+        $ref: '../components/responses/errors.yaml#/ValidationError'

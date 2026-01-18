@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: Scorekeeper API
+  description: API for managing game scores
+  version: 1.0.0
+
+servers:
+  - url: localhost:8080
+    description: API v1
+
+security:
+  - bearerAuth: []
+
+paths:
+  /scores/{game_id}:
+    $ref: './paths/scores.yaml#/scores-by-game'
+  /scores:
+    $ref: './paths/scores.yaml#/scores'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication
+
+  schemas:
+    $ref: './components/schemas/_index.yaml'
+
+  responses:
+    $ref: './components/responses/_index.yaml'

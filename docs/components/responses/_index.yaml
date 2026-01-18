@@ -1,0 +1,14 @@
+UnauthorizedError:
+  $ref: './errors.yaml#/UnauthorizedError'
+ForbiddenError:
+  $ref: './errors.yaml#/ForbiddenError'
+NotFoundError:
+  $ref: './errors.yaml#/NotFoundError'
+BadRequestError:
+  $ref: './errors.yaml#/BadRequestError'
+ValidationError:
+  $ref: './errors.yaml#/ValidationError'
+ScoreListResponse:
+  $ref: './scores.yaml#/ScoreListResponse'
+ScoreCreatedResponse:
+  $ref: './scores.yaml#/ScoreCreatedResponse'

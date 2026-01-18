@@ -1,0 +1,61 @@
+Score:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier for the score
+      readOnly: true
+    user_id:
+      type: string
+      format: uuid
+      description: ID of the user who achieved the score
+      readOnly: true
+    game_id:
+      type: string
+      format: uuid
+      description: ID of the game this score belongs to
+    team_id:
+      type: string
+      format: uuid
+      description: ID of the team (if applicable)
+    score:
+      type: integer
+      description: The numeric score value
+    created_at:
+      type: string
+      format: date-time
+      description: When the score was recorded
+      readOnly: true
+  required:
+    - id
+    - user_id
+    - game_id
+    - score
+    - created_at
+
+ScoreCreate:
+  type: object
+  properties:
+    score:
+      type: integer
+      description: The numeric score value
+    game_id:
+      type: string
+      format: uuid
+      description: ID of the game (optional if context provides it)
+  required:
+    - score
+
+ScoreCreateList:
+  type: array
+  items:
+    $ref: '#/ScoreCreate'
+  minItems: 1
+  description: List of scores to submit
+
+ScoreList:
+  type: array
+  items:
+    $ref: '#/Score'
+  description: List of scores

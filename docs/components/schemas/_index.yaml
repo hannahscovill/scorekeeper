@@ -1,0 +1,12 @@
+Score:
+  $ref: './score.yaml#/Score'
+ScoreCreate:
+  $ref: './score.yaml#/ScoreCreate'
+ScoreCreateList:
+  $ref: './score.yaml#/ScoreCreateList'
+ScoreList:
+  $ref: './score.yaml#/ScoreList'
+ErrorResponse:
+  $ref: './errors.yaml#/ErrorResponse'
+ValidationErrorResponse:
+  $ref: './errors.yaml#/ValidationErrorResponse'
