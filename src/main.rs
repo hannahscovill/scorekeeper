@@ -14,7 +14,7 @@ pub mod services;
 use config::Config;
 use db::InMemoryDb;
 use middleware::auth::JwtAuth;
-use routes::{get_scores, health_check, list_scores};
+use routes::{create_scores, get_scores, health_check, list_scores};
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -44,6 +44,7 @@ async fn main() -> std::io::Result<()> {
             .service(hello)
             .service(health_check)
             .service(list_scores)
+            .service(create_scores)
             .service(get_scores)
     })
     .bind(bind_addr)?
