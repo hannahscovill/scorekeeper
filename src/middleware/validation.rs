@@ -78,25 +78,6 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_score_create_list_valid() {
-        let scores: ScoreCreateList = vec![ScoreCreate::new(100), ScoreCreate::new(200)];
-        assert!(validate_score_create_list(&scores).is_ok());
-    }
-
-    #[test]
-    fn test_validate_score_create_list_empty() {
-        let scores: ScoreCreateList = vec![];
-        let result = validate_score_create_list(&scores);
-        assert!(result.is_err());
-        if let Err(AppError::ValidationError(details)) = result {
-            assert_eq!(details.len(), 1);
-            assert_eq!(details[0].field, "scores");
-        } else {
-            panic!("Expected ValidationError");
-        }
-    }
-
-    #[test]
     fn test_extract_team_id_header_valid() {
         let team_id = Uuid::new_v4();
         let req = TestRequest::default()
@@ -123,5 +104,46 @@ mod tests {
 
         let result = extract_team_id_header(&req);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_extract_team_id_header_empty_string() {
+        let req = TestRequest::default()
+            .insert_header(("team-id", ""))
+            .to_http_request();
+
+        let result = extract_team_id_header(&req);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_score_create_list_valid() {
+        let scores: ScoreCreateList = vec![ScoreCreate::new(100), ScoreCreate::new(200)];
+        assert!(validate_score_create_list(&scores).is_ok());
+    }
+
+    #[test]
+    fn test_validate_score_create_list_empty() {
+        let scores: ScoreCreateList = vec![];
+        let result = validate_score_create_list(&scores);
+        assert!(result.is_err());
+        if let Err(AppError::ValidationError(details)) = result {
+            assert_eq!(details.len(), 1);
+            assert_eq!(details[0].field, "scores");
+        } else {
+            panic!("Expected ValidationError");
+        }
+    }
+
+    #[test]
+    fn test_validate_score_create_list_single_item() {
+        let scores: ScoreCreateList = vec![ScoreCreate::new(50)];
+        assert!(validate_score_create_list(&scores).is_ok());
+    }
+
+    #[test]
+    fn test_validate_score_create_list_many_items() {
+        let scores: ScoreCreateList = (0..100).map(|i| ScoreCreate::new(i)).collect();
+        assert!(validate_score_create_list(&scores).is_ok());
     }
 }

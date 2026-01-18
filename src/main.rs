@@ -44,8 +44,8 @@ async fn main() -> std::io::Result<()> {
             .service(hello)
             .service(health_check)
             .service(list_scores)
-            .service(create_scores)
             .service(get_scores)
+            .service(create_scores)
     })
     .bind(bind_addr)?
     .run()
