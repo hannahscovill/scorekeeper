@@ -1,6 +1,7 @@
 //! Business logic services for the scorekeeper API.
 
-use crate::models::Score;
+use crate::models::{Score, ScoreCreate};
+use uuid::Uuid;
 
 /// Service for managing scores.
 pub struct ScoreService;
@@ -11,9 +12,9 @@ impl ScoreService {
         Self
     }
 
-    /// Creates a new score.
-    pub fn create_score(&self, home_team: String, away_team: String) -> Score {
-        Score::new(home_team, away_team)
+    /// Creates a new score from a ScoreCreate request.
+    pub fn create_score(&self, user_id: Uuid, game_id: Uuid, create: &ScoreCreate) -> Score {
+        Score::new(user_id, game_id, create.score)
     }
 }
 
@@ -30,8 +31,12 @@ mod tests {
     #[test]
     fn test_create_score() {
         let service = ScoreService::new();
-        let score = service.create_score("Home".to_string(), "Away".to_string());
-        assert_eq!(score.home_team, "Home");
-        assert_eq!(score.away_team, "Away");
+        let user_id = Uuid::new_v4();
+        let game_id = Uuid::new_v4();
+        let create = ScoreCreate::new(100);
+        let score = service.create_score(user_id, game_id, &create);
+        assert_eq!(score.user_id, user_id);
+        assert_eq!(score.game_id, game_id);
+        assert_eq!(score.score, 100);
     }
 }

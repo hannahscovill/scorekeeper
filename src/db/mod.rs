@@ -71,20 +71,24 @@ mod tests {
     #[test]
     fn test_insert_and_get_score() {
         let db = InMemoryDb::new();
-        let score = Score::new("Team A".to_string(), "Team B".to_string());
+        let user_id = Uuid::new_v4();
+        let game_id = Uuid::new_v4();
+        let score = Score::new(user_id, game_id, 100);
         let id = score.id;
 
         db.insert_score(score).unwrap();
         let retrieved = db.get_score(&id).unwrap();
 
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().home_team, "Team A");
+        assert_eq!(retrieved.unwrap().score, 100);
     }
 
     #[test]
     fn test_delete_score() {
         let db = InMemoryDb::new();
-        let score = Score::new("Team A".to_string(), "Team B".to_string());
+        let user_id = Uuid::new_v4();
+        let game_id = Uuid::new_v4();
+        let score = Score::new(user_id, game_id, 200);
         let id = score.id;
 
         db.insert_score(score).unwrap();
