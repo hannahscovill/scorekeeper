@@ -179,7 +179,7 @@ jobs:
 
       - name: Deploy CDK stack
         working-directory: infra
-        run: npx cdk ${{ inputs.cdk_action || 'create' }} --require-approval never -c env=prod
+        run: npx cdk ${{ inputs.cdk_action || 'deploy' }} --require-approval never -c env=prod
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}

@@ -60,7 +60,7 @@ jobs:
 
       - name: Deploy Prerequisite Infrastructure stack
         working-directory: infra
-        run: npx cdk ${{ inputs.cdk_action || 'create' }} PrerequisiteInfraStack --require-approval never -c prerequisite=true
+        run: npx cdk ${{ inputs.cdk_action || 'deploy' }} PrerequisiteInfraStack --require-approval never -c prerequisite=true
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
