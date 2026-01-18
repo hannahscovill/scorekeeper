@@ -3,189 +3,141 @@
 use actix_web::{HttpResponse, ResponseError};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use thiserror::Error;
 
-/// The body of an error response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ErrorBody {
-    /// Error code identifier.
-    pub code: String,
-    /// Human-readable error message.
-    pub message: String,
-}
-
-impl ErrorBody {
-    /// Creates a new error body.
-    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-        }
-    }
-}
-
-/// Standard error response wrapper.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Error response body matching OpenAPI spec.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorResponse {
-    /// The error details.
     pub error: ErrorBody,
 }
 
-impl ErrorResponse {
-    /// Creates a new error response.
-    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            error: ErrorBody::new(code, message),
-        }
-    }
-
-    /// Creates a not found error response.
-    pub fn not_found(message: impl Into<String>) -> Self {
-        Self::new("NOT_FOUND", message)
-    }
-
-    /// Creates a bad request error response.
-    pub fn bad_request(message: impl Into<String>) -> Self {
-        Self::new("BAD_REQUEST", message)
-    }
-
-    /// Creates an unauthorized error response.
-    pub fn unauthorized(message: impl Into<String>) -> Self {
-        Self::new("UNAUTHORIZED", message)
-    }
-
-    /// Creates an internal server error response.
-    pub fn internal_error(message: impl Into<String>) -> Self {
-        Self::new("INTERNAL_ERROR", message)
-    }
-}
-
-impl fmt::Display for ErrorResponse {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.error.code, self.error.message)
-    }
-}
-
-/// Details about a specific validation error.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ValidationDetail {
-    /// The field that failed validation.
-    pub field: String,
-    /// Description of the validation error.
-    pub message: String,
-}
-
-impl ValidationDetail {
-    /// Creates a new validation detail.
-    pub fn new(field: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            field: field.into(),
-            message: message.into(),
-        }
-    }
-}
-
-/// The body of a validation error response.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ValidationErrorBody {
-    /// Error code identifier.
+/// Inner error body with code and message.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorBody {
     pub code: String,
-    /// Human-readable error message.
     pub message: String,
-    /// Details about each validation error.
-    pub details: Vec<ValidationDetail>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<Vec<ValidationDetail>>,
 }
 
-impl ValidationErrorBody {
-    /// Creates a new validation error body.
-    pub fn new(
-        code: impl Into<String>,
-        message: impl Into<String>,
-        details: Vec<ValidationDetail>,
-    ) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-            details,
-        }
-    }
+/// Validation error detail for 422 responses.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationDetail {
+    pub field: String,
+    pub message: String,
 }
 
-/// Validation error response wrapper.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ValidationErrorResponse {
-    /// The validation error details.
-    pub error: ValidationErrorBody,
-}
-
-impl ValidationErrorResponse {
-    /// Creates a new validation error response.
-    pub fn new(message: impl Into<String>, details: Vec<ValidationDetail>) -> Self {
-        Self {
-            error: ValidationErrorBody::new("VALIDATION_ERROR", message, details),
-        }
-    }
-
-    /// Creates a validation error response with a single detail.
-    pub fn single(field: impl Into<String>, message: impl Into<String>) -> Self {
-        Self::new(
-            "Validation failed",
-            vec![ValidationDetail::new(field, message)],
-        )
-    }
-}
-
-impl fmt::Display for ValidationErrorResponse {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}: {} ({} errors)",
-            self.error.code,
-            self.error.message,
-            self.error.details.len()
-        )
-    }
-}
-
-/// Application-level errors.
-#[derive(Debug, Error)]
+/// Application-level errors with standardized HTTP responses.
+#[derive(Debug)]
 pub enum AppError {
-    /// Resource not found.
-    #[error("Resource not found: {0}")]
-    NotFound(String),
-
-    /// Bad request with validation error.
-    #[error("Bad request: {0}")]
+    /// 400 Bad Request
     BadRequest(String),
-
-    /// Internal server error.
-    #[error("Internal server error: {0}")]
-    InternalError(String),
-
-    /// Unauthorized access.
-    #[error("Unauthorized: {0}")]
+    /// 401 Unauthorized
     Unauthorized(String),
-
-    /// Validation error with details.
-    #[error("Validation error: {0}")]
-    ValidationError(ValidationErrorResponse),
+    /// 403 Forbidden
+    Forbidden(String),
+    /// 404 Not Found
+    NotFound(String),
+    /// 422 Validation Error
+    ValidationError(Vec<ValidationDetail>),
+    /// 500 Internal Server Error
+    InternalError(String),
 }
+
+impl AppError {
+    /// Create a 400 Bad Request error.
+    pub fn bad_request(msg: impl Into<String>) -> Self {
+        AppError::BadRequest(msg.into())
+    }
+
+    /// Create a 401 Unauthorized error with default message.
+    pub fn unauthorized() -> Self {
+        AppError::Unauthorized("Invalid or expired authentication token".to_string())
+    }
+
+    /// Create a 403 Forbidden error with default message.
+    pub fn forbidden() -> Self {
+        AppError::Forbidden("You do not have permission to access this resource".to_string())
+    }
+
+    /// Create a 404 Not Found error.
+    pub fn not_found(resource: impl Into<String>) -> Self {
+        AppError::NotFound(resource.into())
+    }
+
+    /// Create a 422 Validation Error.
+    pub fn validation(details: Vec<ValidationDetail>) -> Self {
+        AppError::ValidationError(details)
+    }
+
+    /// Create a 500 Internal Server Error.
+    pub fn internal(msg: impl Into<String>) -> Self {
+        AppError::InternalError(msg.into())
+    }
+}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AppError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
+            AppError::Unauthorized(msg) => write!(f, "Unauthorized: {}", msg),
+            AppError::Forbidden(msg) => write!(f, "Forbidden: {}", msg),
+            AppError::NotFound(msg) => write!(f, "Not found: {}", msg),
+            AppError::ValidationError(_) => write!(f, "Validation failed"),
+            AppError::InternalError(msg) => write!(f, "Internal server error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for AppError {}
 
 impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
         match self {
-            AppError::NotFound(msg) => HttpResponse::NotFound().json(ErrorResponse::not_found(msg)),
-            AppError::BadRequest(msg) => {
-                HttpResponse::BadRequest().json(ErrorResponse::bad_request(msg))
+            AppError::BadRequest(msg) => HttpResponse::BadRequest().json(ErrorResponse {
+                error: ErrorBody {
+                    code: "BAD_REQUEST".to_string(),
+                    message: msg.clone(),
+                    details: None,
+                },
+            }),
+            AppError::Unauthorized(msg) => HttpResponse::Unauthorized().json(ErrorResponse {
+                error: ErrorBody {
+                    code: "UNAUTHORIZED".to_string(),
+                    message: msg.clone(),
+                    details: None,
+                },
+            }),
+            AppError::Forbidden(msg) => HttpResponse::Forbidden().json(ErrorResponse {
+                error: ErrorBody {
+                    code: "FORBIDDEN".to_string(),
+                    message: msg.clone(),
+                    details: None,
+                },
+            }),
+            AppError::NotFound(msg) => HttpResponse::NotFound().json(ErrorResponse {
+                error: ErrorBody {
+                    code: "NOT_FOUND".to_string(),
+                    message: msg.clone(),
+                    details: None,
+                },
+            }),
+            AppError::ValidationError(details) => {
+                HttpResponse::UnprocessableEntity().json(ErrorResponse {
+                    error: ErrorBody {
+                        code: "VALIDATION_ERROR".to_string(),
+                        message: "Validation failed".to_string(),
+                        details: Some(details.clone()),
+                    },
+                })
             }
             AppError::InternalError(msg) => {
-                HttpResponse::InternalServerError().json(ErrorResponse::internal_error(msg))
-            }
-            AppError::Unauthorized(msg) => {
-                HttpResponse::Unauthorized().json(ErrorResponse::unauthorized(msg))
-            }
-            AppError::ValidationError(validation_response) => {
-                HttpResponse::BadRequest().json(validation_response)
+                HttpResponse::InternalServerError().json(ErrorResponse {
+                    error: ErrorBody {
+                        code: "INTERNAL_ERROR".to_string(),
+                        message: msg.clone(),
+                        details: None,
+                    },
+                })
             }
         }
     }
@@ -194,138 +146,179 @@ impl ResponseError for AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_error_body_new() {
-        let body = ErrorBody::new("TEST_CODE", "Test message");
-        assert_eq!(body.code, "TEST_CODE");
-        assert_eq!(body.message, "Test message");
-    }
-
-    #[test]
-    fn test_error_response_new() {
-        let response = ErrorResponse::new("TEST_CODE", "Test message");
-        assert_eq!(response.error.code, "TEST_CODE");
-        assert_eq!(response.error.message, "Test message");
-    }
-
-    #[test]
-    fn test_error_response_helpers() {
-        let not_found = ErrorResponse::not_found("Resource not found");
-        assert_eq!(not_found.error.code, "NOT_FOUND");
-
-        let bad_request = ErrorResponse::bad_request("Invalid input");
-        assert_eq!(bad_request.error.code, "BAD_REQUEST");
-
-        let unauthorized = ErrorResponse::unauthorized("Not authenticated");
-        assert_eq!(unauthorized.error.code, "UNAUTHORIZED");
-
-        let internal = ErrorResponse::internal_error("Something went wrong");
-        assert_eq!(internal.error.code, "INTERNAL_ERROR");
-    }
-
-    #[test]
-    fn test_error_response_serialization() {
-        let response = ErrorResponse::not_found("Score not found");
-        let json = serde_json::to_string(&response).unwrap();
-
-        assert!(json.contains("\"code\":\"NOT_FOUND\""));
-        assert!(json.contains("\"message\":\"Score not found\""));
-        assert!(json.contains("\"error\""));
-    }
-
-    #[test]
-    fn test_error_response_deserialization() {
-        let json = r#"{"error":{"code":"NOT_FOUND","message":"Score not found"}}"#;
-        let response: ErrorResponse = serde_json::from_str(json).unwrap();
-
-        assert_eq!(response.error.code, "NOT_FOUND");
-        assert_eq!(response.error.message, "Score not found");
-    }
-
-    #[test]
-    fn test_validation_detail_new() {
-        let detail = ValidationDetail::new("email", "Invalid email format");
-        assert_eq!(detail.field, "email");
-        assert_eq!(detail.message, "Invalid email format");
-    }
-
-    #[test]
-    fn test_validation_error_response_new() {
-        let details = vec![
-            ValidationDetail::new("score", "Score must be non-negative"),
-            ValidationDetail::new("game_id", "Game ID is required"),
-        ];
-        let response = ValidationErrorResponse::new("Validation failed", details);
-
-        assert_eq!(response.error.code, "VALIDATION_ERROR");
-        assert_eq!(response.error.message, "Validation failed");
-        assert_eq!(response.error.details.len(), 2);
-    }
-
-    #[test]
-    fn test_validation_error_response_single() {
-        let response = ValidationErrorResponse::single("score", "Score is required");
-
-        assert_eq!(response.error.code, "VALIDATION_ERROR");
-        assert_eq!(response.error.details.len(), 1);
-        assert_eq!(response.error.details[0].field, "score");
-    }
-
-    #[test]
-    fn test_validation_error_response_serialization() {
-        let response = ValidationErrorResponse::single("score", "Score must be positive");
-        let json = serde_json::to_string(&response).unwrap();
-
-        assert!(json.contains("\"code\":\"VALIDATION_ERROR\""));
-        assert!(json.contains("\"field\":\"score\""));
-        assert!(json.contains("\"message\":\"Score must be positive\""));
-        assert!(json.contains("\"details\""));
-    }
-
-    #[test]
-    fn test_validation_error_response_deserialization() {
-        let json = r#"{
-            "error": {
-                "code": "VALIDATION_ERROR",
-                "message": "Validation failed",
-                "details": [
-                    {"field": "score", "message": "Score is required"}
-                ]
-            }
-        }"#;
-        let response: ValidationErrorResponse = serde_json::from_str(json).unwrap();
-
-        assert_eq!(response.error.code, "VALIDATION_ERROR");
-        assert_eq!(response.error.details.len(), 1);
-        assert_eq!(response.error.details[0].field, "score");
-    }
+    use actix_web::body::to_bytes;
+    use actix_web::http::StatusCode;
 
     #[test]
     fn test_app_error_display() {
         let err = AppError::NotFound("score".to_string());
-        assert_eq!(err.to_string(), "Resource not found: score");
-
-        let err = AppError::BadRequest("invalid input".to_string());
-        assert_eq!(err.to_string(), "Bad request: invalid input");
+        assert_eq!(err.to_string(), "Not found: score");
     }
 
     #[test]
-    fn test_error_response_display() {
-        let response = ErrorResponse::not_found("Score not found");
-        assert_eq!(response.to_string(), "NOT_FOUND: Score not found");
+    fn test_bad_request_helper() {
+        let err = AppError::bad_request("Invalid request body");
+        assert!(matches!(err, AppError::BadRequest(msg) if msg == "Invalid request body"));
     }
 
     #[test]
-    fn test_validation_error_response_display() {
-        let details = vec![
-            ValidationDetail::new("field1", "error1"),
-            ValidationDetail::new("field2", "error2"),
-        ];
-        let response = ValidationErrorResponse::new("Validation failed", details);
-        assert_eq!(
-            response.to_string(),
-            "VALIDATION_ERROR: Validation failed (2 errors)"
+    fn test_unauthorized_helper() {
+        let err = AppError::unauthorized();
+        assert!(
+            matches!(err, AppError::Unauthorized(msg) if msg == "Invalid or expired authentication token")
         );
+    }
+
+    #[test]
+    fn test_forbidden_helper() {
+        let err = AppError::forbidden();
+        assert!(
+            matches!(err, AppError::Forbidden(msg) if msg == "You do not have permission to access this resource")
+        );
+    }
+
+    #[test]
+    fn test_not_found_helper() {
+        let err = AppError::not_found("Resource not found");
+        assert!(matches!(err, AppError::NotFound(msg) if msg == "Resource not found"));
+    }
+
+    #[test]
+    fn test_validation_helper() {
+        let details = vec![ValidationDetail {
+            field: "email".to_string(),
+            message: "Invalid email format".to_string(),
+        }];
+        let err = AppError::validation(details.clone());
+        assert!(matches!(err, AppError::ValidationError(d) if d.len() == 1));
+    }
+
+    #[actix_web::test]
+    async fn test_bad_request_response() {
+        let err = AppError::bad_request("Invalid request body");
+        let response = err.error_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["error"]["code"], "BAD_REQUEST");
+        assert_eq!(json["error"]["message"], "Invalid request body");
+    }
+
+    #[actix_web::test]
+    async fn test_unauthorized_response() {
+        let err = AppError::unauthorized();
+        let response = err.error_response();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["error"]["code"], "UNAUTHORIZED");
+        assert_eq!(
+            json["error"]["message"],
+            "Invalid or expired authentication token"
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_forbidden_response() {
+        let err = AppError::forbidden();
+        let response = err.error_response();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["error"]["code"], "FORBIDDEN");
+        assert_eq!(
+            json["error"]["message"],
+            "You do not have permission to access this resource"
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_not_found_response() {
+        let err = AppError::not_found("Resource not found");
+        let response = err.error_response();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["error"]["code"], "NOT_FOUND");
+        assert_eq!(json["error"]["message"], "Resource not found");
+    }
+
+    #[actix_web::test]
+    async fn test_validation_error_response() {
+        let details = vec![
+            ValidationDetail {
+                field: "email".to_string(),
+                message: "Invalid email format".to_string(),
+            },
+            ValidationDetail {
+                field: "name".to_string(),
+                message: "Name is required".to_string(),
+            },
+        ];
+        let err = AppError::validation(details);
+        let response = err.error_response();
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["error"]["code"], "VALIDATION_ERROR");
+        assert_eq!(json["error"]["message"], "Validation failed");
+        assert!(json["error"]["details"].is_array());
+        assert_eq!(json["error"]["details"].as_array().unwrap().len(), 2);
+        assert_eq!(json["error"]["details"][0]["field"], "email");
+        assert_eq!(
+            json["error"]["details"][0]["message"],
+            "Invalid email format"
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_internal_error_response() {
+        let err = AppError::internal("Database connection failed");
+        let response = err.error_response();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["error"]["code"], "INTERNAL_ERROR");
+        assert_eq!(json["error"]["message"], "Database connection failed");
+    }
+
+    #[test]
+    fn test_error_response_serialization() {
+        let response = ErrorResponse {
+            error: ErrorBody {
+                code: "BAD_REQUEST".to_string(),
+                message: "Invalid input".to_string(),
+                details: None,
+            },
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(!json.contains("details")); // details should be skipped when None
+        assert!(json.contains("BAD_REQUEST"));
+        assert!(json.contains("Invalid input"));
+    }
+
+    #[test]
+    fn test_validation_detail_serialization() {
+        let detail = ValidationDetail {
+            field: "score".to_string(),
+            message: "Score must be positive".to_string(),
+        };
+
+        let json = serde_json::to_string(&detail).unwrap();
+        assert!(json.contains("score"));
+        assert!(json.contains("Score must be positive"));
     }
 }
