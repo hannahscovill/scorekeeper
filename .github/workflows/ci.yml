@@ -2,15 +2,15 @@ name: CI
 
 on:
   push:
-    paths-ignore:
+    paths-ignore: &non-deploy-paths
       - "docs/**"
-      - "*.md"
-      - "beads/**"
+      - "**/*.md"
+      - ".beads/**"
+      - ".husky/**"
+      - ".claude/**"
+      - "**/.gitignore"
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-      - "beads/**"
+    paths-ignore: *non-deploy-paths
 
 env:
   CARGO_TERM_COLOR: always
