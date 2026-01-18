@@ -3,16 +3,16 @@ import { Template } from 'aws-cdk-lib/assertions';
 import { ScorekeeperStack } from '../lib/infra-stack';
 
 describe('ScorekeeperStack', () => {
-  test('creates ECR repository', () => {
+  test('references existing ECR repository', () => {
     const app = new cdk.App();
     const stack = new ScorekeeperStack(app, 'TestStack', {
       environmentName: 'dev',
     });
     const template = Template.fromStack(stack);
 
-    template.hasResourceProperties('AWS::ECR::Repository', {
-      RepositoryName: 'scorekeeper-dev',
-    });
+    // ECR repository is created by PrerequisiteInfraStack, not this stack
+    // Verify no ECR repository is created here
+    template.resourceCountIs('AWS::ECR::Repository', 0);
   });
 
   test('creates VPC with 2 AZs', () => {
