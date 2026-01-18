@@ -56,6 +56,24 @@ impl InMemoryDb {
             .map_err(|e| format!("Lock error: {}", e))?;
         Ok(scores.remove(id))
     }
+
+    /// Gets all scores for a specific game, optionally filtered by team.
+    pub fn get_scores_by_game(
+        &self,
+        game_id: Uuid,
+        team_id: Option<Uuid>,
+    ) -> Result<Vec<Score>, String> {
+        let scores = self
+            .scores
+            .read()
+            .map_err(|e| format!("Lock error: {}", e))?;
+        Ok(scores
+            .values()
+            .filter(|s| s.game_id == game_id)
+            .filter(|s| team_id.is_none_or(|tid| s.team_id == Some(tid)))
+            .cloned()
+            .collect())
+    }
 }
 
 impl Default for InMemoryDb {
@@ -71,20 +89,24 @@ mod tests {
     #[test]
     fn test_insert_and_get_score() {
         let db = InMemoryDb::new();
-        let score = Score::new("Team A".to_string(), "Team B".to_string());
+        let user_id = Uuid::new_v4();
+        let game_id = Uuid::new_v4();
+        let score = Score::new(user_id, game_id, 100);
         let id = score.id;
 
         db.insert_score(score).unwrap();
         let retrieved = db.get_score(&id).unwrap();
 
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().home_team, "Team A");
+        assert_eq!(retrieved.unwrap().score, 100);
     }
 
     #[test]
     fn test_delete_score() {
         let db = InMemoryDb::new();
-        let score = Score::new("Team A".to_string(), "Team B".to_string());
+        let user_id = Uuid::new_v4();
+        let game_id = Uuid::new_v4();
+        let score = Score::new(user_id, game_id, 200);
         let id = score.id;
 
         db.insert_score(score).unwrap();
@@ -92,5 +114,55 @@ mod tests {
 
         assert!(deleted.is_some());
         assert!(db.get_score(&id).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_get_scores_by_game() {
+        let db = InMemoryDb::new();
+        let user_id = Uuid::new_v4();
+        let game_id = Uuid::new_v4();
+        let other_game_id = Uuid::new_v4();
+
+        let score1 = Score::new(user_id, game_id, 100);
+        let score2 = Score::new(user_id, game_id, 200);
+        let score3 = Score::new(user_id, other_game_id, 300);
+
+        db.insert_score(score1).unwrap();
+        db.insert_score(score2).unwrap();
+        db.insert_score(score3).unwrap();
+
+        let scores = db.get_scores_by_game(game_id, None).unwrap();
+        assert_eq!(scores.len(), 2);
+        assert!(scores.iter().all(|s| s.game_id == game_id));
+    }
+
+    #[test]
+    fn test_get_scores_by_game_with_team_filter() {
+        let db = InMemoryDb::new();
+        let user_id = Uuid::new_v4();
+        let game_id = Uuid::new_v4();
+        let team_id = Uuid::new_v4();
+        let other_team_id = Uuid::new_v4();
+
+        let score1 = Score::with_team(user_id, game_id, team_id, 100);
+        let score2 = Score::with_team(user_id, game_id, other_team_id, 200);
+        let score3 = Score::new(user_id, game_id, 300); // No team
+
+        db.insert_score(score1).unwrap();
+        db.insert_score(score2).unwrap();
+        db.insert_score(score3).unwrap();
+
+        let scores = db.get_scores_by_game(game_id, Some(team_id)).unwrap();
+        assert_eq!(scores.len(), 1);
+        assert_eq!(scores[0].team_id, Some(team_id));
+    }
+
+    #[test]
+    fn test_get_scores_by_game_empty() {
+        let db = InMemoryDb::new();
+        let game_id = Uuid::new_v4();
+
+        let scores = db.get_scores_by_game(game_id, None).unwrap();
+        assert!(scores.is_empty());
     }
 }

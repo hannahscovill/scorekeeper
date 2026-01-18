@@ -150,7 +150,7 @@ mod tests {
     use actix_web::http::StatusCode;
 
     #[test]
-    fn test_error_display() {
+    fn test_app_error_display() {
         let err = AppError::NotFound("score".to_string());
         assert_eq!(err.to_string(), "Not found: score");
     }
