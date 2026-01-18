@@ -14,12 +14,18 @@ on:
       cdk_action:
         description: 'The CDK action to take'
         required: true
-        default: 'deploy'
+        default: 'destroy'
         type: choice
         options:
           - deploy
           - destroy
   workflow_call:
+    inputs:
+      cdk_action:
+        description: 'The CDK action to take'
+        required: false
+        default: 'destroy'
+        type: string
     outputs:
       ecr_repository_uri:
         description: "The URI of the ECR repository"
@@ -27,6 +33,7 @@ on:
 
 env:
   AWS_REGION: us-west-2
+  DEFAULT_CDK_ACTION: destroy
 
 jobs:
   deploy-prerequisite:
@@ -60,7 +67,7 @@ jobs:
 
       - name: Deploy Prerequisite Infrastructure stack
         working-directory: infra
-        run: npx cdk ${{ inputs.cdk_action || 'deploy' }} PrerequisiteInfraStack --require-approval never -c prerequisite=true
+        run: npx cdk ${{ inputs.cdk_action || env.DEFAULT_CDK_ACTION }} ${{ (inputs.cdk_action || env.DEFAULT_CDK_ACTION) == 'destroy' && ' --force' || '' }} PrerequisiteInfraStack --require-approval never -c prerequisite=true
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}

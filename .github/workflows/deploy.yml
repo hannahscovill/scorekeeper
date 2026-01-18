@@ -76,6 +76,7 @@ concurrency:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   ECR_REPOSITORY: scorekeeper
+  DEFAULT_CDK_ACTION: destroy
 
 jobs:
   # Only run if CI workflow succeeded
@@ -94,6 +95,8 @@ jobs:
     needs: check-ci
     if: ${{ needs.check-ci.outputs.should_deploy == 'true' }}
     uses: ./.github/workflows/prerequisite-infra.yml
+    with:
+      cdk_action: ${{ inputs.cdk_action || env.DEFAULT_CDK_ACTION }}
     permissions:
       id-token: write
       contents: read
@@ -179,7 +182,7 @@ jobs:
 
       - name: Deploy CDK stack
         working-directory: infra
-        run: npx cdk ${{ inputs.cdk_action || 'deploy' }} --require-approval never -c env=prod
+        run: npx cdk ${{ inputs.cdk_action || env.DEFAULT_CDK_ACTION }} ${{ (inputs.cdk_action || env.DEFAULT_CDK_ACTION) == 'destroy' && ' --force' || '' }} --require-approval never -c env=prod
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
