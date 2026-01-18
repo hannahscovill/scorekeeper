@@ -96,3 +96,4 @@ if (!isBootstrap && !isPrerequisite) {
 }
 
 app.synth();
+

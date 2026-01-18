@@ -1,0 +1,38 @@
+#!/bin/sh
+
+echo "Running pre-commit checks..."
+
+# Check Rust formatting
+echo "Checking formatting..."
+cargo fmt --check
+if [ $? -ne 0 ]; then
+    echo "Formatting check failed. Run 'cargo fmt' to fix."
+    exit 1
+fi
+
+# Run clippy
+echo "Running clippy..."
+cargo clippy -- -D warnings
+if [ $? -ne 0 ]; then
+    echo "Clippy found issues."
+    exit 1
+fi
+
+# Run Rust tests
+echo "Running Rust tests..."
+cargo test
+if [ $? -ne 0 ]; then
+    echo "Rust tests failed."
+    exit 1
+fi
+
+# Run CDK tests
+echo "Running CDK tests..."
+cd infra && npm test
+if [ $? -ne 0 ]; then
+    echo "CDK tests failed."
+    exit 1
+fi
+cd ..
+
+echo "All checks passed!"
