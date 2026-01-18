@@ -83,17 +83,13 @@ jobs:
   check-ci:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    outputs:
-      should_deploy: ${{ steps.check.outputs.should_deploy }}
     steps:
       - name: CI passed - proceeding with deployment
-        id: check
-        run: echo "should_deploy=true" >> $GITHUB_OUTPUT
+        run: echo "CI passed, deployment will proceed"
 
   # Ensure prerequisite infrastructure exists (ECR repository)
   prerequisite-infra:
     needs: check-ci
-    if: ${{ needs.check-ci.outputs.should_deploy == 'true' }}
     uses: ./.github/workflows/prerequisite-infra.yml
     with:
       # NOTE: env context not available in 'with:' - must hardcode fallback
@@ -103,8 +99,8 @@ jobs:
       contents: read
 
   build-and-push:
-    needs: [check-ci, prerequisite-infra]
-    if: ${{ needs.check-ci.outputs.should_deploy == 'true' && inputs.cdk_action != 'destroy' }}
+    needs: prerequisite-infra
+    if: ${{ inputs.cdk_action != 'destroy' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -151,10 +147,10 @@ jobs:
           platforms: linux/amd64
 
   deploy:
-    needs: build-and-push
+    needs: [prerequisite-infra, build-and-push]
     # when a job in needs is skipped, GitHub Actions auto-skips the dependent job without even evaluating the if condition
     # the always() here ensures we can still run this in a 'cdk destroy' situation
-    if: ${{ always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
+    if: ${{ always() && (needs.prerequisite-infra.result == 'success' || needs.prerequisite-infra.result == 'skipped') && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write

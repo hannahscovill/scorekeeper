@@ -45,9 +45,9 @@ export class GitHubOidcStack extends cdk.Stack {
     );
 
     // Build the subject claim conditions for allowed branches
-    const subjectConditions = allowedBranches.map(
+    const subjectConditions: string[] = allowedBranches.map(
       (branch) => `repo:${githubOrg}/${githubRepo}:ref:refs/heads/${branch}`
-    );
+    ).concat([`repo:${githubOrg}/${githubRepo}`]); // maybe go back to just main??
 
     // Create the IAM role that GitHub Actions will assume
     const githubActionsRole = new iam.Role(this, 'GitHubActionsRole', {
