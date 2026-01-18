@@ -1,22 +1,45 @@
+//! Scorekeeper API - Sports score tracking server.
+
 use actix_web::{get, App, HttpResponse, HttpServer, Responder};
+use tracing::info;
+use tracing_subscriber::EnvFilter;
+
+pub mod config;
+pub mod db;
+pub mod middleware;
+pub mod models;
+pub mod routes;
+pub mod services;
+
+use config::Config;
+use routes::{health_check, list_scores};
 
 #[get("/")]
 async fn hello() -> impl Responder {
     HttpResponse::Ok().body("Hello, World!")
 }
 
-#[get("/health")]
-async fn health() -> impl Responder {
-    HttpResponse::Ok().body("OK")
-}
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Starting server at http://0.0.0.0:8080");
-    HttpServer::new(|| App::new().service(hello).service(health))
-        .bind(("0.0.0.0", 8080))?
-        .run()
-        .await
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env().add_directive("info".parse().unwrap()))
+        .init();
+
+    let config = Config::from_env();
+    let bind_addr = config.bind_address();
+
+    info!("Starting server at http://{}:{}", bind_addr.0, bind_addr.1);
+
+    HttpServer::new(|| {
+        App::new()
+            .service(hello)
+            .service(health_check)
+            .service(list_scores)
+    })
+    .bind(bind_addr)?
+    .run()
+    .await
 }
 
 #[cfg(test)]
@@ -38,7 +61,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_health_endpoint() {
-        let app = test::init_service(App::new().service(health)).await;
+        let app = test::init_service(App::new().service(health_check)).await;
         let req = test::TestRequest::get().uri("/health").to_request();
         let resp = test::call_service(&app, req).await;
 
