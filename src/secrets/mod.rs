@@ -2,14 +2,18 @@
 //!
 //! This module provides abstractions for loading secrets from various sources
 //! (AWS Secrets Manager, environment variables, etc.) with caching support.
+//!
+//! The AWS Secrets Manager provider requires the `aws-secrets` feature.
 
+#[cfg(feature = "aws-secrets")]
 mod aws_provider;
 mod env_provider;
 mod provider;
 
+#[cfg(feature = "aws-secrets")]
 pub use aws_provider::AwsSecretsProvider;
 pub use env_provider::EnvSecretsProvider;
-pub use provider::{SecretValue, SecretsProvider};
+pub use provider::{SecretValue, SecretsError, SecretsProvider};
 
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -28,7 +28,7 @@ impl EnvSecretsProvider {
     /// - "prod/db/password" -> "PROD_DB_PASSWORD"
     /// - "app-config" -> "APP_CONFIG"
     fn to_env_var_name(name: &str) -> String {
-        name.replace('/', "_").replace('-', "_").to_uppercase()
+        name.replace(['/', '-'], "_").to_uppercase()
     }
 }
 
