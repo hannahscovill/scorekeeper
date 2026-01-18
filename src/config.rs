@@ -11,6 +11,8 @@ pub struct Config {
     pub port: u16,
     /// Database URL.
     pub database_url: Option<String>,
+    /// JWT secret for token signing and validation.
+    pub jwt_secret: String,
 }
 
 impl Default for Config {
@@ -19,6 +21,7 @@ impl Default for Config {
             host: "0.0.0.0".to_string(),
             port: 8080,
             database_url: None,
+            jwt_secret: "development-secret-change-in-production".to_string(),
         }
     }
 }
@@ -33,6 +36,8 @@ impl Config {
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8080),
             database_url: std::env::var("DATABASE_URL").ok(),
+            jwt_secret: std::env::var("JWT_SECRET")
+                .unwrap_or_else(|_| "development-secret-change-in-production".to_string()),
         }
     }
 
@@ -52,5 +57,6 @@ mod tests {
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 8080);
         assert!(config.database_url.is_none());
+        assert_eq!(config.jwt_secret, "development-secret-change-in-production");
     }
 }
