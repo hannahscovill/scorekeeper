@@ -13,14 +13,10 @@ async fn health() -> impl Responder {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!("Starting server at http://0.0.0.0:8080");
-    HttpServer::new(|| {
-        App::new()
-            .service(hello)
-            .service(health)
-    })
-    .bind(("0.0.0.0", 8080))?
-    .run()
-    .await
+    HttpServer::new(|| App::new().service(hello).service(health))
+        .bind(("0.0.0.0", 8080))?
+        .run()
+        .await
 }
 
 #[cfg(test)]
