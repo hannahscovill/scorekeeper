@@ -16,7 +16,9 @@ use config::Config;
 use db::InMemoryDb;
 use middleware::auth::JwtAuth;
 use routes::{create_scores, deep_health_check, get_scores, health_check, list_scores};
-use secrets::{AwsSecretsProvider, EnvSecretsProvider, SecretsProvider};
+#[cfg(feature = "aws-secrets")]
+use secrets::AwsSecretsProvider;
+use secrets::EnvSecretsProvider;
 
 /// Initializes configuration by detecting the environment and using the appropriate secrets provider.
 ///
@@ -25,39 +27,44 @@ use secrets::{AwsSecretsProvider, EnvSecretsProvider, SecretsProvider};
 /// - In production (ECS/Fargate): Set USE_AWS_SECRETS=true to use AWS Secrets Manager
 /// - In local development: Omit USE_AWS_SECRETS or set to false to use environment variables
 async fn initialize_config() -> Config {
-    let use_aws_secrets = std::env::var("USE_AWS_SECRETS")
-        .unwrap_or_else(|_| "false".to_string())
-        .to_lowercase()
-        == "true";
+    #[cfg(feature = "aws-secrets")]
+    {
+        let use_aws_secrets = std::env::var("USE_AWS_SECRETS")
+            .unwrap_or_else(|_| "false".to_string())
+            .to_lowercase()
+            == "true";
 
-    let secret_name = std::env::var("AWS_SECRET_NAME").ok();
+        let secret_name = std::env::var("AWS_SECRET_NAME").ok();
 
-    if use_aws_secrets {
-        info!("Initializing with AWS Secrets Manager");
-        let aws_provider = AwsSecretsProvider::new().await;
-        match Config::from_secrets(&aws_provider, secret_name.as_deref()).await {
-            Ok(config) => {
-                info!("Configuration loaded from AWS Secrets Manager");
-                return config;
-            }
-            Err(e) => {
-                warn!("Failed to load config from AWS Secrets Manager: {}. Falling back to environment variables", e);
+        if use_aws_secrets {
+            info!("Initializing with AWS Secrets Manager");
+            let aws_provider = AwsSecretsProvider::new().await;
+            match Config::from_secrets(&aws_provider, secret_name.as_deref()).await {
+                Ok(config) => {
+                    info!("Configuration loaded from AWS Secrets Manager");
+                    return config;
+                }
+                Err(e) => {
+                    warn!("Failed to load config from AWS Secrets Manager: {}. Falling back to environment variables", e);
+                }
             }
         }
-    } else {
-        info!("Initializing with environment variables");
-        let env_provider = EnvSecretsProvider::new();
-        match Config::from_secrets(&env_provider, secret_name.as_deref()).await {
-            Ok(config) => {
-                info!("Configuration loaded from environment variables");
-                return config;
-            }
-            Err(e) => {
-                warn!(
-                    "Failed to load config from secrets provider: {}. Using default from_env",
-                    e
-                );
-            }
+    }
+
+    // Use environment variable secrets provider
+    info!("Initializing with environment variables");
+    let secret_name = std::env::var("AWS_SECRET_NAME").ok();
+    let env_provider = EnvSecretsProvider::new();
+    match Config::from_secrets(&env_provider, secret_name.as_deref()).await {
+        Ok(config) => {
+            info!("Configuration loaded from environment variables");
+            return config;
+        }
+        Err(e) => {
+            warn!(
+                "Failed to load config from secrets provider: {}. Using default from_env",
+                e
+            );
         }
     }
 

@@ -1,7 +1,14 @@
 //! Business logic services for the scorekeeper API.
 
+pub mod health;
+
 use crate::models::{Score, ScoreCreate};
 use uuid::Uuid;
+
+pub use health::{
+    DatabaseHealthChecker, HealthChecker, HealthResponse, HealthService, HealthStatus,
+    LivenessResponse,
+};
 
 /// Service for managing scores.
 pub struct ScoreService;
