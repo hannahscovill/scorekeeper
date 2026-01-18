@@ -182,6 +182,7 @@ bd sync                               # Sync with git
 
 ## Critical Rules
 
+0. DO NOT ASK FOR PERMISSION TO GET WORK DONE. I believe in you, you're smart! The PR is when you ask for permission. If you ever are fully blocked by a systems-level permission, ALWAYS add the command you asked to use to `.claude/settings.local.json`
 1. **Always use worktrees** - Never work directly on `main`
 2. **Always push before ending** - Local branches are useless to others
 3. **Always open a PR** - Even for WIP, use draft PRs
