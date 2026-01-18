@@ -30,19 +30,12 @@ export class ScorekeeperStack extends cdk.Stack {
     const isProd = environmentName === 'prod';
     const desiredCount = props?.desiredCount ?? (isProd ? 2 : 1);
 
-    // Create ECR Repository for the Docker image
-    const ecrRepository = new ecr.Repository(this, 'ScorekeeperRepository', {
-      repositoryName: `scorekeeper-${environmentName}`,
-      removalPolicy: isProd ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-      emptyOnDelete: !isProd,
-      imageScanOnPush: true,
-      lifecycleRules: [
-        {
-          maxImageCount: isProd ? 25 : 10,
-          description: 'Keep only recent images',
-        },
-      ],
-    });
+    // Look up the existing ECR Repository created by PrerequisiteInfraStack
+    const ecrRepository = ecr.Repository.fromRepositoryName(
+      this,
+      'ScorekeeperRepository',
+      'scorekeeper'
+    );
 
     // Create VPC - using a simple 2-AZ VPC setup
     const vpc = new ec2.Vpc(this, 'ScorekeeperVpc', {
