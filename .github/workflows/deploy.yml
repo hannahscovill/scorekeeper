@@ -57,6 +57,16 @@ on:
     branches: [main]
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      cdk_action:
+        description: 'The CDK action to take'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
 
 # Prevent concurrent deployments
 concurrency:
@@ -90,7 +100,7 @@ jobs:
 
   build-and-push:
     needs: [check-ci, prerequisite-infra]
-    if: ${{ needs.check-ci.outputs.should_deploy == 'true' }}
+    if: ${{ needs.check-ci.outputs.should_deploy == 'true' && inputs.cdk_action != 'destroy' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -138,6 +148,9 @@ jobs:
 
   deploy:
     needs: build-and-push
+    # when a job in needs is skipped, GitHub Actions auto-skips the dependent job without even evaluating the if condition
+    # the always() here ensures we can still run this in a 'cdk destroy' situation
+    if: ${{ always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -166,12 +179,13 @@ jobs:
 
       - name: Deploy CDK stack
         working-directory: infra
-        run: npx cdk deploy --require-approval never -c env=prod
+        run: npx cdk ${{ inputs.cdk_action || 'deploy' }} --require-approval never -c env=prod
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
 
       - name: Force new ECS deployment
+        if: ${{ inputs.cdk_action != 'destroy' }}
         run: |
           aws ecs update-service \
             --cluster scorekeeper-cluster-prod \
@@ -180,6 +194,7 @@ jobs:
             --region ${{ env.AWS_REGION }}
 
       - name: Wait for deployment to stabilize
+        if: ${{ inputs.cdk_action != 'destroy' }}
         run: |
           echo "Waiting for ECS service to stabilize..."
           aws ecs wait services-stable \
