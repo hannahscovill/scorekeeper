@@ -2,23 +2,21 @@
 
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use tracing::{info, warn};
-use tracing_subscriber::EnvFilter;
 
 pub mod config;
 pub mod db;
 pub mod middleware;
 pub mod models;
 pub mod routes;
-pub mod secrets;
 pub mod services;
+pub mod telemetry;
 
 use config::Config;
 use db::InMemoryDb;
 use middleware::auth::JwtAuth;
-use routes::{create_scores, deep_health_check, get_scores, health_check, list_scores};
-#[cfg(feature = "aws-secrets")]
-use secrets::AwsSecretsProvider;
-use secrets::EnvSecretsProvider;
+use middleware::RequestTracing;
+use routes::{create_scores, get_scores, health_check, list_scores};
+use telemetry::{init_telemetry, shutdown_telemetry};
 
 /// Initializes configuration by detecting the environment and using the appropriate secrets provider.
 ///
@@ -80,10 +78,26 @@ async fn hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive("info".parse().unwrap()))
-        .init();
+    // Initialize distributed tracing with OpenTelemetry and AWS X-Ray
+    // This must be done before any other tracing initialization
+    let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "scorekeeper".to_string());
+    let otlp_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
+
+    let _tracer_provider = match init_telemetry(service_name, otlp_endpoint) {
+        Ok(provider) => {
+            info!("OpenTelemetry initialized with AWS X-Ray export");
+            Some(provider)
+        }
+        Err(e) => {
+            warn!("Failed to initialize OpenTelemetry: {}. Continuing without distributed tracing.", e);
+            // If telemetry fails, fall back to basic tracing
+            tracing_subscriber::fmt()
+                .with_env_filter(tracing_subscriber::EnvFilter::from_default_env()
+                    .add_directive("info".parse().unwrap()))
+                .init();
+            None
+        }
+    };
 
     // Initialize secrets provider based on environment
     let config = initialize_config().await;
@@ -95,8 +109,9 @@ async fn main() -> std::io::Result<()> {
 
     info!("Starting server at http://{}:{}", bind_addr.0, bind_addr.1);
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
+            .wrap(RequestTracing) // Add tracing middleware for span propagation
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
             .service(hello)
@@ -107,8 +122,15 @@ async fn main() -> std::io::Result<()> {
             .service(create_scores)
     })
     .bind(bind_addr)?
-    .run()
-    .await
+    .run();
+
+    // Run the server
+    let result = server.await;
+
+    // Shutdown telemetry to flush remaining traces
+    shutdown_telemetry();
+
+    result
 }
 
 #[cfg(test)]

@@ -15,7 +15,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1", features = ["full"] }
@@ -27,6 +27,15 @@ aws-config = { version = "1", optional = true }
 aws-sdk-secretsmanager = { version = "1", optional = true }
 reqwest = { version = "0.11", features = ["json"] }
 dashmap = "5"
+
+# OpenTelemetry dependencies for distributed tracing
+opentelemetry = "0.27"
+opentelemetry_sdk = { version = "0.27", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.27", features = ["trace", "http-proto", "reqwest-client"] }
+opentelemetry-aws = { version = "0.15", features = ["trace"] }
+opentelemetry-semantic-conventions = "0.27"
+tracing-opentelemetry = "0.28"
+actix-web-opentelemetry = "0.20"
 
 [dev-dependencies]
 actix-web = { version = "4", features = ["macros"] }

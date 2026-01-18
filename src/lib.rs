@@ -7,3 +7,4 @@ pub mod models;
 pub mod routes;
 pub mod secrets;
 pub mod services;
+pub mod telemetry;

@@ -1,10 +1,12 @@
 //! Business logic services for the scorekeeper API.
 
+pub mod alerts;
 pub mod health;
 
 use crate::models::{Score, ScoreCreate};
 use uuid::Uuid;
 
+pub use alerts::{AlertRouter, AlertRouterConfig, AlertRouterError, AlertSender, GrafanaOnCallSender};
 pub use health::{
     DatabaseHealthChecker, HealthChecker, HealthResponse, HealthService, HealthStatus,
     LivenessResponse,
