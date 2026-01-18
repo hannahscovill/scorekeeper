@@ -14,7 +14,7 @@ pub mod services;
 use config::Config;
 use db::InMemoryDb;
 use middleware::auth::JwtAuth;
-use routes::{create_scores, health_check, list_scores};
+use routes::{create_scores, get_scores, health_check, list_scores};
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -31,9 +31,9 @@ async fn main() -> std::io::Result<()> {
     let config = Config::from_env();
     let bind_addr = config.bind_address();
 
-    // Create shared app state
+    // Initialize shared state
     let db = web::Data::new(InMemoryDb::new());
-    let jwt_auth = web::Data::new(JwtAuth::new(config.jwt_secret.clone()));
+    let jwt_auth = web::Data::new(JwtAuth::new(config.jwt_secret().to_string()));
 
     info!("Starting server at http://{}:{}", bind_addr.0, bind_addr.1);
 
@@ -45,6 +45,7 @@ async fn main() -> std::io::Result<()> {
             .service(health_check)
             .service(list_scores)
             .service(create_scores)
+            .service(get_scores)
     })
     .bind(bind_addr)?
     .run()
