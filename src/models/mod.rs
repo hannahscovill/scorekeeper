@@ -3,5 +3,5 @@
 pub mod error;
 pub mod score;
 
-pub use error::*;
+pub use error::{AppError, ErrorBody, ErrorResponse, ValidationDetail};
 pub use score::*;
