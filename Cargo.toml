@@ -16,6 +16,11 @@ chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1", features = ["full"] }
 validator = { version = "0.18", features = ["derive"] }
 jsonwebtoken = "9"
+async-trait = "0.1"
+aws-config = "1"
+aws-sdk-secretsmanager = "1"
+reqwest = { version = "0.11", features = ["json"] }
+dashmap = "5"
 
 [dev-dependencies]
 actix-web = { version = "4", features = ["macros"] }
