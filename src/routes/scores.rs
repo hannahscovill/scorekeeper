@@ -16,6 +16,44 @@ pub async fn list_scores() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({ "scores": [] }))
 }
 
+/// Create scores endpoint for batch score submission.
+#[post("/scores")]
+pub async fn create_scores(
+    req: HttpRequest,
+    body: web::Json<ScoreCreateList>,
+    db: web::Data<InMemoryDb>,
+    jwt_auth: web::Data<JwtAuth>,
+) -> Result<HttpResponse, AppError> {
+    // Extract and validate JWT token
+    let token = extract_bearer_token_from_request(&req)
+        .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".to_string()))?;
+
+    let claims: Claims = jwt_auth
+        .validate_token(&token)
+        .map_err(|e| AppError::Unauthorized(format!("Invalid token: {}", e)))?;
+
+    // Validate the score list
+    let scores_input = body.into_inner();
+    validate_score_create_list(&scores_input)?;
+
+    // Create Score objects
+    let mut created_scores: ScoreList = Vec::new();
+    for score_create in scores_input {
+        let score = Score {
+            id: Uuid::new_v4(),
+            user_id: claims.sub,
+            game_id: score_create.game_id.unwrap_or_else(Uuid::new_v4),
+            team_id: claims.team_id,
+            score: score_create.score,
+            created_at: Utc::now(),
+        };
+        created_scores.push(score.clone());
+        db.insert_score(score).map_err(AppError::InternalError)?;
+    }
+
+    Ok(HttpResponse::Created().json(created_scores))
+}
+
 /// GET /scores/{game_id} - Retrieve scores for a specific game.
 ///
 /// Path parameters:
@@ -57,51 +95,6 @@ pub async fn get_scores(
         .map_err(AppError::internal)?;
 
     Ok(HttpResponse::Ok().json(scores))
-}
-
-/// Create scores endpoint for batch score submission.
-#[post("/scores")]
-pub async fn create_scores(
-    req: HttpRequest,
-    body: web::Json<ScoreCreateList>,
-    db: web::Data<InMemoryDb>,
-    jwt_auth: web::Data<JwtAuth>,
-) -> Result<HttpResponse, AppError> {
-    // Extract and validate JWT token
-    let token = extract_bearer_token_from_request(&req)
-        .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".to_string()))?;
-
-    let claims: Claims = jwt_auth
-        .validate_token(&token)
-        .map_err(|e| AppError::Unauthorized(format!("Invalid token: {}", e)))?;
-
-    // Validate the score list
-    let scores_input = body.into_inner();
-    validate_score_create_list(&scores_input)?;
-
-    // Create Score objects
-    let mut created_scores: ScoreList = Vec::new();
-    for score_create in scores_input {
-        let score = Score {
-            id: Uuid::new_v4(),
-            user_id: claims.sub,
-            game_id: score_create.game_id.unwrap_or_else(Uuid::new_v4),
-            team_id: claims.team_id,
-            score: score_create.score,
-            created_at: Utc::now(),
-        };
-        created_scores.push(score.clone());
-        db.insert_score(score).map_err(AppError::internal)?;
-    }
-
-    Ok(HttpResponse::Created().json(created_scores))
-}
-
-/// Configure scores routes.
-pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.service(list_scores)
-        .service(get_scores)
-        .service(create_scores);
 }
 
 #[cfg(test)]
