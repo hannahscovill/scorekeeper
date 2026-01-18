@@ -6,7 +6,9 @@ info:
 
 servers:
   - url: localhost:8080
-    description: API v1
+    description: Local
+  - url: http://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com/
+    description: Local
 
 security:
   - bearerAuth: []

@@ -66,9 +66,9 @@ cargo test                  # All tests
 
 ## Session Completion Protocol
 
-### MANDATORY: Push and Open PR
+### MANDATORY: Commit and push your branch,  then hand off to the next agent to check your work and make their own commit after review. Dwight, merge-manager-dwight will open the PR once the bead has a label pr-ready-<agent-name> for each the three coding agents, garyvee-swe, systems-design-expert and clean-code-expert. 
 
-**Work is NOT complete until your branch is pushed and a PR is opened.**
+**Work is NOT complete until your branch is pushed, reviewed by everyone and a PR is opened.**
 
 ```bash
 # 1. Ensure all changes committed
