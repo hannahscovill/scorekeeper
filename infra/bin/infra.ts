@@ -2,6 +2,7 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { ScorekeeperStack } from '../lib/infra-stack';
 import { GitHubOidcStack } from '../lib/github-oidc-stack';
+import { PrerequisiteInfraStack } from '../lib/prerequisite-infra-stack';
 
 const app = new cdk.App();
 
@@ -13,9 +14,11 @@ const environmentName =
   process.env.SCOREKEEPER_ENV ||
   'dev';
 
-// Check if we're deploying the bootstrap stack
+// Check if we're deploying the bootstrap/prerequisite stacks
 // Usage: cdk deploy -c bootstrap=true GitHubOidcStack
+// Usage: cdk deploy -c prerequisite=true PrerequisiteInfraStack
 const isBootstrap = app.node.tryGetContext('bootstrap') === 'true';
+const isPrerequisite = app.node.tryGetContext('prerequisite') === 'true';
 
 // GitHub configuration for OIDC stack
 const githubOrg = app.node.tryGetContext('githubOrg') || process.env.GITHUB_ORG;
@@ -55,9 +58,27 @@ if (isBootstrap || githubOrg) {
   });
 }
 
+// Create the Prerequisite Infrastructure stack (ECR repository)
+// This stack creates shared infrastructure that must exist before deployment
+// Deploy with: cdk deploy -c prerequisite=true PrerequisiteInfraStack
+if (isPrerequisite) {
+  new PrerequisiteInfraStack(app, 'PrerequisiteInfraStack', {
+    repositoryName: 'scorekeeper',
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION || 'us-west-2',
+    },
+    tags: {
+      Project: 'scorekeeper',
+      ManagedBy: 'cdk',
+      Purpose: 'prerequisite-infrastructure',
+    },
+  });
+}
+
 // Create the main Scorekeeper stack with environment-specific naming
-// Skip this when in bootstrap mode to avoid VPC AZ lookups
-if (!isBootstrap) {
+// Skip this when in bootstrap or prerequisite mode to avoid VPC AZ lookups
+if (!isBootstrap && !isPrerequisite) {
   new ScorekeeperStack(app, `ScorekeeperStack-${environmentName}`, {
     environmentName,
     // Use the current CLI configuration for account and region

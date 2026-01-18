@@ -79,8 +79,17 @@ jobs:
         id: check
         run: echo "should_deploy=true" >> $GITHUB_OUTPUT
 
-  build-and-push:
+  # Ensure prerequisite infrastructure exists (ECR repository)
+  prerequisite-infra:
     needs: check-ci
+    if: ${{ needs.check-ci.outputs.should_deploy == 'true' }}
+    uses: ./.github/workflows/prerequisite-infra.yml
+    permissions:
+      id-token: write
+      contents: read
+
+  build-and-push:
+    needs: [check-ci, prerequisite-infra]
     if: ${{ needs.check-ci.outputs.should_deploy == 'true' }}
     runs-on: ubuntu-latest
     permissions:

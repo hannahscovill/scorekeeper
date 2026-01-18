@@ -90,7 +90,37 @@ export class GitHubOidcStack extends cdk.Stack {
           'ecr:PutImage',
           'ecr:UploadLayerPart',
         ],
-        resources: [`arn:aws:ecr:*:${this.account}:repository/scorekeeper-*`],
+        resources: [
+          `arn:aws:ecr:*:${this.account}:repository/scorekeeper`,
+          `arn:aws:ecr:*:${this.account}:repository/scorekeeper-*`,
+        ],
+      })
+    );
+
+    // ECR permissions for creating/managing the prerequisite repository
+    githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'ECRManage',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'ecr:CreateRepository',
+          'ecr:DeleteRepository',
+          'ecr:DescribeRepositories',
+          'ecr:PutImageScanningConfiguration',
+          'ecr:PutLifecyclePolicy',
+          'ecr:GetLifecyclePolicy',
+          'ecr:DeleteLifecyclePolicy',
+          'ecr:TagResource',
+          'ecr:UntagResource',
+          'ecr:ListTagsForResource',
+          'ecr:SetRepositoryPolicy',
+          'ecr:GetRepositoryPolicy',
+          'ecr:DeleteRepositoryPolicy',
+        ],
+        resources: [
+          `arn:aws:ecr:*:${this.account}:repository/scorekeeper`,
+          `arn:aws:ecr:*:${this.account}:repository/scorekeeper-*`,
+        ],
       })
     );
 
@@ -116,6 +146,7 @@ export class GitHubOidcStack extends cdk.Stack {
         ],
         resources: [
           `arn:aws:cloudformation:*:${this.account}:stack/ScorekeeperStack-*/*`,
+          `arn:aws:cloudformation:*:${this.account}:stack/PrerequisiteInfraStack/*`,
           `arn:aws:cloudformation:*:${this.account}:stack/CDKToolkit/*`,
         ],
       })
