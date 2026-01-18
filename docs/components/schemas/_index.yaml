@@ -1,11 +1,11 @@
-Score:
-  $ref: './score.yaml#/Score'
-ScoreCreate:
-  $ref: './score.yaml#/ScoreCreate'
-ScoreCreateList:
-  $ref: './score.yaml#/ScoreCreateList'
-ScoreList:
-  $ref: './score.yaml#/ScoreList'
+Game:
+  $ref: './game.yaml#/Game'
+GameCreate:
+  $ref: './game.yaml#/GameCreate'
+GameCreateList:
+  $ref: './game.yaml#/GameCreateList'
+GameList:
+  $ref: './game.yaml#/GameList'
 ErrorResponse:
   $ref: './errors.yaml#/ErrorResponse'
 ValidationErrorResponse:

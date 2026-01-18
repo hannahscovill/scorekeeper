@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Scorekeeper API
-  description: API for managing game scores
+  description: API for managing games
   version: 1.0.0
 
 servers:
@@ -14,10 +14,10 @@ security:
   - bearerAuth: []
 
 paths:
-  /scores/{game_id}:
-    $ref: './paths/scores.yaml#/scores-by-game'
-  /scores:
-    $ref: './paths/scores.yaml#/scores'
+  /games/{game_id}:
+    $ref: './paths/games.yaml#/games-by-id'
+  /games:
+    $ref: './paths/games.yaml#/games'
 
 components:
   securitySchemes:

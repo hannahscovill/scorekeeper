@@ -1,24 +1,24 @@
 //! Business logic services for the scorekeeper API.
 
-use crate::models::{Score, ScoreCreate};
+use crate::models::{Game, GameCreate};
 use uuid::Uuid;
 
-/// Service for managing scores.
-pub struct ScoreService;
+/// Service for managing games.
+pub struct GameService;
 
-impl ScoreService {
-    /// Creates a new ScoreService instance.
+impl GameService {
+    /// Creates a new GameService instance.
     pub fn new() -> Self {
         Self
     }
 
-    /// Creates a new score from a ScoreCreate request.
-    pub fn create_score(&self, user_id: Uuid, game_id: Uuid, create: &ScoreCreate) -> Score {
-        Score::new(user_id, game_id, create.score)
+    /// Creates a new game from a GameCreate request.
+    pub fn create_game(&self, user_id: Uuid, game_id: Uuid, create: &GameCreate) -> Game {
+        Game::new(user_id, game_id, create.score)
     }
 }
 
-impl Default for ScoreService {
+impl Default for GameService {
     fn default() -> Self {
         Self::new()
     }
@@ -29,14 +29,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_score() {
-        let service = ScoreService::new();
+    fn test_create_game() {
+        let service = GameService::new();
         let user_id = Uuid::new_v4();
         let game_id = Uuid::new_v4();
-        let create = ScoreCreate::new(100);
-        let score = service.create_score(user_id, game_id, &create);
-        assert_eq!(score.user_id, user_id);
-        assert_eq!(score.game_id, game_id);
-        assert_eq!(score.score, 100);
+        let create = GameCreate::new(100);
+        let game = service.create_game(user_id, game_id, &create);
+        assert_eq!(game.user_id, user_id);
+        assert_eq!(game.game_id, game_id);
+        assert_eq!(game.score, 100);
     }
 }

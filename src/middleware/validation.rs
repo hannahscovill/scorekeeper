@@ -4,7 +4,7 @@ use actix_web::HttpRequest;
 use uuid::Uuid;
 
 use crate::models::error::ValidationDetail;
-use crate::models::score::ScoreCreateList;
+use crate::models::game::GameCreateList;
 use crate::models::AppError;
 
 /// Extracts and validates the optional team-id header from a request.
@@ -42,13 +42,13 @@ pub fn validate_score(score: u32) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Validates a list of score create requests.
+/// Validates a list of game create requests.
 /// Returns an error if the list is empty.
-pub fn validate_score_create_list(scores: &ScoreCreateList) -> Result<(), AppError> {
-    if scores.is_empty() {
+pub fn validate_game_create_list(games: &GameCreateList) -> Result<(), AppError> {
+    if games.is_empty() {
         return Err(AppError::validation(vec![ValidationDetail {
-            field: "scores".to_string(),
-            message: "Score list cannot be empty".to_string(),
+            field: "games".to_string(),
+            message: "Game list cannot be empty".to_string(),
         }]));
     }
     Ok(())
@@ -57,7 +57,7 @@ pub fn validate_score_create_list(scores: &ScoreCreateList) -> Result<(), AppErr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::score::ScoreCreate;
+    use crate::models::game::GameCreate;
     use actix_web::test::TestRequest;
 
     #[test]
@@ -117,33 +117,33 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_score_create_list_valid() {
-        let scores: ScoreCreateList = vec![ScoreCreate::new(100), ScoreCreate::new(200)];
-        assert!(validate_score_create_list(&scores).is_ok());
+    fn test_validate_game_create_list_valid() {
+        let games: GameCreateList = vec![GameCreate::new(100), GameCreate::new(200)];
+        assert!(validate_game_create_list(&games).is_ok());
     }
 
     #[test]
-    fn test_validate_score_create_list_empty() {
-        let scores: ScoreCreateList = vec![];
-        let result = validate_score_create_list(&scores);
+    fn test_validate_game_create_list_empty() {
+        let games: GameCreateList = vec![];
+        let result = validate_game_create_list(&games);
         assert!(result.is_err());
         if let Err(AppError::ValidationError(details)) = result {
             assert_eq!(details.len(), 1);
-            assert_eq!(details[0].field, "scores");
+            assert_eq!(details[0].field, "games");
         } else {
             panic!("Expected ValidationError");
         }
     }
 
     #[test]
-    fn test_validate_score_create_list_single_item() {
-        let scores: ScoreCreateList = vec![ScoreCreate::new(50)];
-        assert!(validate_score_create_list(&scores).is_ok());
+    fn test_validate_game_create_list_single_item() {
+        let games: GameCreateList = vec![GameCreate::new(50)];
+        assert!(validate_game_create_list(&games).is_ok());
     }
 
     #[test]
-    fn test_validate_score_create_list_many_items() {
-        let scores: ScoreCreateList = (0..100).map(|i| ScoreCreate::new(i)).collect();
-        assert!(validate_score_create_list(&scores).is_ok());
+    fn test_validate_game_create_list_many_items() {
+        let games: GameCreateList = (0..100).map(|i| GameCreate::new(i)).collect();
+        assert!(validate_game_create_list(&games).is_ok());
     }
 }

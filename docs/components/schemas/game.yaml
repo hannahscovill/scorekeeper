@@ -1,20 +1,20 @@
-Score:
+Game:
   type: object
   properties:
     id:
       type: string
       format: uuid
-      description: Unique identifier for the score
+      description: Unique identifier for the game
       readOnly: true
     user_id:
       type: string
       format: uuid
-      description: ID of the user who achieved the score
+      description: ID of the user who created the game
       readOnly: true
     game_id:
       type: string
       format: uuid
-      description: ID of the game this score belongs to
+      description: ID of the game this belongs to
     team_id:
       type: string
       format: uuid
@@ -25,7 +25,7 @@ Score:
     created_at:
       type: string
       format: date-time
-      description: When the score was recorded
+      description: When the game was recorded
       readOnly: true
   required:
     - id
@@ -34,7 +34,7 @@ Score:
     - score
     - created_at
 
-ScoreCreate:
+GameCreate:
   type: object
   properties:
     score:
@@ -47,15 +47,15 @@ ScoreCreate:
   required:
     - score
 
-ScoreCreateList:
+GameCreateList:
   type: array
   items:
-    $ref: '#/ScoreCreate'
+    $ref: '#/GameCreate'
   minItems: 1
-  description: List of scores to submit
+  description: List of games to create
 
-ScoreList:
+GameList:
   type: array
   items:
-    $ref: '#/Score'
-  description: List of scores
+    $ref: '#/Game'
+  description: List of games

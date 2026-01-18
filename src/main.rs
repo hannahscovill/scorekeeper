@@ -14,7 +14,7 @@ pub mod services;
 use config::Config;
 use db::InMemoryDb;
 use middleware::auth::JwtAuth;
-use routes::{create_scores, get_scores, health_check, list_scores};
+use routes::{create_games, get_games, health_check, list_games};
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -43,9 +43,9 @@ async fn main() -> std::io::Result<()> {
             .app_data(jwt_auth.clone())
             .service(hello)
             .service(health_check)
-            .service(list_scores)
-            .service(get_scores)
-            .service(create_scores)
+            .service(list_games)
+            .service(get_games)
+            .service(create_games)
     })
     .bind(bind_addr)?
     .run()

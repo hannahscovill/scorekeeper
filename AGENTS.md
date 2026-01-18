@@ -66,9 +66,7 @@ cargo test                  # All tests
 
 ## Session Completion Protocol
 
-### MANDATORY: Commit and push your branch,  then hand off to the next agent to check your work and make their own commit after review. Dwight, merge-manager-dwight will open the PR once the bead has a label pr-ready-<agent-name> for each the three coding agents, garyvee-swe, systems-design-expert and clean-code-expert. 
-
-**Work is NOT complete until your branch is pushed, reviewed by everyone and a PR is opened.**
+**Work is NOT complete until your branch is pushed and a PR is opened.**
 
 ```bash
 # 1. Ensure all changes committed
@@ -117,55 +115,6 @@ Before ending session, provide:
 
 ---
 
-## Code Standards
-
-### Project Structure (Target)
-
-```
-src/
-├── main.rs              # Entry point, server setup
-├── config.rs            # Configuration management
-├── routes/              # Route handlers
-│   ├── mod.rs
-│   ├── scores.rs
-│   └── health.rs
-├── models/              # Data structures
-│   ├── mod.rs
-│   ├── score.rs
-│   └── error.rs
-├── middleware/          # Auth, validation, logging
-│   ├── mod.rs
-│   ├── auth.rs
-│   └── validation.rs
-├── services/            # Business logic
-│   └── mod.rs
-└── db/                  # Database layer
-    └── mod.rs
-```
-
-### Rust Conventions
-
-- Use `thiserror` for custom errors
-- Use `serde` for serialization
-- Prefer `Result<T, E>` over panics
-- Write tests alongside code in `#[cfg(test)]` modules
-- Use `tracing` for structured logging
-
-### Error Handling
-
-```rust
-// Standard error response format
-#[derive(Serialize)]
-struct ErrorResponse {
-    error: String,
-    code: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    details: Option<Value>,
-}
-```
-
----
-
 ## Beads Quick Reference
 
 ```bash
@@ -181,11 +130,26 @@ bd sync                               # Sync with git
 ---
 
 ## Critical Rules
+**MANDATORY WORKFLOW:**
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
 
-0. DO NOT ASK FOR PERMISSION TO GET WORK DONE. I believe in you, you're smart! The PR is when you ask for permission. If you ever are fully blocked by a systems-level permission, ALWAYS add the command you asked to use to `.claude/settings.local.json`
-1. **Always use worktrees** - Never work directly on `main`
-2. **Always push before ending** - Local branches are useless to others
-3. **Always open a PR** - Even for WIP, use draft PRs
-4. **Never say "ready when you are"** - YOU must push and open the PR
-5. **Run tests before pushing** - Broken builds block everyone
-6. **Create beads for follow-up work** - Don't leave undocumented TODOs
+- pick up only tasks, not epics
+- DO NOT ASK FOR PERMISSION TO GET WORK DONE. I believe in you, you're smart! The PR is when you ask for permission. If you ever are fully blocked by a systems-level permission, ALWAYS add the command you asked to use to `.claude/settings.local.json`
+- **File issues for remaining work** - Create issues for anything that needs follow-up
+- **Always use worktrees** - Never work directly on `main`
+- **Always push to remote before ending** - Local branches are useless to others
+   ```bash
+   git pull --rebase
+   bd sync
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+- **Always open a PR** - Even for WIP, use draft PRs
+- **Run quality gates** (if code changed) - Tests, linters, builds
+- **Update issue status** - Close finished work, update in-progress items
+- **Clean up** - Clear stashes, prune remote branches
+- **Verify** - All changes committed AND pushed
+- **Hand off** - Provide context for next session
+- **Never say "ready when you are"** - YOU must push and open the PR
+- **Run tests before pushing** - Broken builds block everyone
+- **Create beads for follow-up work** - Don't leave undocumented TODOs

@@ -1,4 +1,4 @@
-//! Score-related route handlers.
+//! Game-related route handlers.
 
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use chrono::Utc;
@@ -6,21 +6,21 @@ use uuid::Uuid;
 
 use crate::db::InMemoryDb;
 use crate::middleware::auth::{extract_bearer_token_from_request, Claims, JwtAuth};
-use crate::middleware::validation::{extract_team_id_header, validate_score_create_list};
+use crate::middleware::validation::{extract_team_id_header, validate_game_create_list};
 use crate::models::error::AppError;
-use crate::models::score::{Score, ScoreCreateList, ScoreList};
+use crate::models::game::{Game, GameCreateList, GameList};
 
-/// Placeholder endpoint for listing scores.
-#[get("/scores")]
-pub async fn list_scores() -> impl Responder {
-    HttpResponse::Ok().json(serde_json::json!({ "scores": [] }))
+/// Placeholder endpoint for listing games.
+#[get("/games")]
+pub async fn list_games() -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({ "games": [] }))
 }
 
-/// Create scores endpoint for batch score submission.
-#[post("/scores")]
-pub async fn create_scores(
+/// Create games endpoint for batch game submission.
+#[post("/games")]
+pub async fn create_games(
     req: HttpRequest,
-    body: web::Json<ScoreCreateList>,
+    body: web::Json<GameCreateList>,
     db: web::Data<InMemoryDb>,
     jwt_auth: web::Data<JwtAuth>,
 ) -> Result<HttpResponse, AppError> {
@@ -32,43 +32,43 @@ pub async fn create_scores(
         .validate_token(&token)
         .map_err(|e| AppError::Unauthorized(format!("Invalid token: {}", e)))?;
 
-    // Validate the score list
-    let scores_input = body.into_inner();
-    validate_score_create_list(&scores_input)?;
+    // Validate the game list
+    let games_input = body.into_inner();
+    validate_game_create_list(&games_input)?;
 
-    // Create Score objects
-    let mut created_scores: ScoreList = Vec::new();
-    for score_create in scores_input {
-        let score = Score {
+    // Create Game objects
+    let mut created_games: GameList = Vec::new();
+    for game_create in games_input {
+        let game = Game {
             id: Uuid::new_v4(),
             user_id: claims.sub,
-            game_id: score_create.game_id.unwrap_or_else(Uuid::new_v4),
+            game_id: game_create.game_id.unwrap_or_else(Uuid::new_v4),
             team_id: claims.team_id,
-            score: score_create.score,
+            score: game_create.score,
             created_at: Utc::now(),
         };
-        created_scores.push(score.clone());
-        db.insert_score(score).map_err(AppError::InternalError)?;
+        created_games.push(game.clone());
+        db.insert_game(game).map_err(AppError::InternalError)?;
     }
 
-    Ok(HttpResponse::Created().json(created_scores))
+    Ok(HttpResponse::Created().json(created_games))
 }
 
-/// GET /scores/{game_id} - Retrieve scores for a specific game.
+/// GET /games/{game_id} - Retrieve games for a specific game session.
 ///
 /// Path parameters:
-/// - game_id: UUID of the game
+/// - game_id: UUID of the game session
 ///
 /// Headers:
 /// - Authorization: Bearer token (required)
-/// - team-id: Optional UUID to filter scores by team
+/// - team-id: Optional UUID to filter games by team
 ///
 /// Responses:
-/// - 200: ScoreList (array of scores)
+/// - 200: GameList (array of games)
 /// - 400: Bad request (invalid game_id or team-id format)
 /// - 401: Unauthorized (missing or invalid token)
-#[get("/scores/{game_id}")]
-pub async fn get_scores(
+#[get("/games/{game_id}")]
+pub async fn get_games(
     req: HttpRequest,
     path: web::Path<String>,
     db: web::Data<InMemoryDb>,
@@ -89,18 +89,18 @@ pub async fn get_scores(
     // Extract optional team_id from header
     let team_id = extract_team_id_header(&req)?;
 
-    // Query scores from database
-    let scores = db
-        .get_scores_by_game(game_id, team_id)
+    // Query games from database
+    let games = db
+        .get_games_by_game_id(game_id, team_id)
         .map_err(AppError::internal)?;
 
-    Ok(HttpResponse::Ok().json(scores))
+    Ok(HttpResponse::Ok().json(games))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::score::ScoreCreate;
+    use crate::models::game::GameCreate;
     use actix_web::http::StatusCode;
     use actix_web::{test, App};
     use jsonwebtoken::{encode, EncodingKey, Header};
@@ -154,54 +154,54 @@ mod tests {
         }
     }
 
-    // ==================== list_scores tests ====================
+    // ==================== list_games tests ====================
 
     #[actix_web::test]
-    async fn test_list_scores() {
-        let app = test::init_service(App::new().service(list_scores)).await;
-        let req = test::TestRequest::get().uri("/scores").to_request();
+    async fn test_list_games() {
+        let app = test::init_service(App::new().service(list_games)).await;
+        let req = test::TestRequest::get().uri("/games").to_request();
         let resp = test::call_service(&app, req).await;
 
         assert!(resp.status().is_success());
     }
 
-    // ==================== GET /scores/{game_id} tests ====================
+    // ==================== GET /games/{game_id} tests ====================
 
     #[actix_web::test]
-    async fn test_get_scores_valid_request() {
+    async fn test_get_games_valid_request() {
         let db = InMemoryDb::new();
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let user_id = Uuid::new_v4();
         let game_id = Uuid::new_v4();
-        let score = Score::new(user_id, game_id, 100);
-        db.insert_score(score).unwrap();
+        let game = Game::new(user_id, game_id, 100);
+        db.insert_game(game).unwrap();
 
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
-                .service(get_scores),
+                .service(get_games),
         )
         .await;
 
         let claims = create_test_claims_with_user(user_id, None);
         let token = create_test_token(&claims);
         let req = test::TestRequest::get()
-            .uri(&format!("/scores/{}", game_id))
+            .uri(&format!("/games/{}", game_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::OK);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 1);
         assert_eq!(body[0].score, 100);
     }
 
     #[actix_web::test]
-    async fn test_get_scores_invalid_game_id() {
+    async fn test_get_games_invalid_game_id() {
         let db = InMemoryDb::new();
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
@@ -209,14 +209,14 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
-                .service(get_scores),
+                .service(get_games),
         )
         .await;
 
         let claims = create_test_claims();
         let token = create_test_token(&claims);
         let req = test::TestRequest::get()
-            .uri("/scores/not-a-valid-uuid")
+            .uri("/games/not-a-valid-uuid")
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .to_request();
 
@@ -225,7 +225,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_get_scores_with_team_id_filter() {
+    async fn test_get_games_with_team_id_filter() {
         let db = InMemoryDb::new();
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
@@ -234,23 +234,23 @@ mod tests {
         let team_id = Uuid::new_v4();
         let other_team_id = Uuid::new_v4();
 
-        db.insert_score(Score::with_team(user_id, game_id, team_id, 100))
+        db.insert_game(Game::with_team(user_id, game_id, team_id, 100))
             .unwrap();
-        db.insert_score(Score::with_team(user_id, game_id, other_team_id, 200))
+        db.insert_game(Game::with_team(user_id, game_id, other_team_id, 200))
             .unwrap();
 
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
-                .service(get_scores),
+                .service(get_games),
         )
         .await;
 
         let claims = create_test_claims_with_user(user_id, None);
         let token = create_test_token(&claims);
         let req = test::TestRequest::get()
-            .uri(&format!("/scores/{}", game_id))
+            .uri(&format!("/games/{}", game_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .insert_header(("team-id", team_id.to_string()))
             .to_request();
@@ -258,14 +258,14 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::OK);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 1);
         assert_eq!(body[0].score, 100);
         assert_eq!(body[0].team_id, Some(team_id));
     }
 
     #[actix_web::test]
-    async fn test_get_scores_unauthorized_no_token() {
+    async fn test_get_games_unauthorized_no_token() {
         let db = InMemoryDb::new();
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
@@ -273,13 +273,13 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
-                .service(get_scores),
+                .service(get_games),
         )
         .await;
 
         let game_id = Uuid::new_v4();
         let req = test::TestRequest::get()
-            .uri(&format!("/scores/{}", game_id))
+            .uri(&format!("/games/{}", game_id))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -287,7 +287,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_get_scores_unauthorized_invalid_token() {
+    async fn test_get_games_unauthorized_invalid_token() {
         let db = InMemoryDb::new();
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
@@ -295,13 +295,13 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
-                .service(get_scores),
+                .service(get_games),
         )
         .await;
 
         let game_id = Uuid::new_v4();
         let req = test::TestRequest::get()
-            .uri(&format!("/scores/{}", game_id))
+            .uri(&format!("/games/{}", game_id))
             .insert_header(("Authorization", "Bearer invalid-token"))
             .to_request();
 
@@ -310,7 +310,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_get_scores_unauthorized_expired_token() {
+    async fn test_get_games_unauthorized_expired_token() {
         let db = InMemoryDb::new();
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
@@ -318,7 +318,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
-                .service(get_scores),
+                .service(get_games),
         )
         .await;
 
@@ -326,7 +326,7 @@ mod tests {
         let token = create_test_token(&claims);
         let game_id = Uuid::new_v4();
         let req = test::TestRequest::get()
-            .uri(&format!("/scores/{}", game_id))
+            .uri(&format!("/games/{}", game_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .to_request();
 
@@ -335,7 +335,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_get_scores_empty_result() {
+    async fn test_get_games_empty_result() {
         let db = InMemoryDb::new();
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
@@ -343,7 +343,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
-                .service(get_scores),
+                .service(get_games),
         )
         .await;
 
@@ -351,19 +351,19 @@ mod tests {
         let token = create_test_token(&claims);
         let game_id = Uuid::new_v4();
         let req = test::TestRequest::get()
-            .uri(&format!("/scores/{}", game_id))
+            .uri(&format!("/games/{}", game_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::OK);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert!(body.is_empty());
     }
 
     #[actix_web::test]
-    async fn test_get_scores_invalid_team_id_header() {
+    async fn test_get_games_invalid_team_id_header() {
         let db = InMemoryDb::new();
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
@@ -371,7 +371,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
-                .service(get_scores),
+                .service(get_games),
         )
         .await;
 
@@ -379,7 +379,7 @@ mod tests {
         let token = create_test_token(&claims);
         let game_id = Uuid::new_v4();
         let req = test::TestRequest::get()
-            .uri(&format!("/scores/{}", game_id))
+            .uri(&format!("/games/{}", game_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .insert_header(("team-id", "not-a-valid-uuid"))
             .to_request();
@@ -389,44 +389,44 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_get_scores_multiple_scores_for_game() {
+    async fn test_get_games_multiple_games_for_session() {
         let db = InMemoryDb::new();
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let user_id = Uuid::new_v4();
         let game_id = Uuid::new_v4();
 
-        // Insert multiple scores for the same game
-        db.insert_score(Score::new(user_id, game_id, 100)).unwrap();
-        db.insert_score(Score::new(user_id, game_id, 200)).unwrap();
-        db.insert_score(Score::new(user_id, game_id, 300)).unwrap();
+        // Insert multiple games for the same game session
+        db.insert_game(Game::new(user_id, game_id, 100)).unwrap();
+        db.insert_game(Game::new(user_id, game_id, 200)).unwrap();
+        db.insert_game(Game::new(user_id, game_id, 300)).unwrap();
 
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
-                .service(get_scores),
+                .service(get_games),
         )
         .await;
 
         let claims = create_test_claims_with_user(user_id, None);
         let token = create_test_token(&claims);
         let req = test::TestRequest::get()
-            .uri(&format!("/scores/{}", game_id))
+            .uri(&format!("/games/{}", game_id))
             .insert_header(("Authorization", format!("Bearer {}", token)))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::OK);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 3);
     }
 
-    // ==================== POST /scores tests ====================
+    // ==================== POST /games tests ====================
 
     #[actix_web::test]
-    async fn test_create_scores_success() {
+    async fn test_create_games_success() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -434,25 +434,25 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
         let claims = create_test_claims();
         let token = create_test_token(&claims);
 
-        let scores = vec![ScoreCreate::new(100), ScoreCreate::new(200)];
+        let games = vec![GameCreate::new(100), GameCreate::new(200)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 2);
         assert_eq!(body[0].score, 100);
         assert_eq!(body[1].score, 200);
@@ -461,7 +461,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_create_scores_empty_array_returns_422() {
+    async fn test_create_games_empty_array_returns_422() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -469,19 +469,19 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
         let claims = create_test_claims();
         let token = create_test_token(&claims);
 
-        let scores: Vec<ScoreCreate> = vec![];
+        let games: Vec<GameCreate> = vec![];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -489,7 +489,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_create_scores_unauthorized_no_token() {
+    async fn test_create_games_unauthorized_no_token() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -497,15 +497,15 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
-        let scores = vec![ScoreCreate::new(100)];
+        let games = vec![GameCreate::new(100)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
-            .set_json(&scores)
+            .uri("/games")
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -513,7 +513,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_create_scores_unauthorized_invalid_token() {
+    async fn test_create_games_unauthorized_invalid_token() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -521,16 +521,16 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
-        let scores = vec![ScoreCreate::new(100)];
+        let games = vec![GameCreate::new(100)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", "Bearer invalid-token"))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -538,7 +538,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_create_scores_unauthorized_expired_token() {
+    async fn test_create_games_unauthorized_expired_token() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -546,19 +546,19 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
         let claims = create_expired_claims();
         let token = create_test_token(&claims);
 
-        let scores = vec![ScoreCreate::new(100)];
+        let games = vec![GameCreate::new(100)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -566,7 +566,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn test_create_scores_batch_multiple() {
+    async fn test_create_games_batch_multiple() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -574,7 +574,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
@@ -582,32 +582,32 @@ mod tests {
         let token = create_test_token(&claims);
 
         let game_id = Uuid::new_v4();
-        let scores = vec![
-            ScoreCreate::with_game(100, game_id),
-            ScoreCreate::with_game(200, game_id),
-            ScoreCreate::with_game(300, game_id),
+        let games = vec![
+            GameCreate::with_game(100, game_id),
+            GameCreate::with_game(200, game_id),
+            GameCreate::with_game(300, game_id),
         ];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 3);
 
         // All should have the same game_id
-        for score in &body {
-            assert_eq!(score.game_id, game_id);
+        for game in &body {
+            assert_eq!(game.game_id, game_id);
         }
     }
 
     #[actix_web::test]
-    async fn test_create_scores_user_id_from_jwt() {
+    async fn test_create_games_user_id_from_jwt() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -615,7 +615,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
@@ -624,25 +624,25 @@ mod tests {
         let expected_team_id = claims.team_id;
         let token = create_test_token(&claims);
 
-        let scores = vec![ScoreCreate::new(100)];
+        let games = vec![GameCreate::new(100)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 1);
         assert_eq!(body[0].user_id, expected_user_id);
         assert_eq!(body[0].team_id, expected_team_id);
     }
 
     #[actix_web::test]
-    async fn test_create_scores_no_team_id_in_jwt() {
+    async fn test_create_games_no_team_id_in_jwt() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -650,7 +650,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
@@ -663,24 +663,24 @@ mod tests {
         };
         let token = create_test_token(&claims);
 
-        let scores = vec![ScoreCreate::new(100)];
+        let games = vec![GameCreate::new(100)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 1);
         assert!(body[0].team_id.is_none());
     }
 
     #[actix_web::test]
-    async fn test_create_scores_generates_game_id_when_not_provided() {
+    async fn test_create_games_generates_game_id_when_not_provided() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -688,33 +688,33 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
         let claims = create_test_claims();
         let token = create_test_token(&claims);
 
-        // Create scores without game_id
-        let scores = vec![ScoreCreate::new(100), ScoreCreate::new(200)];
+        // Create games without game_id
+        let games = vec![GameCreate::new(100), GameCreate::new(200)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 2);
         // Each should have a different generated game_id
         assert_ne!(body[0].game_id, body[1].game_id);
     }
 
     #[actix_web::test]
-    async fn test_create_scores_single_item() {
+    async fn test_create_games_single_item() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -722,31 +722,31 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
         let claims = create_test_claims();
         let token = create_test_token(&claims);
 
-        let scores = vec![ScoreCreate::new(42)];
+        let games = vec![GameCreate::new(42)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 1);
         assert_eq!(body[0].score, 42);
     }
 
     #[actix_web::test]
-    async fn test_create_scores_negative_score_value() {
+    async fn test_create_games_negative_score_value() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -754,7 +754,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
@@ -762,24 +762,24 @@ mod tests {
         let token = create_test_token(&claims);
 
         // Negative score values should be allowed (i32)
-        let scores = vec![ScoreCreate::new(-50)];
+        let games = vec![GameCreate::new(-50)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 1);
         assert_eq!(body[0].score, -50);
     }
 
     #[actix_web::test]
-    async fn test_create_scores_zero_score_value() {
+    async fn test_create_games_zero_score_value() {
         let db = web::Data::new(InMemoryDb::new());
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
@@ -787,25 +787,25 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
-                .service(create_scores),
+                .service(create_games),
         )
         .await;
 
         let claims = create_test_claims();
         let token = create_test_token(&claims);
 
-        let scores = vec![ScoreCreate::new(0)];
+        let games = vec![GameCreate::new(0)];
 
         let req = test::TestRequest::post()
-            .uri("/scores")
+            .uri("/games")
             .insert_header(("Authorization", format!("Bearer {}", token)))
-            .set_json(&scores)
+            .set_json(&games)
             .to_request();
 
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
 
-        let body: Vec<Score> = test::read_body_json(resp).await;
+        let body: Vec<Game> = test::read_body_json(resp).await;
         assert_eq!(body.len(), 1);
         assert_eq!(body[0].score, 0);
     }

@@ -1,6 +1,6 @@
 # Epic Planning: DynamoDB Persistence & Documentation
 
-## Epic: Data Persistence (DynamoDB) - sk-pmu
+## Epic: Data Persistence (DynamoDB)
 
 **Priority:** P2
 **Status:** Open

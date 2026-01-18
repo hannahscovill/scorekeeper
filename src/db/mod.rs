@@ -1,76 +1,80 @@
 //! Database layer for the scorekeeper API.
 
+pub mod traits;
+
 use std::collections::HashMap;
 use std::sync::RwLock;
 use uuid::Uuid;
 
-use crate::models::Score;
+use crate::models::Game;
+
+pub use traits::{DatabaseError, DatabaseResult, GameDatabase};
 
 /// In-memory database for development and testing.
 pub struct InMemoryDb {
-    scores: RwLock<HashMap<Uuid, Score>>,
+    games: RwLock<HashMap<Uuid, Game>>,
 }
 
 impl InMemoryDb {
     /// Creates a new in-memory database.
     pub fn new() -> Self {
         Self {
-            scores: RwLock::new(HashMap::new()),
+            games: RwLock::new(HashMap::new()),
         }
     }
 
-    /// Inserts a score into the database.
-    pub fn insert_score(&self, score: Score) -> Result<Score, String> {
-        let mut scores = self
-            .scores
+    /// Inserts a game into the database.
+    pub fn insert_game(&self, game: Game) -> Result<Game, String> {
+        let mut games = self
+            .games
             .write()
             .map_err(|e| format!("Lock error: {}", e))?;
-        let id = score.id;
-        scores.insert(id, score.clone());
-        Ok(score)
+        let id = game.id;
+        games.insert(id, game.clone());
+        Ok(game)
     }
 
-    /// Gets a score by ID.
-    pub fn get_score(&self, id: &Uuid) -> Result<Option<Score>, String> {
-        let scores = self
-            .scores
+    /// Gets a game by ID.
+    pub fn get_game(&self, id: &Uuid) -> Result<Option<Game>, String> {
+        let games = self
+            .games
             .read()
             .map_err(|e| format!("Lock error: {}", e))?;
-        Ok(scores.get(id).cloned())
+        Ok(games.get(id).cloned())
     }
 
-    /// Gets all scores.
-    pub fn get_all_scores(&self) -> Result<Vec<Score>, String> {
-        let scores = self
-            .scores
+    /// Gets all games.
+    pub fn get_all_games(&self) -> Result<Vec<Game>, String> {
+        let games = self
+            .games
             .read()
             .map_err(|e| format!("Lock error: {}", e))?;
-        Ok(scores.values().cloned().collect())
+        Ok(games.values().cloned().collect())
     }
 
-    /// Deletes a score by ID.
-    pub fn delete_score(&self, id: &Uuid) -> Result<Option<Score>, String> {
-        let mut scores = self
-            .scores
+    /// Deletes a game by ID.
+    pub fn delete_game(&self, id: &Uuid) -> Result<Option<Game>, String> {
+        let mut games = self
+            .games
             .write()
             .map_err(|e| format!("Lock error: {}", e))?;
-        Ok(scores.remove(id))
+        Ok(games.remove(id))
     }
 
-    /// Gets all scores for a specific game, optionally filtered by team.
-    pub fn get_scores_by_game(
+    /// Gets all games for a specific game session, optionally filtered by team.
+    pub fn get_games_by_game_id(
         &self,
         game_id: Uuid,
         team_id: Option<Uuid>,
-    ) -> Result<Vec<Score>, String> {
-        let scores = self
-            .scores
+    ) -> Result<Vec<Game>, String> {
+        let games = self
+            .games
             .read()
             .map_err(|e| format!("Lock error: {}", e))?;
-        Ok(scores
+        Ok(games
             .values()
-            .filter(|s| s.game_id == game_id)
-            .filter(|s| team_id.is_none_or(|tid| s.team_id == Some(tid)))
+            .filter(|g| g.game_id == game_id)
+            .filter(|g| team_id.is_none_or(|tid| g.team_id == Some(tid)))
             .cloned()
             .collect())
     }
@@ -82,87 +86,140 @@ impl Default for InMemoryDb {
     }
 }
 
+impl GameDatabase for InMemoryDb {
+    async fn insert_game(&self, game: Game) -> DatabaseResult<Game> {
+        let mut games = self
+            .games
+            .write()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        let id = game.id;
+        games.insert(id, game.clone());
+        Ok(game)
+    }
+
+    async fn get_game(&self, id: &Uuid) -> DatabaseResult<Option<Game>> {
+        let games = self
+            .games
+            .read()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        Ok(games.get(id).cloned())
+    }
+
+    async fn get_all_games(&self) -> DatabaseResult<Vec<Game>> {
+        let games = self
+            .games
+            .read()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        Ok(games.values().cloned().collect())
+    }
+
+    async fn delete_game(&self, id: &Uuid) -> DatabaseResult<Option<Game>> {
+        let mut games = self
+            .games
+            .write()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        Ok(games.remove(id))
+    }
+
+    async fn get_games_by_game_id(
+        &self,
+        game_id: Uuid,
+        team_id: Option<Uuid>,
+    ) -> DatabaseResult<Vec<Game>> {
+        let games = self
+            .games
+            .read()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        Ok(games
+            .values()
+            .filter(|g| g.game_id == game_id)
+            .filter(|g| team_id.is_none_or(|tid| g.team_id == Some(tid)))
+            .cloned()
+            .collect())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_insert_and_get_score() {
+    fn test_insert_and_get_game() {
         let db = InMemoryDb::new();
         let user_id = Uuid::new_v4();
         let game_id = Uuid::new_v4();
-        let score = Score::new(user_id, game_id, 100);
-        let id = score.id;
+        let game = Game::new(user_id, game_id, 100);
+        let id = game.id;
 
-        db.insert_score(score).unwrap();
-        let retrieved = db.get_score(&id).unwrap();
+        db.insert_game(game).unwrap();
+        let retrieved = db.get_game(&id).unwrap();
 
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().score, 100);
     }
 
     #[test]
-    fn test_delete_score() {
+    fn test_delete_game() {
         let db = InMemoryDb::new();
         let user_id = Uuid::new_v4();
         let game_id = Uuid::new_v4();
-        let score = Score::new(user_id, game_id, 200);
-        let id = score.id;
+        let game = Game::new(user_id, game_id, 200);
+        let id = game.id;
 
-        db.insert_score(score).unwrap();
-        let deleted = db.delete_score(&id).unwrap();
+        db.insert_game(game).unwrap();
+        let deleted = db.delete_game(&id).unwrap();
 
         assert!(deleted.is_some());
-        assert!(db.get_score(&id).unwrap().is_none());
+        assert!(db.get_game(&id).unwrap().is_none());
     }
 
     #[test]
-    fn test_get_scores_by_game() {
+    fn test_get_games_by_game_id() {
         let db = InMemoryDb::new();
         let user_id = Uuid::new_v4();
         let game_id = Uuid::new_v4();
         let other_game_id = Uuid::new_v4();
 
-        let score1 = Score::new(user_id, game_id, 100);
-        let score2 = Score::new(user_id, game_id, 200);
-        let score3 = Score::new(user_id, other_game_id, 300);
+        let game1 = Game::new(user_id, game_id, 100);
+        let game2 = Game::new(user_id, game_id, 200);
+        let game3 = Game::new(user_id, other_game_id, 300);
 
-        db.insert_score(score1).unwrap();
-        db.insert_score(score2).unwrap();
-        db.insert_score(score3).unwrap();
+        db.insert_game(game1).unwrap();
+        db.insert_game(game2).unwrap();
+        db.insert_game(game3).unwrap();
 
-        let scores = db.get_scores_by_game(game_id, None).unwrap();
-        assert_eq!(scores.len(), 2);
-        assert!(scores.iter().all(|s| s.game_id == game_id));
+        let games = db.get_games_by_game_id(game_id, None).unwrap();
+        assert_eq!(games.len(), 2);
+        assert!(games.iter().all(|g| g.game_id == game_id));
     }
 
     #[test]
-    fn test_get_scores_by_game_with_team_filter() {
+    fn test_get_games_by_game_id_with_team_filter() {
         let db = InMemoryDb::new();
         let user_id = Uuid::new_v4();
         let game_id = Uuid::new_v4();
         let team_id = Uuid::new_v4();
         let other_team_id = Uuid::new_v4();
 
-        let score1 = Score::with_team(user_id, game_id, team_id, 100);
-        let score2 = Score::with_team(user_id, game_id, other_team_id, 200);
-        let score3 = Score::new(user_id, game_id, 300); // No team
+        let game1 = Game::with_team(user_id, game_id, team_id, 100);
+        let game2 = Game::with_team(user_id, game_id, other_team_id, 200);
+        let game3 = Game::new(user_id, game_id, 300); // No team
 
-        db.insert_score(score1).unwrap();
-        db.insert_score(score2).unwrap();
-        db.insert_score(score3).unwrap();
+        db.insert_game(game1).unwrap();
+        db.insert_game(game2).unwrap();
+        db.insert_game(game3).unwrap();
 
-        let scores = db.get_scores_by_game(game_id, Some(team_id)).unwrap();
-        assert_eq!(scores.len(), 1);
-        assert_eq!(scores[0].team_id, Some(team_id));
+        let games = db.get_games_by_game_id(game_id, Some(team_id)).unwrap();
+        assert_eq!(games.len(), 1);
+        assert_eq!(games[0].team_id, Some(team_id));
     }
 
     #[test]
-    fn test_get_scores_by_game_empty() {
+    fn test_get_games_by_game_id_empty() {
         let db = InMemoryDb::new();
         let game_id = Uuid::new_v4();
 
-        let scores = db.get_scores_by_game(game_id, None).unwrap();
-        assert!(scores.is_empty());
+        let games = db.get_games_by_game_id(game_id, None).unwrap();
+        assert!(games.is_empty());
     }
 }

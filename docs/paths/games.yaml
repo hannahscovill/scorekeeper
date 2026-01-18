@@ -1,17 +1,17 @@
-scores-by-game:
+games-by-id:
   get:
-    summary: Get scores for a game
+    summary: Get a game by ID
     description: |
-      Retrieves scores for a specific game.
-    operationId: getScoresByGame
+      Retrieves a specific game by its ID.
+    operationId: getGameById
     tags:
-      - Scores
+      - Games
     parameters:
       - $ref: '../components/schemas/parameters.yaml#/GameIdPath'
       - $ref: '../components/schemas/parameters.yaml#/TeamIdHeader'
     responses:
       '200':
-        $ref: '../components/responses/scores.yaml#/ScoreListResponse'
+        $ref: '../components/responses/games.yaml#/GameListResponse'
       '401':
         $ref: '../components/responses/errors.yaml#/UnauthorizedError'
       '403':
@@ -19,24 +19,24 @@ scores-by-game:
       '404':
         $ref: '../components/responses/errors.yaml#/NotFoundError'
 
-scores:
+games:
   post:
-    summary: Submit scores
-    description: Submit one or more scores for the authenticated user
-    operationId: createScores
+    summary: Create games
+    description: Create one or more games for the authenticated user
+    operationId: createGames
     tags:
-      - Scores
+      - Games
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/score.yaml#/ScoreCreateList'
+            $ref: '../components/schemas/game.yaml#/GameCreateList'
           example:
             - score: 6
     responses:
       '201':
-        $ref: '../components/responses/scores.yaml#/ScoreCreatedResponse'
+        $ref: '../components/responses/games.yaml#/GameCreatedResponse'
       '400':
         $ref: '../components/responses/errors.yaml#/BadRequestError'
       '401':
