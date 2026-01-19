@@ -1,0 +1,16 @@
+services:
+  scorekeeper:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - JWT_SECRET=local-development-secret
+      - BYPASS_AUTH=true
+      - RUST_LOG=debug
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
