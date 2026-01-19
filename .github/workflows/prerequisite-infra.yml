@@ -14,12 +14,18 @@ on:
       cdk_action:
         description: 'The CDK action to take'
         required: true
-        default: 'deploy'
+        default: &default_cdk_action 'destroy'
         type: choice
         options:
           - deploy
           - destroy
   workflow_call:
+    inputs:
+      cdk_action:
+        description: 'The CDK action to take'
+        required: false
+        default: *default_cdk_action
+        type: string
     outputs:
       ecr_repository_uri:
         description: "The URI of the ECR repository"
@@ -27,9 +33,14 @@ on:
 
 env:
   AWS_REGION: us-west-2
+  DEFAULT_CDK_ACTION: *default_cdk_action # still has to be added to the env because yaml anchors wont work in expressions
 
 jobs:
+  check-ci:
+    uses: ./.github/workflows/ci.yml
+
   deploy-prerequisite:
+    needs: check-ci
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -60,12 +71,13 @@ jobs:
 
       - name: Deploy Prerequisite Infrastructure stack
         working-directory: infra
-        run: npx cdk ${{ inputs.cdk_action || 'deploy' }} PrerequisiteInfraStack --require-approval never -c prerequisite=true
+        run: npx cdk ${{ inputs.cdk_action || env.DEFAULT_CDK_ACTION }} ${{ (inputs.cdk_action || env.DEFAULT_CDK_ACTION) == 'destroy' && ' --force' || '' }} PrerequisiteInfraStack --require-approval never -c prerequisite=true
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
 
       - name: Get stack outputs
+        if: ${{ (inputs.cdk_action || env.DEFAULT_CDK_ACTION) != 'destroy' }}
         id: get-outputs
         run: |
           REPO_URI=$(aws cloudformation describe-stacks \

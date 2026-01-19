@@ -11,6 +11,7 @@ on:
       - "**/.gitignore"
   pull_request:
     paths-ignore: *non-deploy-paths
+  workflow_call:
 
 env:
   CARGO_TERM_COLOR: always

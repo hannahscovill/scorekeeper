@@ -1,0 +1,31 @@
+meta {
+  name: from the chatbot
+  type: http
+  seq: 5
+}
+
+post {
+  url: https://{{auth0TenantName}}.auth0.com/oauth/token
+  body: formUrlEncoded
+  auth: none
+}
+
+headers {
+  content-type: application/x-www-form-urlencoded
+}
+
+body:form-urlencoded {
+  grant_type: client_credentials
+  client_id: {{}}
+  client_secret: {{}}
+  audience: API_IDENTIFIER
+}
+
+vars:pre-request {
+  auth0-tenant-name: {{}}
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
