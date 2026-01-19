@@ -13,6 +13,8 @@ pub struct Config {
     pub database_url: Option<String>,
     /// JWT secret for token signing and validation.
     pub jwt_secret: String,
+    /// Bypass authentication (for development/testing only).
+    pub bypass_auth: bool,
 }
 
 impl Default for Config {
@@ -22,6 +24,7 @@ impl Default for Config {
             port: 8080,
             database_url: None,
             jwt_secret: "development-secret-change-in-production".to_string(),
+            bypass_auth: false,
         }
     }
 }
@@ -38,6 +41,9 @@ impl Config {
             database_url: std::env::var("DATABASE_URL").ok(),
             jwt_secret: std::env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "development-secret-change-in-production".to_string()),
+            bypass_auth: std::env::var("BYPASS_AUTH")
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false),
         }
     }
 
@@ -49,6 +55,11 @@ impl Config {
     /// Returns the JWT secret.
     pub fn jwt_secret(&self) -> &str {
         &self.jwt_secret
+    }
+
+    /// Returns whether authentication should be bypassed.
+    pub fn bypass_auth(&self) -> bool {
+        self.bypass_auth
     }
 }
 
@@ -63,5 +74,6 @@ mod tests {
         assert_eq!(config.port, 8080);
         assert!(config.database_url.is_none());
         assert_eq!(config.jwt_secret, "development-secret-change-in-production");
+        assert_eq!(config.bypass_auth, false);
     }
 }
