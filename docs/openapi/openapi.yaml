@@ -5,9 +5,9 @@ info:
   version: 1.0.0
 
 servers:
-  - url: localhost:8080
+  - url: https://localhost:8080
     description: Local
-  - url: http://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com/
+  - url: https://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com/
     description: Local
 
 security:

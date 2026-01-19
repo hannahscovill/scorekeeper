@@ -34,19 +34,6 @@ Game:
     - score
     - created_at
 
-GameCreate:
-  type: object
-  properties:
-    score:
-      type: integer
-      description: The numeric score value
-    game_id:
-      type: string
-      format: uuid
-      description: ID of the game (optional if context provides it)
-  required:
-    - score
-
 GameCreateList:
   type: array
   items:

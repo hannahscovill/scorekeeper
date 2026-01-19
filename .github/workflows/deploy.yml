@@ -60,9 +60,9 @@ on:
   workflow_dispatch:
     inputs:
       cdk_action:
-        description: 'The CDK action to take'
+        description: "The CDK action to take"
         required: true
-        default: &default_cdk_action 'destroy' # note: had to also hardcode in the with block below
+        default: &default_cdk_action "destroy" # note: had to also hardcode in the with block below
         type: choice
         options:
           - deploy
@@ -77,14 +77,15 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   ECR_REPOSITORY: scorekeeper
   DEFAULT_CDK_ACTION: *default_cdk_action
-
+  # CDK_ACTION_IS_DESTROY: ${{  == 'destroy'}}
+  
 jobs:
   # Only run if CI workflow succeeded
   check-ci:
     uses: ./.github/workflows/ci.yml
 
   # Ensure prerequisite infrastructure exists (ECR repository)
-  prerequisite-infra:
+  deploy:
     needs: check-ci
     runs-on: ubuntu-latest
     permissions:
@@ -106,8 +107,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: infra/package-lock.json
 
       - name: Install CDK dependencies
@@ -122,7 +123,7 @@ jobs:
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
 
       - name: Get stack outputs
-        if: ${{ inputs.cdk_action != 'destroy' }}
+        if: ${{ env.DEFAULT_CDK_ACTION != 'destroy' }}
         id: get-outputs
         run: |
           REPO_URI=$(aws cloudformation describe-stacks \
@@ -133,31 +134,34 @@ jobs:
           echo "repository_uri=$REPO_URI" >> $GITHUB_OUTPUT
           echo "ECR Repository URI: $REPO_URI"
 
-  build-and-push:
-    needs: prerequisite-infra
-    if: ${{ inputs.cdk_action != 'destroy' }}
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    outputs:
-      image_tag: ${{ steps.meta.outputs.sha_tag }}
+  # build-and-push:
+  # If making workflows reusable/composite, cache these dependencies or add these steps back in
+  #   needs: prerequisite-infra
+  #   if: ${{ inputs.cdk_action != 'destroy' }}
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   outputs:
+  #     image_tag: ${{ steps.meta.outputs.sha_tag }}
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
 
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+  #     - name: Configure AWS credentials via OIDC
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        if: ${{ inputs.cdk_action != 'destroy' }}
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Extract metadata for Docker
+        if: ${{ inputs.cdk_action != 'destroy' }}
         id: meta
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -167,9 +171,11 @@ jobs:
           echo "full_image=${ECR_REGISTRY}/${ECR_REPOSITORY}" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
+        if: ${{ inputs.cdk_action != 'destroy' }}
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
+        if: ${{ inputs.cdk_action != 'destroy' }}
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -180,34 +186,35 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: infra/package-lock.json
-
-      - name: Install CDK dependencies
-        working-directory: infra
-        run: npm ci
+    
+    # Deploy
+    # If making workflows reusable/composite, cache these dependencies or add these steps back in
+    #   needs: build-and-push
+    #   runs-on: ubuntu-latest
+    #   permissions:
+    #     id-token: write
+    #     contents: read
+  
+    #   steps:
+        # - name: Checkout repository
+        #   uses: actions/checkout@v4
+  
+        # - name: Configure AWS credentials via OIDC
+        #   uses: aws-actions/configure-aws-credentials@v4
+        #   with:
+        #     role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+        #     aws-region: ${{ env.AWS_REGION }}
+  
+        # - name: Setup Node.js
+        #   uses: actions/setup-node@v4
+        #   with:
+        #     node-version: "20"
+        #     cache: "npm"
+        #     cache-dependency-path: infra/package-lock.json
+  
+        # - name: Install CDK dependencies
+        #   working-directory: infra
+        #   run: npm ci
 
       - name: Deploy CDK stack
         working-directory: infra
