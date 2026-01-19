@@ -10,5 +10,5 @@ ValidationError:
   $ref: './errors.yaml#/ValidationError'
 GameListResponse:
   $ref: './games.yaml#/GameListResponse'
-GameCreatedResponse:
-  $ref: './games.yaml#/GameCreatedResponse'
+GameSavedResponse:
+  $ref: './games.yaml#/GameSavedResponse'

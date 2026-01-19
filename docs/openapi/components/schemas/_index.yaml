@@ -1,11 +1,5 @@
 Game:
-  $ref: './game.yaml#/Game'
-GameCreate:
-  $ref: './game.yaml#/GameCreate'
-GameCreateList:
-  $ref: './game.yaml#/GameCreateList'
-GameList:
-  $ref: './game.yaml#/GameList'
+  $ref: './models.yaml#/Game'
 ErrorResponse:
   $ref: './errors.yaml#/ErrorResponse'
 ValidationErrorResponse:

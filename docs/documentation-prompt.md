@@ -1,7 +1,7 @@
 The openapi spec doesn't match the entity definittions listed below.
 Let's go one openapi yaml file at a time.
 
-Please make the Game in docs/openapi/components/schemas/game.yaml match the typescript Game interface below
+Please make the Game in docs/openapi/components/schemas/models.yaml match the typescript Game interface below
 
 #### Entity Definitions
 
@@ -16,7 +16,8 @@ type Guess = [Move, Move, Move, Move, Move]
 interface Game {
   game_id: string          // uuid
   user_id: string          // uuid
-  puzzle_id: string        // uuid (e.g., "wordle-2026-01-18")
+  puzzle_id: string        // uuid
+  puzzle_date_iso_day: string  // YYYY-MM-DD
   moves: [Guess, Guess?, Guess?, Guess?, Guess?, Guess?] // 1-6 guesses
   moves_qty: number        // count of guesses
   completed_at_millis: number

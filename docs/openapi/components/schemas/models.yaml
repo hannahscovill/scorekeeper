@@ -1,0 +1,174 @@
+Move:
+  type: object
+  properties:
+    letter:
+      type: string
+      minLength: 1
+      maxLength: 1
+      description: A single letter guess
+    letter_contained_in_answer:
+      type: boolean
+      description: Whether the letter exists somewhere in the answer
+    correct_letter_and_position:
+      type: boolean
+      description: Whether the letter is in the correct position
+  required:
+    - letter
+    - letter_contained_in_answer
+    - correct_letter_and_position
+
+Guess:
+  type: array
+  items:
+    $ref: '#/Move'
+  minItems: 5
+  maxItems: 5
+  description: A single guess consisting of 5 moves (one per letter)
+
+Game:
+  type: object
+  properties:
+    game_id:
+      type: string
+      format: uuid
+      description: Unique identifier for the game
+      example: 5E51E23C-C7AD-4FF6-9D68-0D51F8404E19
+    user_id:
+      type: string
+      format: uuid
+      description: ID of the user who played the game
+      example: 550e8400-e29b-41d4-a716-446655440001
+    puzzle_id:
+      type: string
+      format: uuid
+      description: uuid of the puzzle
+      example: 5E51E23C-C7AD-4FF6-9D68-0D51F8404E19
+    puzzle_date_iso_day:
+      type: string
+      description: YYYY-MM-DD
+      example: '2026-01-01'
+    moves:
+      type: array
+      items:
+        $ref: '#/Guess'
+      minItems: 1
+      maxItems: 6
+      description: Array of 1-6 guesses made during the game
+    moves_qty:
+      type: integer
+      minimum: 1
+      maximum: 6
+      description: Count of guesses made
+    completed_at_millis:
+      type: integer
+      format: int64
+      description: Timestamp in milliseconds when the game was completed
+    won:
+      type: boolean
+      description: Whether the player won the game
+  required:
+    - game_id
+    - user_id
+    - puzzle_id
+    - puzzle_date_iso_day
+    - moves
+    - moves_qty
+    - completed_at_millis
+    - won
+
+GameSavedResponseObject:
+  type: object
+  properties:
+    game_id:
+      type: string
+      example: 62CB33CC-EAF1-49DF-9E26-B0ED40F65359
+    created_at_millis:
+      type: number
+      example: 1768780800000
+
+Team:
+  type: object
+  properties:
+    team_id:
+      type: string
+      format: uuid
+      description: Unique identifier for the team
+    team_name:
+      type: string
+      description: Name of the team
+    created_at_millis:
+      type: integer
+      format: int64
+      description: Timestamp in milliseconds when the team was created
+  required:
+    - team_id
+    - team_name
+    - created_at_millis
+
+TeamMembership:
+  type: object
+  properties:
+    team_id:
+      type: string
+      format: uuid
+      description: ID of the team
+    user_id:
+      type: string
+      format: uuid
+      description: ID of the user
+      example: 550e8400-e29b-41d4-a716-446655440001
+    role:
+      type: string
+      enum:
+        - admin
+        - member
+      description: Role of the user in the team
+    joined_at_millis:
+      type: integer
+      format: int64
+      description: Timestamp in milliseconds when the user joined the team
+  required:
+    - team_id
+    - user_id
+    - role
+    - joined_at_millis
+
+Scoreboard:
+  type: object
+  properties:
+    scoreboard_id:
+      type: string
+      format: uuid
+      description: Unique identifier for the scoreboard
+    team_id:
+      type: string
+      format: uuid
+      description: ID of the team this scoreboard belongs to
+    puzzle_id:
+      type: string
+      format: uuid
+      description: ID of the puzzle this scoreboard is for
+  required:
+    - scoreboard_id
+    - team_id
+    - puzzle_id
+
+Puzzle:
+  type: object
+  properties:
+    puzzle_id:
+      type: string
+      format: uuid
+      description: Unique identifier for the puzzle
+    word:
+      type: string
+      description: The word to guess
+    date_iso_day:
+      type: string
+      format: date
+      description: Date formatted as YYYY-MM-DD
+  required:
+    - puzzle_id
+    - word
+    - date_iso_day
+
