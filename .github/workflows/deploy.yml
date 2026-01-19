@@ -143,10 +143,7 @@ jobs:
           platforms: linux/amd64
 
   deploy:
-    needs: [check-ci, prerequisite-infra, build-and-push]
-    # when a job in needs is skipped, GitHub Actions auto-skips the dependent job without even evaluating the if condition
-    # the always() here ensures we can still run this in a 'cdk destroy' situation
-    if: ${{ always() && (needs.prerequisite-infra.result == 'success' || needs.prerequisite-infra.result == 'skipped') && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') }}
+    needs: build-and-push
     runs-on: ubuntu-latest
     permissions:
       id-token: write
