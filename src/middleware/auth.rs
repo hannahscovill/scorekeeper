@@ -3,6 +3,7 @@
 use actix_web::{dev::ServiceRequest, HttpMessage, HttpRequest};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
+use tracing;
 use uuid::Uuid;
 
 use crate::models::AppError;
@@ -85,6 +86,52 @@ pub fn validate_jwt_from_request(
     req.extensions_mut().insert(claims.clone());
 
     Ok(claims)
+}
+
+/// Creates mock claims for local development when auth bypass is enabled.
+///
+/// # Security Warning
+/// This function should ONLY be used when BYPASS_AUTH=true in development.
+/// Never use in production environments.
+pub fn dev_claims() -> Claims {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // Well-known dev user ID (consistent across sessions)
+    let dev_user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
+
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as usize;
+
+    Claims {
+        sub: dev_user_id,
+        exp: now + 86400 * 365, // 1 year from now (effectively never expires for dev)
+        iat: now,
+        team_id: None, // No team by default in dev mode
+    }
+}
+
+/// Validates a JWT token from the request, with optional bypass for development.
+///
+/// # Security Warning
+/// When bypass_auth is true, this skips all JWT validation and returns mock claims.
+/// This should ONLY be enabled in local development environments.
+pub fn validate_jwt_from_request_with_bypass(
+    req: &ServiceRequest,
+    jwt_auth: &JwtAuth,
+    bypass_auth: bool,
+) -> Result<Claims, AppError> {
+    if bypass_auth {
+        // SECURITY: Auth bypass is enabled - using mock claims
+        tracing::warn!("⚠️  AUTH BYPASS ENABLED - Using dev claims instead of JWT validation");
+        let claims = dev_claims();
+        req.extensions_mut().insert(claims.clone());
+        return Ok(claims);
+    }
+
+    // Normal JWT validation path
+    validate_jwt_from_request(req, jwt_auth)
 }
 
 /// Validates an API key from the request headers.
