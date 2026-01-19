@@ -36,6 +36,9 @@ env:
   DEFAULT_CDK_ACTION: *default_cdk_action # still has to be added to the env because yaml anchors wont work in expressions
 
 jobs:
+  check-ci:
+    uses: ./.github/workflows/ci.yml
+
   deploy-prerequisite:
     runs-on: ubuntu-latest
     permissions:
