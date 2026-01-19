@@ -2,14 +2,12 @@ GameListResponse:
   content:
     application/json:
       schema:
-        examples:
-          - $ref: '../../../game.json'
-        type: object
-        properties:
-          data:
-            array:
-              items:
-                $ref: '../schemas/models.yaml#/Game'
+        $ref: '../schemas/models.yaml#/Game'
+      examples:
+        game_started:
+          $ref: '../../../data-examples/game.json'
+        game_won:
+          $ref: '../../../data-examples/game-copy.json'
 
 
 GameSavedResponse:

@@ -11,10 +11,7 @@ game-get:
       - $ref: '../components/schemas/parameters.yaml#/TeamIdHeader'
     responses:
       '200':
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas/models.yaml#/Game'
+        $ref: '../components/responses/games.yaml#/GameListResponse'
       '401':
         $ref: '../components/responses/errors.yaml#/UnauthorizedError'
       '403':
