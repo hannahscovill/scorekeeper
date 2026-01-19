@@ -71,6 +71,9 @@ fn create_test_data() -> (web::Data<InMemoryDb>, web::Data<JwtAuth>, web::Data<C
         database_url: None,
         jwt_secret: TEST_JWT_SECRET.to_string(),
         bypass_auth: false,
+        tls_enabled: false,
+        tls_cert_path: None,
+        tls_key_path: None,
     });
     (db, jwt_auth, config)
 }

@@ -125,6 +125,9 @@ mod tests {
             database_url: None,
             jwt_secret: TEST_JWT_SECRET.to_string(),
             bypass_auth: false, // Tests should validate auth properly
+            tls_enabled: false,
+            tls_cert_path: None,
+            tls_key_path: None,
         }
     }
 
