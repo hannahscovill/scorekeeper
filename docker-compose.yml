@@ -9,8 +9,13 @@ services:
       - JWT_SECRET=local-development-secret
       - BYPASS_AUTH=true
       - RUST_LOG=debug
+      - TLS_ENABLED=true
+      - TLS_CERT_PATH=/app/certs/cert.pem
+      - TLS_KEY_PATH=/app/certs/key.pem
+    volumes:
+      - ./certs:/app/certs:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-kf", "https://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
