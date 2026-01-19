@@ -31,6 +31,15 @@ async fn main() -> std::io::Result<()> {
     let config = Config::from_env();
     let bind_addr = config.bind_address();
 
+    // SECURITY: Warn if authentication bypass is enabled
+    if config.bypass_auth() {
+        tracing::warn!("🚨🚨🚨 SECURITY WARNING 🚨🚨🚨");
+        tracing::warn!("AUTH BYPASS IS ENABLED - JWT validation is DISABLED");
+        tracing::warn!("This should ONLY be used in local development!");
+        tracing::warn!("DO NOT run in production with BYPASS_AUTH=true");
+        tracing::warn!("🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨");
+    }
+
     // Initialize shared state
     let db = web::Data::new(InMemoryDb::new());
     let jwt_auth = web::Data::new(JwtAuth::new(config.jwt_secret().to_string()));
