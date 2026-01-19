@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/games
+  url: https://{{baseUrl}}/games
   body: json
   auth: inherit
 }
@@ -15,17 +15,17 @@ headers {
 }
 
 body:json {
-  []
+  [{"score":6}]
 }
 
 docs {
   Create one or more games for the authenticated user.
-
+  
   ## Request Body
   An array of game objects to create:
   - `score` (integer, required): The numeric score value
   - `game_id` (string, optional): ID of the game (UUID, optional if context provides it)
-
+  
   ## Responses
   - `201`: Games created successfully
   - `400`: The request was malformed or invalid

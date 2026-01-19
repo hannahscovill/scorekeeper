@@ -1,6 +1,9 @@
 //! Scorekeeper API - Sports score tracking server.
 
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use rustls::ServerConfig;
+use std::fs::File;
+use std::io::BufReader;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -15,6 +18,46 @@ use config::Config;
 use db::InMemoryDb;
 use middleware::auth::JwtAuth;
 use routes::{create_games, get_games, health_check, list_games};
+
+/// Load TLS configuration from certificate and key files.
+fn load_tls_config(cert_path: &str, key_path: &str) -> std::io::Result<ServerConfig> {
+    let cert_file = File::open(cert_path)
+        .map_err(|e| std::io::Error::new(e.kind(), format!("Failed to open cert file: {}", e)))?;
+    let key_file = File::open(key_path)
+        .map_err(|e| std::io::Error::new(e.kind(), format!("Failed to open key file: {}", e)))?;
+
+    let cert_reader = &mut BufReader::new(cert_file);
+    let key_reader = &mut BufReader::new(key_file);
+
+    let certs: Vec<_> = rustls_pemfile::certs(cert_reader)
+        .filter_map(|c| c.ok())
+        .collect();
+
+    let keys: Vec<_> = rustls_pemfile::pkcs8_private_keys(key_reader)
+        .filter_map(|k| k.ok())
+        .collect();
+
+    if certs.is_empty() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "No certificates found in cert file",
+        ));
+    }
+
+    if keys.is_empty() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "No private keys found in key file",
+        ));
+    }
+
+    let config = ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, keys.into_iter().next().unwrap().into())
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+
+    Ok(config)
+}
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -43,22 +86,43 @@ async fn main() -> std::io::Result<()> {
     // Initialize shared state
     let db = web::Data::new(InMemoryDb::new());
     let jwt_auth = web::Data::new(JwtAuth::new(config.jwt_secret().to_string()));
+    let config_for_tls = config.clone();
+    let config = web::Data::new(config);
 
-    info!("Starting server at http://{}:{}", bind_addr.0, bind_addr.1);
-
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(hello)
             .service(health_check)
             .service(list_games)
             .service(get_games)
             .service(create_games)
-    })
-    .bind(bind_addr)?
-    .run()
-    .await
+    });
+
+    // Bind with TLS if enabled, otherwise plain HTTP
+    if config_for_tls.tls_enabled() {
+        let cert_path = config_for_tls.tls_cert_path().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "TLS_CERT_PATH is required when TLS_ENABLED=true",
+            )
+        })?;
+        let key_path = config_for_tls.tls_key_path().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "TLS_KEY_PATH is required when TLS_ENABLED=true",
+            )
+        })?;
+
+        let tls_config = load_tls_config(cert_path, key_path)?;
+        info!("Starting server at https://{}:{}", bind_addr.0, bind_addr.1);
+        server.bind_rustls_0_23(bind_addr, tls_config)?.run().await
+    } else {
+        info!("Starting server at http://{}:{}", bind_addr.0, bind_addr.1);
+        server.bind(bind_addr)?.run().await
+    }
 }
 
 #[cfg(test)]

@@ -15,6 +15,12 @@ pub struct Config {
     pub jwt_secret: String,
     /// Bypass authentication (for development/testing only).
     pub bypass_auth: bool,
+    /// Enable TLS/HTTPS.
+    pub tls_enabled: bool,
+    /// Path to TLS certificate file (.pem).
+    pub tls_cert_path: Option<String>,
+    /// Path to TLS private key file (.pem).
+    pub tls_key_path: Option<String>,
 }
 
 impl Default for Config {
@@ -25,6 +31,9 @@ impl Default for Config {
             database_url: None,
             jwt_secret: "development-secret-change-in-production".to_string(),
             bypass_auth: false,
+            tls_enabled: false,
+            tls_cert_path: None,
+            tls_key_path: None,
         }
     }
 }
@@ -44,6 +53,11 @@ impl Config {
             bypass_auth: std::env::var("BYPASS_AUTH")
                 .map(|v| v.eq_ignore_ascii_case("true"))
                 .unwrap_or(false),
+            tls_enabled: std::env::var("TLS_ENABLED")
+                .map(|v| v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false),
+            tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
+            tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
         }
     }
 
@@ -61,6 +75,21 @@ impl Config {
     pub fn bypass_auth(&self) -> bool {
         self.bypass_auth
     }
+
+    /// Returns whether TLS is enabled.
+    pub fn tls_enabled(&self) -> bool {
+        self.tls_enabled
+    }
+
+    /// Returns the TLS certificate path.
+    pub fn tls_cert_path(&self) -> Option<&str> {
+        self.tls_cert_path.as_deref()
+    }
+
+    /// Returns the TLS private key path.
+    pub fn tls_key_path(&self) -> Option<&str> {
+        self.tls_key_path.as_deref()
+    }
 }
 
 #[cfg(test)]
@@ -75,5 +104,8 @@ mod tests {
         assert!(config.database_url.is_none());
         assert_eq!(config.jwt_secret, "development-secret-change-in-production");
         assert_eq!(config.bypass_auth, false);
+        assert_eq!(config.tls_enabled, false);
+        assert!(config.tls_cert_path.is_none());
+        assert!(config.tls_key_path.is_none());
     }
 }

@@ -1,8 +1,56 @@
 services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: dynamodb-local-dev
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+    ports:
+      - "8000:8000"
+    networks:
+      - scorekeeper-network-dev
+    healthcheck:
+      test: ["CMD-SHELL", "(echo > /dev/tcp/localhost/8000) &>/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin:latest
+    container_name: dynamodb-admin-dev
+    ports:
+      - "8001:8001"
+    environment:
+      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+    networks:
+      - scorekeeper-network-dev
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+
+  dynamodb-init:
+    image: amazon/aws-cli:latest
+    container_name: dynamodb-init-dev
+    environment:
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/bash", "/scripts/init-dynamodb.sh"]
+    networks:
+      - scorekeeper-network-dev
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+
   scorekeeper:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    container_name: scorekeeper-dev
     ports:
       - "8080:8080"
     environment:
@@ -11,12 +59,31 @@ services:
       - JWT_SECRET=local-development-secret
       - BYPASS_AUTH=true
       - RUST_LOG=debug
+      - TLS_ENABLED=true
+      - TLS_CERT_PATH=/app/certs/cert.pem
+      - TLS_KEY_PATH=/app/certs/key.pem
+      - AWS_ENDPOINT_URL_DYNAMODB=http://dynamodb-local:8000
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+      - AWS_REGION=us-east-1
+      - DYNAMODB_TABLE_NAME=scorekeeper-games
     volumes:
       - ./src:/app/src
       - ./Cargo.toml:/app/Cargo.toml
       - ./Cargo.lock:/app/Cargo.lock
+      - ./certs:/app/certs:ro
+    networks:
+      - scorekeeper-network-dev
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-kf", "https://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    depends_on:
+      dynamodb-init:
+        condition: service_completed_successfully
+
+networks:
+  scorekeeper-network-dev:
+    driver: bridge
+

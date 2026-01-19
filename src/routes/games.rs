@@ -4,8 +4,9 @@ use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use chrono::Utc;
 use uuid::Uuid;
 
+use crate::config::Config;
 use crate::db::InMemoryDb;
-use crate::middleware::auth::{extract_bearer_token_from_request, Claims, JwtAuth};
+use crate::middleware::auth::{dev_claims, extract_bearer_token_from_request, Claims, JwtAuth};
 use crate::middleware::validation::{extract_team_id_header, validate_game_create_list};
 use crate::models::error::AppError;
 use crate::models::game::{Game, GameCreateList, GameList};
@@ -23,14 +24,19 @@ pub async fn create_games(
     body: web::Json<GameCreateList>,
     db: web::Data<InMemoryDb>,
     jwt_auth: web::Data<JwtAuth>,
+    config: web::Data<Config>,
 ) -> Result<HttpResponse, AppError> {
-    // Extract and validate JWT token
-    let token = extract_bearer_token_from_request(&req)
-        .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".to_string()))?;
-
-    let claims: Claims = jwt_auth
-        .validate_token(&token)
-        .map_err(|e| AppError::Unauthorized(format!("Invalid token: {}", e)))?;
+    // Extract and validate JWT token (with optional bypass for local development)
+    let claims: Claims = if config.bypass_auth() {
+        tracing::warn!("AUTH BYPASS: Skipping JWT validation for POST /games");
+        dev_claims()
+    } else {
+        let token = extract_bearer_token_from_request(&req)
+            .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".to_string()))?;
+        jwt_auth
+            .validate_token(&token)
+            .map_err(|e| AppError::Unauthorized(format!("Invalid token: {}", e)))?
+    };
 
     // Validate the game list
     let games_input = body.into_inner();
@@ -60,7 +66,7 @@ pub async fn create_games(
 /// - game_id: UUID of the game session
 ///
 /// Headers:
-/// - Authorization: Bearer token (required)
+/// - Authorization: Bearer token (required, unless BYPASS_AUTH=true)
 /// - team-id: Optional UUID to filter games by team
 ///
 /// Responses:
@@ -73,13 +79,17 @@ pub async fn get_games(
     path: web::Path<String>,
     db: web::Data<InMemoryDb>,
     jwt_auth: web::Data<JwtAuth>,
+    config: web::Data<Config>,
 ) -> Result<HttpResponse, AppError> {
-    // Validate JWT token
-    let token = extract_bearer_token_from_request(&req).ok_or_else(AppError::unauthorized)?;
-
-    jwt_auth
-        .validate_token(&token)
-        .map_err(|_| AppError::unauthorized())?;
+    // Validate JWT token (with optional bypass for local development)
+    if config.bypass_auth() {
+        tracing::warn!("AUTH BYPASS: Skipping JWT validation for GET /games/{{game_id}}");
+    } else {
+        let token = extract_bearer_token_from_request(&req).ok_or_else(AppError::unauthorized)?;
+        jwt_auth
+            .validate_token(&token)
+            .map_err(|_| AppError::unauthorized())?;
+    }
 
     // Extract and validate game_id from path
     let game_id_str = path.into_inner();
@@ -107,6 +117,19 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     const TEST_JWT_SECRET: &str = "test-secret-key-for-jwt-testing";
+
+    fn create_test_config() -> Config {
+        Config {
+            host: "0.0.0.0".to_string(),
+            port: 8080,
+            database_url: None,
+            jwt_secret: TEST_JWT_SECRET.to_string(),
+            bypass_auth: false, // Tests should validate auth properly
+            tls_enabled: false,
+            tls_cert_path: None,
+            tls_key_path: None,
+        }
+    }
 
     fn get_current_timestamp() -> usize {
         SystemTime::now()
@@ -181,6 +204,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
+                .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
         )
         .await;
@@ -209,6 +233,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
+                .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
         )
         .await;
@@ -243,6 +268,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
+                .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
         )
         .await;
@@ -273,6 +299,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
+                .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
         )
         .await;
@@ -295,6 +322,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
+                .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
         )
         .await;
@@ -318,6 +346,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
+                .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
         )
         .await;
@@ -343,6 +372,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
+                .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
         )
         .await;
@@ -371,6 +401,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
+                .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
         )
         .await;
@@ -405,6 +436,7 @@ mod tests {
             App::new()
                 .app_data(web::Data::new(db))
                 .app_data(web::Data::new(jwt_auth))
+                .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
         )
         .await;
@@ -434,6 +466,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -469,6 +502,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -497,6 +531,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -521,6 +556,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -546,6 +582,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -574,6 +611,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -615,6 +653,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -650,6 +689,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -688,6 +728,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -722,6 +763,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -754,6 +796,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
@@ -787,6 +830,7 @@ mod tests {
             App::new()
                 .app_data(db.clone())
                 .app_data(jwt_auth.clone())
+                .app_data(web::Data::new(create_test_config()))
                 .service(create_games),
         )
         .await;
