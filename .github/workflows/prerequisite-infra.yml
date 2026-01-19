@@ -40,6 +40,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   deploy-prerequisite:
+    needs: check-ci
     runs-on: ubuntu-latest
     permissions:
       id-token: write

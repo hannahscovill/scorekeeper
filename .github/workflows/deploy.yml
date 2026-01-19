@@ -81,11 +81,7 @@ env:
 jobs:
   # Only run if CI workflow succeeded
   check-ci:
-    runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    steps:
-      - name: CI passed - proceeding with deployment
-        run: echo "CI passed, deployment will proceed"
+    uses: ./.github/workflows/ci.yml
 
   # Ensure prerequisite infrastructure exists (ECR repository)
   prerequisite-infra:
