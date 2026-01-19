@@ -1,21 +1,13 @@
 meta {
-  name: Get Game by ID
+  name: Healthcheck
   type: http
-  seq: 1
+  seq: 3
 }
 
 get {
-  url: https://{{baseUrl}}/games/:game_id
+  url: https://{{baseUrl}}/health
   body: none
   auth: none
-}
-
-params:path {
-  game_id: 2D781C0B-ECFD-40B0-9A04-E4CAAD95EFEF
-}
-
-headers {
-  ~team-id: DB179244-B917-42B4-8849-F8775F194868
 }
 
 docs {
