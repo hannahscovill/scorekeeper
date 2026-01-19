@@ -8,6 +8,7 @@
 
 use actix_web::{http::StatusCode, test, web, App};
 use jsonwebtoken::{encode, EncodingKey, Header};
+use scorekeeper::config::Config;
 use scorekeeper::db::InMemoryDb;
 use scorekeeper::middleware::auth::{Claims, JwtAuth};
 use scorekeeper::models::error::ErrorResponse;
@@ -60,23 +61,31 @@ fn generate_expired_token(secret: &str, user_id: Uuid) -> String {
     .unwrap()
 }
 
-/// Create shared database and JWT auth for tests.
-fn create_test_data() -> (web::Data<InMemoryDb>, web::Data<JwtAuth>) {
+/// Create shared database, JWT auth, and config for tests.
+fn create_test_data() -> (web::Data<InMemoryDb>, web::Data<JwtAuth>, web::Data<Config>) {
     let db = web::Data::new(InMemoryDb::new());
     let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
-    (db, jwt_auth)
+    let config = web::Data::new(Config {
+        host: "0.0.0.0".to_string(),
+        port: 8080,
+        database_url: None,
+        jwt_secret: TEST_JWT_SECRET.to_string(),
+        bypass_auth: false,
+    });
+    (db, jwt_auth, config)
 }
 
 // ==================== Full Game Submission and Retrieval Cycle ====================
 
 #[actix_web::test]
 async fn test_full_game_submission_and_retrieval_cycle() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(health_check)
             .service(get_games)
             .service(create_games),
@@ -140,12 +149,13 @@ async fn test_full_game_submission_and_retrieval_cycle() {
 
 #[actix_web::test]
 async fn test_game_submission_generates_unique_ids() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(create_games),
     )
     .await;
@@ -177,7 +187,7 @@ async fn test_game_submission_generates_unique_ids() {
 
 #[actix_web::test]
 async fn test_team_filtering_across_endpoints() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let user_id = Uuid::new_v4();
     let game_id = Uuid::new_v4();
@@ -198,6 +208,7 @@ async fn test_team_filtering_across_endpoints() {
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games),
     )
     .await;
@@ -251,7 +262,7 @@ async fn test_team_filtering_across_endpoints() {
 
 #[actix_web::test]
 async fn test_team_filtering_with_nonexistent_team() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let user_id = Uuid::new_v4();
     let game_id = Uuid::new_v4();
@@ -266,6 +277,7 @@ async fn test_team_filtering_with_nonexistent_team() {
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games),
     )
     .await;
@@ -290,12 +302,13 @@ async fn test_team_filtering_with_nonexistent_team() {
 
 #[actix_web::test]
 async fn test_unauthorized_access_both_endpoints() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games)
             .service(create_games),
     )
@@ -329,12 +342,13 @@ async fn test_unauthorized_access_both_endpoints() {
 
 #[actix_web::test]
 async fn test_unauthorized_with_invalid_token() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games)
             .service(create_games),
     )
@@ -364,12 +378,13 @@ async fn test_unauthorized_with_invalid_token() {
 
 #[actix_web::test]
 async fn test_unauthorized_with_expired_token() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games)
             .service(create_games),
     )
@@ -401,12 +416,13 @@ async fn test_unauthorized_with_expired_token() {
 
 #[actix_web::test]
 async fn test_unauthorized_with_wrong_secret() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games),
     )
     .await;
@@ -429,12 +445,13 @@ async fn test_unauthorized_with_wrong_secret() {
 
 #[actix_web::test]
 async fn test_validation_error_responses() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(create_games),
     )
     .await;
@@ -463,12 +480,13 @@ async fn test_validation_error_responses() {
 
 #[actix_web::test]
 async fn test_bad_request_invalid_game_id() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games),
     )
     .await;
@@ -492,12 +510,13 @@ async fn test_bad_request_invalid_game_id() {
 
 #[actix_web::test]
 async fn test_bad_request_invalid_team_id_header() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games),
     )
     .await;
@@ -525,7 +544,7 @@ async fn test_bad_request_invalid_team_id_header() {
 
 #[actix_web::test]
 async fn test_health_endpoint() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
@@ -546,7 +565,7 @@ async fn test_health_endpoint() {
 
 #[actix_web::test]
 async fn test_health_endpoint_no_auth_required() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
@@ -567,12 +586,13 @@ async fn test_health_endpoint_no_auth_required() {
 
 #[actix_web::test]
 async fn test_get_games_empty_game_session() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games),
     )
     .await;
@@ -596,12 +616,13 @@ async fn test_get_games_empty_game_session() {
 
 #[actix_web::test]
 async fn test_score_values_preserved_correctly() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(create_games),
     )
     .await;
@@ -636,7 +657,7 @@ async fn test_score_values_preserved_correctly() {
 
 #[actix_web::test]
 async fn test_multiple_users_same_game_session() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let user_a = Uuid::new_v4();
     let user_b = Uuid::new_v4();
@@ -650,6 +671,7 @@ async fn test_multiple_users_same_game_session() {
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(get_games),
     )
     .await;
@@ -676,12 +698,13 @@ async fn test_multiple_users_same_game_session() {
 
 #[actix_web::test]
 async fn test_jwt_claims_user_id_used_for_created_games() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(create_games),
     )
     .await;
@@ -711,12 +734,13 @@ async fn test_jwt_claims_user_id_used_for_created_games() {
 
 #[actix_web::test]
 async fn test_jwt_without_team_id_creates_games_without_team() {
-    let (db, jwt_auth) = create_test_data();
+    let (db, jwt_auth, config) = create_test_data();
 
     let app = test::init_service(
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(create_games),
     )
     .await;

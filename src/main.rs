@@ -43,6 +43,7 @@ async fn main() -> std::io::Result<()> {
     // Initialize shared state
     let db = web::Data::new(InMemoryDb::new());
     let jwt_auth = web::Data::new(JwtAuth::new(config.jwt_secret().to_string()));
+    let config = web::Data::new(config);
 
     info!("Starting server at http://{}:{}", bind_addr.0, bind_addr.1);
 
@@ -50,6 +51,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(config.clone())
             .service(hello)
             .service(health_check)
             .service(list_games)
