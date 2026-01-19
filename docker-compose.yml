@@ -34,21 +34,21 @@ services:
       dynamodb-local:
         condition: service_healthy
 
-  # dynamodb-init:
-  #   image: amazon/aws-cli:latest
-  #   container_name: dynamodb-init
-  #   environment:
-  #     - AWS_ACCESS_KEY_ID=local
-  #     - AWS_SECRET_ACCESS_KEY=local
-  #     - AWS_DEFAULT_REGION=us-east-1
-  #   volumes:
-  #     - ./scripts:/scripts:ro
-  #   entrypoint: ["/bin/bash", "/scripts/init-dynamodb.sh"]
-  #   networks:
-  #     - scorekeeper-network
-  #   depends_on:
-  #     dynamodb-local:
-  #       condition: service_healthy
+  dynamodb-init:
+    image: amazon/aws-cli:latest
+    container_name: dynamodb-init
+    environment:
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/bash", "/scripts/init-dynamodb-local.sh"]
+    networks:
+      - scorekeeper-network
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
 
   scorekeeper:
     build: .
@@ -78,9 +78,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    # depends_on:
-    #   dynamodb-init:
-    #     condition: service_completed_successfully
+    depends_on:
+      dynamodb-init:
+        condition: service_completed_successfully
 
 networks:
   scorekeeper-network:

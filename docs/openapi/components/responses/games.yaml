@@ -1,0 +1,22 @@
+GameResponse:
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/models.yaml#/Game'
+      examples:
+        game_started:
+          $ref: '../examples/_index.yaml#/GameStarted'
+        game_won:
+          $ref: '../examples/_index.yaml#/GameWon'
+
+GameSavedResponse:
+  description: Score recorded successfully
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          data:
+            array:
+              items:
+                $ref: '../schemas/models.yaml#/GameSavedResponseObject'

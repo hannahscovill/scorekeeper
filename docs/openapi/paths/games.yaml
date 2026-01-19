@@ -1,8 +1,8 @@
-games-by-id:
+game-get:
   get:
     summary: Get a game by ID
     description: |
-      Retrieves a specific game by its ID.
+      Retrieves a game by its ID.
     operationId: getGameById
     tags:
       - Games
@@ -11,18 +11,17 @@ games-by-id:
       - $ref: '../components/schemas/parameters.yaml#/TeamIdHeader'
     responses:
       '200':
-        $ref: '../components/responses/games.yaml#/GameListResponse'
+        $ref: '../components/responses/games.yaml#/GameResponse'
       '401':
         $ref: '../components/responses/errors.yaml#/UnauthorizedError'
       '403':
         $ref: '../components/responses/errors.yaml#/ForbiddenError'
       '404':
         $ref: '../components/responses/errors.yaml#/NotFoundError'
-
-games:
+game-post:
   post:
-    summary: Create games
-    description: Create one or more games for the authenticated user
+    summary: Save game
+    description: Save a game
     operationId: createGames
     tags:
       - Games
@@ -31,12 +30,15 @@ games:
       content:
         application/json:
           schema:
-            $ref: '../components/schemas/game.yaml#/GameCreateList'
-          example:
-            - score: 6
+            $ref: '../components/schemas/models.yaml#/Game'
+          examples:
+            game_started:
+              $ref: '../components/examples/_index.yaml#/GameStarted'
+            game_won:
+              $ref: '../components/examples/_index.yaml#/GameWon'
     responses:
       '201':
-        $ref: '../components/responses/games.yaml#/GameCreatedResponse'
+        $ref: '../components/responses/games.yaml#/GameSavedResponse'
       '400':
         $ref: '../components/responses/errors.yaml#/BadRequestError'
       '401':

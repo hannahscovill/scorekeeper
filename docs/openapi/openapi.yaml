@@ -1,23 +1,23 @@
 openapi: 3.0.3
 info:
   title: Scorekeeper API
-  description: API for managing games
+  description: API for managing game history
   version: 1.0.0
 
 servers:
-  - url: localhost:8080
+  - url: https://localhost:8080
     description: Local
-  - url: http://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com/
-    description: Local
+  - url: https://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com/
+    description: Remote
 
 security:
   - bearerAuth: []
 
 paths:
-  /games/{game_id}:
-    $ref: './paths/games.yaml#/games-by-id'
-  /games:
-    $ref: './paths/games.yaml#/games'
+  /game/{game_id}:
+    $ref: './paths/games.yaml#/game-get'
+  /game:
+    $ref: './paths/games.yaml#/game-post'
 
 components:
   securitySchemes:
@@ -29,6 +29,3 @@ components:
 
   schemas:
     $ref: './components/schemas/_index.yaml'
-
-  responses:
-    $ref: './components/responses/_index.yaml'

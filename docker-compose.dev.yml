@@ -39,7 +39,7 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
     volumes:
       - ./scripts:/scripts:ro
-    entrypoint: ["/bin/bash", "/scripts/init-dynamodb.sh"]
+    entrypoint: ["/bin/bash", "/scripts/init-dynamodb-local.sh"]
     networks:
       - scorekeeper-network-dev
     depends_on:
