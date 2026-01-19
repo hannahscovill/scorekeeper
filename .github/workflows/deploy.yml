@@ -122,7 +122,7 @@ jobs:
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
 
       - name: Get stack outputs
-        if: ${{ (inputs.cdk_action || env.DEFAULT_CDK_ACTION) != 'destroy' }}
+        if: ${{ inputs.cdk_action != 'destroy' }}
         id: get-outputs
         run: |
           REPO_URI=$(aws cloudformation describe-stacks \

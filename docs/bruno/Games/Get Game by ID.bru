@@ -1,0 +1,37 @@
+meta {
+  name: Get Game by ID
+  type: http
+  seq: 1
+}
+
+get {
+  url: https://{{baseUrl}}/games/:game_id
+  body: none
+  auth: bearer
+}
+
+params:path {
+  game_id: 2D781C0B-ECFD-40B0-9A04-E4CAAD95EFEF
+}
+
+headers {
+  ~team-id: DB179244-B917-42B4-8849-F8775F194868
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+docs {
+  Retrieves a specific game by its ID.
+  
+  ## Parameters
+  - `game_id` (path, required): Unique identifier for the game (UUID)
+  - `team-id` (header, optional): When present, retrieves scores for the entire team instead of just the authenticated user's score for that game
+  
+  ## Responses
+  - `200`: Game retrieved successfully
+  - `401`: Authentication required or invalid token
+  - `403`: Insufficient permissions to access this resource
+  - `404`: The requested resource was not found
+}

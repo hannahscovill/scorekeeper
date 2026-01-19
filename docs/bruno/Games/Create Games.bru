@@ -1,0 +1,34 @@
+meta {
+  name: Create Games
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/games
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  []
+}
+
+docs {
+  Create one or more games for the authenticated user.
+
+  ## Request Body
+  An array of game objects to create:
+  - `score` (integer, required): The numeric score value
+  - `game_id` (string, optional): ID of the game (UUID, optional if context provides it)
+
+  ## Responses
+  - `201`: Games created successfully
+  - `400`: The request was malformed or invalid
+  - `401`: Authentication required or invalid token
+  - `422`: Request validation failed
+}

@@ -1,0 +1,27 @@
+meta {
+  name: ccf
+  type: http
+  seq: 3
+}
+
+post {
+  url: https://dev-g32naui5mvpwnsg7.auth0.com/oauth/token
+  body: formUrlEncoded
+  auth: inherit
+}
+
+headers {
+  content-type: application/x-www-form-urlencoded
+}
+
+body:form-urlencoded {
+  grant_type: client_credentials
+  client_id: {{sk-web-clientid}}
+  client_secret: {{sk-web-secret}}
+  ~audience: YOUR_API_IDENTIFIER
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
