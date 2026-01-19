@@ -8,7 +8,7 @@ BadRequestError:
   $ref: './errors.yaml#/BadRequestError'
 ValidationError:
   $ref: './errors.yaml#/ValidationError'
-GameListResponse:
-  $ref: './games.yaml#/GameListResponse'
+GameResponse:
+  $ref: './games.yaml#/GameResponse'
 GameSavedResponse:
   $ref: './games.yaml#/GameSavedResponse'

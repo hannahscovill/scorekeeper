@@ -1,14 +1,13 @@
-GameListResponse:
+GameResponse:
   content:
     application/json:
       schema:
         $ref: '../schemas/models.yaml#/Game'
       examples:
         game_started:
-          $ref: '../../../data-examples/game.json'
+          $ref: '../examples/_index.yaml#/GameStarted'
         game_won:
-          $ref: '../../../data-examples/game-copy.json'
-
+          $ref: '../examples/_index.yaml#/GameWon'
 
 GameSavedResponse:
   description: Score recorded successfully

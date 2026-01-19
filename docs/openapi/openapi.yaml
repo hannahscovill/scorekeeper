@@ -29,6 +29,3 @@ components:
 
   schemas:
     $ref: './components/schemas/_index.yaml'
-
-  responses:
-    $ref: './components/responses/_index.yaml'

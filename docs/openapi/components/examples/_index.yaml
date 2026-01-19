@@ -1,0 +1,9 @@
+GameStarted:
+  summary: A game in progress
+  value:
+    $ref: './data-examples/game.json'
+
+GameWon:
+  summary: A completed won game
+  value:
+    $ref: './data-examples/game-copy.json'
