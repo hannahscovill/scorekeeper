@@ -2,10 +2,11 @@
 
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::db::InMemoryDb;
+use crate::db::GameDatabase;
 use crate::middleware::auth::{dev_claims, extract_bearer_token_from_request, Claims, JwtAuth};
 use crate::middleware::validation::{extract_team_id_header, validate_game_create_list};
 use crate::models::error::AppError;
@@ -22,7 +23,7 @@ pub async fn list_games() -> impl Responder {
 pub async fn create_games(
     req: HttpRequest,
     body: web::Json<GameCreateList>,
-    db: web::Data<InMemoryDb>,
+    db: web::Data<Arc<dyn GameDatabase>>,
     jwt_auth: web::Data<JwtAuth>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, AppError> {
@@ -54,7 +55,9 @@ pub async fn create_games(
             created_at: Utc::now(),
         };
         created_games.push(game.clone());
-        db.insert_game(game).map_err(AppError::InternalError)?;
+        db.insert_game(game)
+            .await
+            .map_err(|e| AppError::InternalError(e.to_string()))?;
     }
 
     Ok(HttpResponse::Created().json(created_games))
@@ -77,7 +80,7 @@ pub async fn create_games(
 pub async fn get_games(
     req: HttpRequest,
     path: web::Path<String>,
-    db: web::Data<InMemoryDb>,
+    db: web::Data<Arc<dyn GameDatabase>>,
     jwt_auth: web::Data<JwtAuth>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, AppError> {
@@ -102,7 +105,8 @@ pub async fn get_games(
     // Query games from database
     let games = db
         .get_games_by_game_id(game_id, team_id)
-        .map_err(AppError::internal)?;
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
 
     Ok(HttpResponse::Ok().json(games))
 }
@@ -110,6 +114,7 @@ pub async fn get_games(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::InMemoryDb;
     use crate::models::game::GameCreate;
     use actix_web::http::StatusCode;
     use actix_web::{test, App};
@@ -128,6 +133,8 @@ mod tests {
             tls_enabled: false,
             tls_cert_path: None,
             tls_key_path: None,
+            dynamodb_endpoint_url: None,
+            dynamodb_table_name: None,
         }
     }
 
@@ -192,7 +199,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_games_valid_request() {
-        let db = InMemoryDb::new();
+        let db = Arc::new(InMemoryDb::new());
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let user_id = Uuid::new_v4();
@@ -200,9 +207,10 @@ mod tests {
         let game = Game::new(user_id, game_id, 100);
         db.insert_game(game).unwrap();
 
+        let db_data: Arc<dyn GameDatabase> = db;
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new(db))
+                .app_data(web::Data::new(db_data))
                 .app_data(web::Data::new(jwt_auth))
                 .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
@@ -226,7 +234,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_games_invalid_game_id() {
-        let db = InMemoryDb::new();
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let app = test::init_service(
@@ -251,7 +259,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_games_with_team_id_filter() {
-        let db = InMemoryDb::new();
+        let db = Arc::new(InMemoryDb::new());
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let user_id = Uuid::new_v4();
@@ -264,9 +272,10 @@ mod tests {
         db.insert_game(Game::with_team(user_id, game_id, other_team_id, 200))
             .unwrap();
 
+        let db_data: Arc<dyn GameDatabase> = db;
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new(db))
+                .app_data(web::Data::new(db_data))
                 .app_data(web::Data::new(jwt_auth))
                 .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
@@ -292,7 +301,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_games_unauthorized_no_token() {
-        let db = InMemoryDb::new();
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let app = test::init_service(
@@ -315,7 +324,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_games_unauthorized_invalid_token() {
-        let db = InMemoryDb::new();
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let app = test::init_service(
@@ -339,7 +348,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_games_unauthorized_expired_token() {
-        let db = InMemoryDb::new();
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let app = test::init_service(
@@ -365,7 +374,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_games_empty_result() {
-        let db = InMemoryDb::new();
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let app = test::init_service(
@@ -394,7 +403,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_games_invalid_team_id_header() {
-        let db = InMemoryDb::new();
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let app = test::init_service(
@@ -421,7 +430,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_get_games_multiple_games_for_session() {
-        let db = InMemoryDb::new();
+        let db = Arc::new(InMemoryDb::new());
         let jwt_auth = JwtAuth::new(TEST_JWT_SECRET.to_string());
 
         let user_id = Uuid::new_v4();
@@ -432,9 +441,10 @@ mod tests {
         db.insert_game(Game::new(user_id, game_id, 200)).unwrap();
         db.insert_game(Game::new(user_id, game_id, 300)).unwrap();
 
+        let db_data: Arc<dyn GameDatabase> = db;
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new(db))
+                .app_data(web::Data::new(db_data))
                 .app_data(web::Data::new(jwt_auth))
                 .app_data(web::Data::new(create_test_config()))
                 .service(get_games),
@@ -459,7 +469,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_success() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -495,7 +506,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_empty_array_returns_422() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -524,7 +536,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_unauthorized_no_token() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -549,7 +562,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_unauthorized_invalid_token() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -575,7 +589,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_unauthorized_expired_token() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -604,7 +619,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_batch_multiple() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -646,7 +662,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_user_id_from_jwt() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -682,7 +699,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_no_team_id_in_jwt() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -721,7 +739,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_generates_game_id_when_not_provided() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -756,7 +775,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_single_item() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -789,7 +809,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_negative_score_value() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(
@@ -823,7 +844,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_create_games_zero_score_value() {
-        let db = web::Data::new(InMemoryDb::new());
+        let db: Arc<dyn GameDatabase> = Arc::new(InMemoryDb::new());
+        let db = web::Data::new(db);
         let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
 
         let app = test::init_service(

@@ -21,6 +21,10 @@ pub struct Config {
     pub tls_cert_path: Option<String>,
     /// Path to TLS private key file (.pem).
     pub tls_key_path: Option<String>,
+    /// DynamoDB endpoint URL (for local development).
+    pub dynamodb_endpoint_url: Option<String>,
+    /// DynamoDB table name.
+    pub dynamodb_table_name: Option<String>,
 }
 
 impl Default for Config {
@@ -34,6 +38,8 @@ impl Default for Config {
             tls_enabled: false,
             tls_cert_path: None,
             tls_key_path: None,
+            dynamodb_endpoint_url: None,
+            dynamodb_table_name: None,
         }
     }
 }
@@ -58,6 +64,8 @@ impl Config {
                 .unwrap_or(false),
             tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
             tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
+            dynamodb_endpoint_url: std::env::var("AWS_ENDPOINT_URL_DYNAMODB").ok(),
+            dynamodb_table_name: std::env::var("DYNAMODB_TABLE_NAME").ok(),
         }
     }
 
@@ -90,6 +98,16 @@ impl Config {
     pub fn tls_key_path(&self) -> Option<&str> {
         self.tls_key_path.as_deref()
     }
+
+    /// Returns the DynamoDB endpoint URL.
+    pub fn dynamodb_endpoint_url(&self) -> Option<&str> {
+        self.dynamodb_endpoint_url.as_deref()
+    }
+
+    /// Returns the DynamoDB table name.
+    pub fn dynamodb_table_name(&self) -> Option<&str> {
+        self.dynamodb_table_name.as_deref()
+    }
 }
 
 #[cfg(test)]
@@ -107,5 +125,7 @@ mod tests {
         assert_eq!(config.tls_enabled, false);
         assert!(config.tls_cert_path.is_none());
         assert!(config.tls_key_path.is_none());
+        assert!(config.dynamodb_endpoint_url.is_none());
+        assert!(config.dynamodb_table_name.is_none());
     }
 }

@@ -4,6 +4,7 @@ use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use rustls::ServerConfig;
 use std::fs::File;
 use std::io::BufReader;
+use std::sync::Arc;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -15,7 +16,7 @@ pub mod routes;
 pub mod services;
 
 use config::Config;
-use db::InMemoryDb;
+use db::{DynamoDbRepository, GameDatabase, InMemoryDb};
 use middleware::auth::JwtAuth;
 use routes::{create_games, get_games, health_check, list_games};
 
@@ -83,8 +84,27 @@ async fn main() -> std::io::Result<()> {
         tracing::warn!("🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨");
     }
 
-    // Initialize shared state
-    let db = web::Data::new(InMemoryDb::new());
+    // Initialize database - use DynamoDB if configured, otherwise in-memory
+    let db: Arc<dyn GameDatabase> = if let Some(table_name) = config.dynamodb_table_name() {
+        info!("Initializing DynamoDB client for table: {}", table_name);
+        let sdk_config = if let Some(endpoint_url) = config.dynamodb_endpoint_url() {
+            info!("Using DynamoDB endpoint: {}", endpoint_url);
+            aws_config::from_env()
+                .endpoint_url(endpoint_url)
+                .load()
+                .await
+        } else {
+            aws_config::load_from_env().await
+        };
+        let client = aws_sdk_dynamodb::Client::new(&sdk_config);
+        Arc::new(DynamoDbRepository::new(client, table_name.to_string()))
+    } else {
+        info!("Using in-memory database");
+        Arc::new(InMemoryDb::new())
+    };
+    let db = web::Data::new(db);
+
+    // Initialize other shared state
     let jwt_auth = web::Data::new(JwtAuth::new(config.jwt_secret().to_string()));
     let config_for_tls = config.clone();
     let config = web::Data::new(config);

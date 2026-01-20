@@ -1,6 +1,6 @@
 //! Database trait abstractions for the scorekeeper API.
 
-use std::future::Future;
+use async_trait::async_trait;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -33,23 +33,24 @@ pub type DatabaseResult<T> = Result<T, DatabaseError>;
 ///
 /// This trait abstracts the storage layer, allowing different implementations
 /// such as in-memory storage for testing or DynamoDB for production.
+#[async_trait]
 pub trait GameDatabase: Send + Sync {
     /// Inserts a game into the database.
-    fn insert_game(&self, game: Game) -> impl Future<Output = DatabaseResult<Game>> + Send;
+    async fn insert_game(&self, game: Game) -> DatabaseResult<Game>;
 
     /// Gets a game by its unique ID.
-    fn get_game(&self, id: &Uuid) -> impl Future<Output = DatabaseResult<Option<Game>>> + Send;
+    async fn get_game(&self, id: &Uuid) -> DatabaseResult<Option<Game>>;
 
     /// Gets all games in the database.
-    fn get_all_games(&self) -> impl Future<Output = DatabaseResult<Vec<Game>>> + Send;
+    async fn get_all_games(&self) -> DatabaseResult<Vec<Game>>;
 
     /// Deletes a game by its unique ID.
-    fn delete_game(&self, id: &Uuid) -> impl Future<Output = DatabaseResult<Option<Game>>> + Send;
+    async fn delete_game(&self, id: &Uuid) -> DatabaseResult<Option<Game>>;
 
     /// Gets all games for a specific game session, optionally filtered by team.
-    fn get_games_by_game_id(
+    async fn get_games_by_game_id(
         &self,
         game_id: Uuid,
         team_id: Option<Uuid>,
-    ) -> impl Future<Output = DatabaseResult<Vec<Game>>> + Send;
+    ) -> DatabaseResult<Vec<Game>>;
 }

@@ -1,13 +1,16 @@
 //! Database layer for the scorekeeper API.
 
+pub mod dynamodb;
 pub mod traits;
 
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::RwLock;
 use uuid::Uuid;
 
 use crate::models::Game;
 
+pub use dynamodb::DynamoDbRepository;
 pub use traits::{DatabaseError, DatabaseResult, GameDatabase};
 
 /// In-memory database for development and testing.
@@ -86,6 +89,7 @@ impl Default for InMemoryDb {
     }
 }
 
+#[async_trait]
 impl GameDatabase for InMemoryDb {
     async fn insert_game(&self, game: Game) -> DatabaseResult<Game> {
         let mut games = self
