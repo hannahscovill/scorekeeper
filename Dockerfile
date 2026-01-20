@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:1.83 AS builder
+FROM rust:1.92 AS builder
 
 WORKDIR /app
 
@@ -18,8 +18,8 @@ COPY src ./src
 # Build the application
 RUN touch src/main.rs && cargo build --release
 
-# Runtime stage
-FROM debian:bookworm-slim
+# Runtime stage - using trixie for newer glibc
+FROM debian:trixie-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \

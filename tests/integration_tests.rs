@@ -9,11 +9,12 @@
 use actix_web::{http::StatusCode, test, web, App};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use scorekeeper::config::Config;
-use scorekeeper::db::InMemoryDb;
+use scorekeeper::db::{GameDatabase, InMemoryDb};
 use scorekeeper::middleware::auth::{Claims, JwtAuth};
 use scorekeeper::models::error::ErrorResponse;
 use scorekeeper::models::game::{Game, GameCreate};
 use scorekeeper::routes::{create_games, get_games, health_check};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -62,8 +63,8 @@ fn generate_expired_token(secret: &str, user_id: Uuid) -> String {
 }
 
 /// Create shared database, JWT auth, and config for tests.
-fn create_test_data() -> (web::Data<InMemoryDb>, web::Data<JwtAuth>, web::Data<Config>) {
-    let db = web::Data::new(InMemoryDb::new());
+fn create_test_data() -> (Arc<InMemoryDb>, web::Data<JwtAuth>, web::Data<Config>) {
+    let db = Arc::new(InMemoryDb::new());
     let jwt_auth = web::Data::new(JwtAuth::new(TEST_JWT_SECRET.to_string()));
     let config = web::Data::new(Config {
         host: "0.0.0.0".to_string(),
@@ -74,8 +75,16 @@ fn create_test_data() -> (web::Data<InMemoryDb>, web::Data<JwtAuth>, web::Data<C
         tls_enabled: false,
         tls_cert_path: None,
         tls_key_path: None,
+        dynamodb_endpoint_url: None,
+        dynamodb_table_name: None,
     });
     (db, jwt_auth, config)
+}
+
+/// Convert InMemoryDb Arc to trait object for app data
+fn db_to_app_data(db: Arc<InMemoryDb>) -> web::Data<Arc<dyn GameDatabase>> {
+    let db: Arc<dyn GameDatabase> = db;
+    web::Data::new(db)
 }
 
 // ==================== Full Game Submission and Retrieval Cycle ====================
@@ -86,7 +95,7 @@ async fn test_full_game_submission_and_retrieval_cycle() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(health_check)
@@ -156,7 +165,7 @@ async fn test_game_submission_generates_unique_ids() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(create_games),
@@ -209,7 +218,7 @@ async fn test_team_filtering_across_endpoints() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games),
@@ -278,7 +287,7 @@ async fn test_team_filtering_with_nonexistent_team() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games),
@@ -309,7 +318,7 @@ async fn test_unauthorized_access_both_endpoints() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games)
@@ -349,7 +358,7 @@ async fn test_unauthorized_with_invalid_token() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games)
@@ -385,7 +394,7 @@ async fn test_unauthorized_with_expired_token() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games)
@@ -423,7 +432,7 @@ async fn test_unauthorized_with_wrong_secret() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games),
@@ -452,7 +461,7 @@ async fn test_validation_error_responses() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(create_games),
@@ -487,7 +496,7 @@ async fn test_bad_request_invalid_game_id() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games),
@@ -517,7 +526,7 @@ async fn test_bad_request_invalid_team_id_header() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games),
@@ -551,7 +560,7 @@ async fn test_health_endpoint() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .service(health_check),
     )
@@ -572,7 +581,7 @@ async fn test_health_endpoint_no_auth_required() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .service(health_check),
     )
@@ -593,7 +602,7 @@ async fn test_get_games_empty_game_session() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games),
@@ -623,7 +632,7 @@ async fn test_score_values_preserved_correctly() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(create_games),
@@ -672,7 +681,7 @@ async fn test_multiple_users_same_game_session() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(get_games),
@@ -705,7 +714,7 @@ async fn test_jwt_claims_user_id_used_for_created_games() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(create_games),
@@ -741,7 +750,7 @@ async fn test_jwt_without_team_id_creates_games_without_team() {
 
     let app = test::init_service(
         App::new()
-            .app_data(db.clone())
+            .app_data(db_to_app_data(db.clone()))
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(create_games),
