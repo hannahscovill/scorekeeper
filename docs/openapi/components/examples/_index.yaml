@@ -7,3 +7,13 @@ GameWon:
   summary: A completed won game
   value:
     $ref: './data-examples/game-copy.json'
+
+GuessRequest:
+  summary: A guess submission with two guesses
+  value:
+    $ref: './data-examples/guess-request.json'
+
+GuessResponse:
+  summary: Response after saving a guess
+  value:
+    $ref: './data-examples/guess-response.json'

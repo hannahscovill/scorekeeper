@@ -18,6 +18,8 @@ paths:
     $ref: './paths/games.yaml#/game-get'
   /game:
     $ref: './paths/games.yaml#/game-post'
+  /guess:
+    $ref: './paths/guess.yaml#/guess-put'
 
 components:
   securitySchemes:

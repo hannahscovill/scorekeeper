@@ -172,3 +172,50 @@ Puzzle:
     - word
     - date_iso_day
 
+GameDomain:
+  type: object
+  properties:
+    puzzle_date_iso_day:
+      type: string
+      description: YYYY-MM-DD
+      example: '2026-01-15'
+    moves:
+      type: array
+      items:
+        type: string
+        minLength: 5
+        maxLength: 5
+      minItems: 1
+      maxItems: 6
+      description: Array of guessed words
+  required:
+    - puzzle_date_iso_day
+    - moves
+
+GuessSavedResponse:
+  type: object
+  properties:
+    game_id:
+      type: string
+      description: Unique identifier for the game
+      example: '62CB33CC-EAF1-49DF-9E26-B0ED40F65359'
+    moves_qty:
+      type: integer
+      description: Count of guesses made
+      example: 2
+    won:
+      type: boolean
+      description: Whether the player won the game
+      example: true
+    moves:
+      type: array
+      items:
+        $ref: '#/Guess'
+      minItems: 1
+      maxItems: 6
+      description: Array of guesses with detailed move information
+  required:
+    - game_id
+    - moves_qty
+    - won
+    - moves

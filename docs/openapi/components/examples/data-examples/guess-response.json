@@ -1,0 +1,61 @@
+{
+  "game_id": "62CB33CC-EAF1-49DF-9E26-B0ED40F65359",
+  "moves_qty": 2,
+  "won": true,
+  "moves": [
+    [
+      {
+        "letter": "c",
+        "letter_contained_in_answer": false,
+        "correct_letter_and_position": false
+      },
+      {
+        "letter": "r",
+        "letter_contained_in_answer": true,
+        "correct_letter_and_position": false
+      },
+      {
+        "letter": "a",
+        "letter_contained_in_answer": true,
+        "correct_letter_and_position": false
+      },
+      {
+        "letter": "n",
+        "letter_contained_in_answer": false,
+        "correct_letter_and_position": false
+      },
+      {
+        "letter": "e",
+        "letter_contained_in_answer": true,
+        "correct_letter_and_position": true
+      }
+    ],
+    [
+      {
+        "letter": "s",
+        "letter_contained_in_answer": true,
+        "correct_letter_and_position": true
+      },
+      {
+        "letter": "t",
+        "letter_contained_in_answer": true,
+        "correct_letter_and_position": true
+      },
+      {
+        "letter": "a",
+        "letter_contained_in_answer": true,
+        "correct_letter_and_position": true
+      },
+      {
+        "letter": "r",
+        "letter_contained_in_answer": true,
+        "correct_letter_and_position": true
+      },
+      {
+        "letter": "e",
+        "letter_contained_in_answer": true,
+        "correct_letter_and_position": true
+      }
+    ]
+  ]
+}
