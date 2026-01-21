@@ -29,10 +29,14 @@ type GuessGraded = [
     GuessLetterGraded,
 ];
 
-interface GameGraded {
-    game_id: string;
-    moves_qty: number;
-    won: boolean;
+interface GameMetadata {
+    game_id: string
+    user_id: string
+    moves_qty: number
+    won: boolean,
+}
+
+interface GameGraded extends GameMetadata {
     moves: [                 // 1-6 items
         GuessGraded,
         GuessGraded?,
@@ -43,10 +47,14 @@ interface GameGraded {
     ];
 }
 
+interface Score extends GameMetadata {
+    score: string[]         // 1-6 5-char strings. The emojis that represent the graded game
+}
+
 // Profile
 // ### GET:profile.          // a user's full profile
 
-interface UserProfileBasics {
+interface UserProfilePreview {
     user_id: string
     display_name: string
     name_pronunciation_url?: string
@@ -55,7 +63,7 @@ interface UserProfileBasics {
 }
 
 // Response Body: UserProfile
-interface UserProfile extends UserProfileBasics {
+interface UserProfile extends UserProfilePreview {
     full_name?: string
     team_ids: string[]
     email: string
@@ -78,11 +86,12 @@ interface TeamMembership {
 }
 
 // request response: Teammate
-interface Teammate extends UserProfileBasics {
+interface Teammate extends UserProfilePreview {
     role: TeamRole
     joined_at_millis: number
 }
 
+// ### GET:team
 interface Team {
     team_id: string          // uuid
     team_name: string
@@ -90,11 +99,30 @@ interface Team {
     members: Teammate[]
 }
 
+// Scoreboard
+
 interface Scoreboard {
     scoreboard_id: string    // uuid
     team_id: string          // uuid
     puzzle_date_iso_day: string   // which puzzle this scoreboard is for
+    participants_qty: number
+    score: Score[]          // the app will join the user preview from the team call
 }
+
+type ScoreboardPreview = Omit<Scoreboard, 'score'>
+
+// ### GET:scoreboard
+//      request params:
+//         - team_id: string
+//         - team_id: string
+//         - preview: boolean
+//     Response:
+//         body: if preview=true, returns ScoreboardPreview, else Scoreboard
+//         headers:
+//         page_qty: string
+//         pg_query_forward?: string
+//         pg_query_backward?: string
+
 
 // ## Internal data
 interface GameDynamo {
