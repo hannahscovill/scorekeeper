@@ -17,6 +17,10 @@ tags:
     description: User profile management
   - name: Teams
     description: Team management and membership
+  - name: Score
+    description: Individual user score retrieval
+  - name: Scoreboard
+    description: Team scoreboard retrieval and display
 
 paths:
   /guess:
@@ -62,6 +66,31 @@ paths:
           description: Unauthorized
 
   /team:
+    get:
+      summary: Get a team
+      description: Retrieve a team by ID
+      operationId: getTeam
+      tags:
+        - Teams
+      parameters:
+        - name: team_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Unique identifier for the team
+      responses:
+        '200':
+          description: Team retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Team not found
+
     post:
       summary: Create a team
       description: Create a new team. The authenticated user becomes the team admin.
@@ -169,6 +198,130 @@ paths:
         '404':
           description: Team or user not found
 
+  /score:
+    get:
+      summary: Get user scores
+      description: Retrieve scores for a user. If user_id is not provided, returns scores for the authenticated user.
+      operationId: getScore
+      tags:
+        - Score
+      parameters:
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Unique identifier for the user. If not provided, inferred from auth.
+        - name: puzzle_date_iso_day
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter by puzzle date (YYYY-MM-DD)
+        - name: start_dt_millis
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: Start date filter in milliseconds
+        - name: end_dt_millis
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: End date filter in milliseconds
+      responses:
+        '200':
+          description: Scores retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Score'
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+
+  /scoreboard:
+    get:
+      summary: Get scoreboard
+      description: Retrieve scoreboards for a team. Use preview=true for a lightweight response without scores. If start_dt_millis or end_dt_millis is provided, only preview mode is returned.
+      operationId: getScoreboard
+      tags:
+        - Scoreboard
+      parameters:
+        - name: team_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Unique identifier for the team
+        - name: puzzle_date_iso_day
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: The puzzle date (YYYY-MM-DD)
+        - name: preview
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: If true, returns ScoreboardPreview without scores
+        - name: start_dt_millis
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: Start date filter in milliseconds. If provided, only preview mode is returned.
+        - name: end_dt_millis
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: End date filter in milliseconds. If provided, only preview mode is returned.
+        - name: page_size
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: Number of items per page. If not provided, returns max response.
+      responses:
+        '200':
+          description: Scoreboard retrieved successfully
+          headers:
+            page_qty:
+              schema:
+                type: string
+              description: Total number of pages
+            pg_query_forward:
+              schema:
+                type: string
+              description: Query string to get the next page
+            pg_query_backward:
+              schema:
+                type: string
+              description: Query string to get the previous page
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Scoreboard'
+                  - $ref: '#/components/schemas/ScoreboardPreview'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Team or scoreboard not found
+
 components:
 
   securitySchemes:
@@ -230,17 +383,21 @@ components:
       items:
         $ref: '#/components/schemas/GuessLetterGraded'
 
-    GameGraded:
+    GameMetadata:
       type: object
       required:
         - game_id
+        - user_id
         - moves_qty
         - won
-        - moves
       properties:
         game_id:
           type: string
           description: Unique identifier for this game
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        user_id:
+          type: string
+          description: Unique identifier for the user who played
           example: "550e8400-e29b-41d4-a716-446655440000"
         moves_qty:
           type: integer
@@ -250,15 +407,40 @@ components:
         won:
           type: boolean
           description: Whether the player won the game
-        moves:
-          type: array
-          description: List of graded guesses (1-6 items)
-          minItems: 1
-          maxItems: 6
-          items:
-            $ref: '#/components/schemas/GuessGraded'
 
-    UserProfileBasics:
+    GameGraded:
+      allOf:
+        - $ref: '#/components/schemas/GameMetadata'
+        - type: object
+          required:
+            - moves
+          properties:
+            moves:
+              type: array
+              description: List of graded guesses (1-6 items)
+              minItems: 1
+              maxItems: 6
+              items:
+                $ref: '#/components/schemas/GuessGraded'
+
+    Score:
+      allOf:
+        - $ref: '#/components/schemas/GameMetadata'
+        - type: object
+          required:
+            - score
+          properties:
+            score:
+              type: array
+              description: 1-6 5-char strings. The emojis that represent the graded game
+              minItems: 1
+              maxItems: 6
+              items:
+                type: string
+                minLength: 5
+                maxLength: 5
+
+    UserProfilePreview:
       type: object
       required:
         - user_id
@@ -287,7 +469,7 @@ components:
 
     UserProfile:
       allOf:
-        - $ref: '#/components/schemas/UserProfileBasics'
+        - $ref: '#/components/schemas/UserProfilePreview'
         - type: object
           required:
             - team_ids
@@ -364,7 +546,7 @@ components:
 
     Teammate:
       allOf:
-        - $ref: '#/components/schemas/UserProfileBasics'
+        - $ref: '#/components/schemas/UserProfilePreview'
         - type: object
           required:
             - role
@@ -408,6 +590,8 @@ components:
         - scoreboard_id
         - team_id
         - puzzle_date_iso_day
+        - participants_qty
+        - score
       properties:
         scoreboard_id:
           type: string
@@ -421,3 +605,35 @@ components:
           type: string
           format: date
           description: The puzzle date this scoreboard is for (YYYY-MM-DD)
+        participants_qty:
+          type: integer
+          description: Number of participants on this scoreboard
+        score:
+          type: array
+          description: The scores for this scoreboard
+          items:
+            $ref: '#/components/schemas/Score'
+
+    ScoreboardPreview:
+      type: object
+      required:
+        - scoreboard_id
+        - team_id
+        - puzzle_date_iso_day
+        - participants_qty
+      properties:
+        scoreboard_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the scoreboard
+        team_id:
+          type: string
+          format: uuid
+          description: Team this scoreboard belongs to
+        puzzle_date_iso_day:
+          type: string
+          format: date
+          description: The puzzle date this scoreboard is for (YYYY-MM-DD)
+        participants_qty:
+          type: integer
+          description: Number of participants on this scoreboard

@@ -51,6 +51,15 @@ interface Score extends GameMetadata {
     score: string[]         // 1-6 5-char strings. The emojis that represent the graded game
 }
 
+// ### GET:score             // get a user's scores
+//      request params:
+//         - user_id?: string        // if not provided, inferred from auth
+//         - puzzle_date_iso_day?: string
+//         - start_dt_millis?: number
+//         - end_dt_millis?: number
+//     Response:
+//         body: Score[]
+
 // Profile
 // ### GET:profile.          // a user's full profile
 
@@ -112,10 +121,15 @@ interface Scoreboard {
 type ScoreboardPreview = Omit<Scoreboard, 'score'>
 
 // ### GET:scoreboard
+//     If start_dt_millis || end_dt_millis, only returns preview mode
 //      request params:
-//         - team_id: string
+//         - puzzle_date_iso_day: string
 //         - team_id: string
 //         - preview: boolean
+//         - start_dt_millis?: number
+//         - end_dt_millis?: number
+//      request headers:
+//         - page_size?: number // left blank will return max response
 //     Response:
 //         body: if preview=true, returns ScoreboardPreview, else Scoreboard
 //         headers:
