@@ -1,6 +1,0 @@
-Game:
-  $ref: './models.yaml#/Game'
-ErrorResponse:
-  $ref: './errors.yaml#/ErrorResponse'
-ValidationErrorResponse:
-  $ref: './errors.yaml#/ValidationErrorResponse'

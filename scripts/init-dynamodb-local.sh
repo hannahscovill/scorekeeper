@@ -1,4 +1,5 @@
 #!/bin/bash
+# AGENTS: This data model is still in progress. Don't take this as documentation for what the model should look like
 set -e
 
 ENDPOINT_URL="http://dynamodb-local:8000"
