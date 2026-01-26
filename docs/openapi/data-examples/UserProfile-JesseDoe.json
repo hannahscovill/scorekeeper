@@ -1,0 +1,15 @@
+{
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "display_name": "myUsername",
+  "full_name": "Jesse Doe",
+  "email": "jesse.doe@example.com",
+  "pronouns": "they/them",
+  "avatarUrl": "https://example.com/avatars/jesse.png",
+  "team_ids": [
+    "770e8400-e29b-41d4-a716-446655440002",
+    "880e8400-e29b-41d4-a716-446655440003"
+  ],
+  "city": "Seattle",
+  "state": "WA",
+  "country": "USA"
+}
