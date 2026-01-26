@@ -2,3 +2,4 @@
 zzLocalDev/
 certs/
 **.pem
+*.DS_Store*

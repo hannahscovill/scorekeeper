@@ -77,7 +77,7 @@ impl DynamoDbRepository {
         let user_id = item
             .get("user_id")
             .and_then(|v| v.as_s().ok())
-            .and_then(|s| Uuid::parse_str(s).ok())
+            .map(|s| s.to_string())
             .ok_or_else(|| DatabaseError::Other("Missing or invalid user_id".to_string()))?;
 
         let game_id = item

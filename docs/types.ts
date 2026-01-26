@@ -9,17 +9,29 @@
 // ### PUT:guess/
 
 // Request Body: Game
-interface Game {
+interface Game { // pls use GameUngraded instead
     puzzle_date_iso_day: string;
     moves: string[];          // 1-6 items, each string is alphanumeric and 5 letters long
 }
 
+interface GameUngraded { // pls rename GameUngraded
+    puzzle_date_iso_day: string;
+    movesUngraded: string[];          // 1-6 items, each string is alphanumeric and 5 letters long
+}
+
+// Front End only??
+interface GameGraded {
+    puzzle_date_iso_day: string
+    movesGraded: GuessGraded[]
+}
+
 
 // Response Body: GameGraded
+type LetterGrade = 'correct' | 'contained' | 'wrong';
+
 interface GuessLetterGraded {
     letter: string;           // string length == 1
-    letter_contained_in_answer: boolean;
-    correct_letter_and_position: boolean;
+    grade: LetterGrade;
 }
 type GuessGraded = [
     GuessLetterGraded,

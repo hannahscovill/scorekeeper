@@ -1,63 +1,178 @@
-//! JWT authentication middleware.
+//! JWT authentication middleware with Auth0 JWKS support.
 
-use actix_web::{dev::ServiceRequest, HttpMessage, HttpRequest};
-use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use actix_web::{dev::Payload, web, FromRequest, HttpRequest};
+use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use tracing;
-use uuid::Uuid;
+use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::RwLock;
 
 use crate::models::AppError;
 
-/// JWT Claims structure for authentication tokens.
+/// JWT Claims structure matching Auth0 token format.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    /// Subject - the user ID.
-    pub sub: Uuid,
-    /// Expiration timestamp (Unix time).
-    pub exp: usize,
+    /// Issuer - the Auth0 domain.
+    pub iss: String,
+    /// Subject - the user ID (e.g., "auth0|123456").
+    pub sub: String,
+    /// Audience - services this token can access.
+    pub aud: Aud,
     /// Issued at timestamp (Unix time).
     pub iat: usize,
-    /// Optional team ID for team-scoped access.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub team_id: Option<Uuid>,
+    /// Expiration timestamp (Unix time).
+    pub exp: usize,
+    /// Scopes granted to this token.
+    #[serde(default)]
+    pub scope: Option<String>,
+    /// Authorized party - the client ID.
+    #[serde(default)]
+    pub azp: Option<String>,
 }
 
-/// JWT Authentication handler.
+/// Audience can be a single string or array of strings.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum Aud {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl Aud {
+    pub fn contains(&self, audience: &str) -> bool {
+        match self {
+            Aud::Single(s) => s == audience,
+            Aud::Multiple(v) => v.iter().any(|s| s == audience),
+        }
+    }
+}
+
+/// JWKS (JSON Web Key Set) response from Auth0.
+#[derive(Debug, Deserialize)]
+struct JwksResponse {
+    keys: Vec<Jwk>,
+}
+
+/// Individual JSON Web Key.
+#[derive(Debug, Deserialize, Clone)]
+struct Jwk {
+    kid: String,
+    #[allow(dead_code)]
+    kty: String,
+    n: String,
+    e: String,
+}
+
+/// Global JWKS cache.
+static JWKS_CACHE: OnceCell<RwLock<HashMap<String, Jwk>>> = OnceCell::new();
+
+fn get_jwks_cache() -> &'static RwLock<HashMap<String, Jwk>> {
+    JWKS_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+/// JWT Authentication handler with JWKS support.
 #[derive(Clone)]
 pub struct JwtAuth {
-    secret: String,
+    /// Auth0 domain (e.g., "dev-xxx.us.auth0.com")
+    auth0_domain: String,
+    /// Expected audience
+    audience: String,
 }
 
 impl JwtAuth {
-    /// Creates a new JwtAuth with the given secret.
-    pub fn new(secret: String) -> Self {
-        Self { secret }
+    /// Creates a new JwtAuth for Auth0.
+    pub fn new(auth0_domain: String, audience: String) -> Self {
+        Self {
+            auth0_domain,
+            audience,
+        }
+    }
+
+    /// Fetches JWKS from Auth0 and caches the keys.
+    async fn fetch_jwks(&self) -> Result<(), AppError> {
+        let jwks_url = format!("https://{}/.well-known/jwks.json", self.auth0_domain);
+
+        let response = reqwest::get(&jwks_url)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to fetch JWKS: {}", e)))?;
+
+        let jwks: JwksResponse = response
+            .json()
+            .await
+            .map_err(|e| AppError::InternalError(format!("Failed to parse JWKS: {}", e)))?;
+
+        let cache = get_jwks_cache();
+        let mut cache_write = cache
+            .write()
+            .map_err(|e| AppError::InternalError(format!("JWKS cache lock error: {}", e)))?;
+
+        for key in jwks.keys {
+            cache_write.insert(key.kid.clone(), key);
+        }
+
+        Ok(())
+    }
+
+    /// Gets a key from cache or fetches from Auth0.
+    async fn get_key(&self, kid: &str) -> Result<Jwk, AppError> {
+        // Try cache first
+        {
+            let cache = get_jwks_cache();
+            if let Ok(cache_read) = cache.read() {
+                if let Some(key) = cache_read.get(kid) {
+                    return Ok(key.clone());
+                }
+            }
+        }
+
+        // Fetch and retry
+        self.fetch_jwks().await?;
+
+        let cache = get_jwks_cache();
+        let cache_read = cache
+            .read()
+            .map_err(|e| AppError::InternalError(format!("JWKS cache lock error: {}", e)))?;
+
+        cache_read
+            .get(kid)
+            .cloned()
+            .ok_or_else(|| AppError::Unauthorized(format!("Unknown key ID: {}", kid)))
     }
 
     /// Validates a JWT token and returns the claims if valid.
-    pub fn validate_token(&self, token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
-        let validation = Validation::new(Algorithm::HS256);
-        let token_data = decode::<Claims>(
-            token,
-            &DecodingKey::from_secret(self.secret.as_bytes()),
-            &validation,
-        )?;
+    pub async fn validate_token(&self, token: &str) -> Result<Claims, AppError> {
+        // Decode header to get key ID
+        let header = decode_header(token)
+            .map_err(|e| AppError::Unauthorized(format!("Invalid token header: {}", e)))?;
+
+        let kid = header
+            .kid
+            .ok_or_else(|| AppError::Unauthorized("Token missing key ID".to_string()))?;
+
+        // Get the signing key
+        let jwk = self.get_key(&kid).await?;
+
+        // Create decoding key from RSA components
+        let decoding_key = DecodingKey::from_rsa_components(&jwk.n, &jwk.e)
+            .map_err(|e| AppError::Unauthorized(format!("Invalid key: {}", e)))?;
+
+        // Set up validation
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.set_audience(&[&self.audience]);
+        validation.set_issuer(&[format!("https://{}/", self.auth0_domain)]);
+
+        // Decode and validate
+        let token_data = decode::<Claims>(token, &decoding_key, &validation)
+            .map_err(|e| AppError::Unauthorized(format!("Invalid token: {}", e)))?;
+
         Ok(token_data.claims)
     }
 }
 
-/// Extracts the bearer token from the Authorization header.
-pub fn extract_bearer_token(req: &ServiceRequest) -> Option<String> {
-    req.headers()
-        .get("Authorization")?
-        .to_str()
-        .ok()?
-        .strip_prefix("Bearer ")
-        .map(|s| s.to_string())
-}
-
 /// Extracts the bearer token from an HttpRequest.
-pub fn extract_bearer_token_from_request(req: &HttpRequest) -> Option<String> {
+pub fn extract_bearer_token(req: &HttpRequest) -> Option<String> {
     req.headers()
         .get("Authorization")?
         .to_str()
@@ -66,178 +181,41 @@ pub fn extract_bearer_token_from_request(req: &HttpRequest) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Validates a JWT token from the request and returns the claims.
-///
-/// This function extracts the bearer token from the Authorization header,
-/// validates it using the provided JwtAuth, and stores the claims in the
-/// request extensions for later access by handlers.
-pub fn validate_jwt_from_request(
-    req: &ServiceRequest,
-    jwt_auth: &JwtAuth,
-) -> Result<Claims, AppError> {
-    let token = extract_bearer_token(req)
-        .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".to_string()))?;
+/// Implement FromRequest for Claims to enable automatic extraction in handlers.
+impl FromRequest for Claims {
+    type Error = AppError;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
 
-    let claims = jwt_auth
-        .validate_token(&token)
-        .map_err(|e| AppError::Unauthorized(format!("Invalid token: {}", e)))?;
+    fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
+        let req = req.clone();
 
-    // Store claims in request extensions for handlers to access
-    req.extensions_mut().insert(claims.clone());
+        Box::pin(async move {
+            // Get JwtAuth from app data
+            let jwt_auth = req
+                .app_data::<web::Data<JwtAuth>>()
+                .ok_or_else(|| AppError::InternalError("JwtAuth not configured".to_string()))?;
 
-    Ok(claims)
-}
+            // Extract bearer token
+            let token = extract_bearer_token(&req).ok_or_else(|| {
+                AppError::Unauthorized("Missing Authorization header".to_string())
+            })?;
 
-/// Creates mock claims for local development when auth bypass is enabled.
-///
-/// # Security Warning
-/// This function should ONLY be used when BYPASS_AUTH=true in development.
-/// Never use in production environments.
-pub fn dev_claims() -> Claims {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    // Well-known dev user ID (consistent across sessions)
-    let dev_user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as usize;
-
-    Claims {
-        sub: dev_user_id,
-        exp: now + 86400 * 365, // 1 year from now (effectively never expires for dev)
-        iat: now,
-        team_id: None, // No team by default in dev mode
+            // Validate and return claims
+            jwt_auth.validate_token(&token).await
+        })
     }
-}
-
-/// Validates a JWT token from the request, with optional bypass for development.
-///
-/// # Security Warning
-/// When bypass_auth is true, this skips all JWT validation and returns mock claims.
-/// This should ONLY be enabled in local development environments.
-pub fn validate_jwt_from_request_with_bypass(
-    req: &ServiceRequest,
-    jwt_auth: &JwtAuth,
-    bypass_auth: bool,
-) -> Result<Claims, AppError> {
-    if bypass_auth {
-        // SECURITY: Auth bypass is enabled - using mock claims
-        tracing::warn!("⚠️  AUTH BYPASS ENABLED - Using dev claims instead of JWT validation");
-        let claims = dev_claims();
-        req.extensions_mut().insert(claims.clone());
-        return Ok(claims);
-    }
-
-    // Normal JWT validation path
-    validate_jwt_from_request(req, jwt_auth)
-}
-
-/// Validates an API key from the request headers.
-///
-/// This is a placeholder implementation that will be expanded later.
-pub fn validate_api_key(req: &HttpRequest) -> Result<(), AppError> {
-    // Placeholder: accept any request for now
-    let _ = req;
-    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use actix_web::test::TestRequest;
-    use jsonwebtoken::{encode, EncodingKey, Header};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn create_test_jwt_auth() -> JwtAuth {
-        JwtAuth::new("test-secret-key-for-jwt-testing".to_string())
-    }
-
-    fn get_current_timestamp() -> usize {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as usize
-    }
-
-    fn create_test_token(claims: &Claims, secret: &str) -> String {
-        encode(
-            &Header::default(),
-            claims,
-            &EncodingKey::from_secret(secret.as_bytes()),
-        )
-        .unwrap()
-    }
-
-    #[test]
-    fn test_valid_token_validation() {
-        let jwt_auth = create_test_jwt_auth();
-        let now = get_current_timestamp();
-        let claims = Claims {
-            sub: Uuid::new_v4(),
-            exp: now + 3600, // 1 hour from now
-            iat: now,
-            team_id: Some(Uuid::new_v4()),
-        };
-
-        let token = create_test_token(&claims, "test-secret-key-for-jwt-testing");
-        let result = jwt_auth.validate_token(&token);
-
-        assert!(result.is_ok());
-        let validated_claims = result.unwrap();
-        assert_eq!(validated_claims.sub, claims.sub);
-        assert_eq!(validated_claims.team_id, claims.team_id);
-    }
-
-    #[test]
-    fn test_expired_token_rejection() {
-        let jwt_auth = create_test_jwt_auth();
-        let now = get_current_timestamp();
-        let claims = Claims {
-            sub: Uuid::new_v4(),
-            exp: now - 3600, // 1 hour ago (expired)
-            iat: now - 7200,
-            team_id: None,
-        };
-
-        let token = create_test_token(&claims, "test-secret-key-for-jwt-testing");
-        let result = jwt_auth.validate_token(&token);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_invalid_token_rejection() {
-        let jwt_auth = create_test_jwt_auth();
-        let now = get_current_timestamp();
-        let claims = Claims {
-            sub: Uuid::new_v4(),
-            exp: now + 3600,
-            iat: now,
-            team_id: None,
-        };
-
-        // Create token with different secret
-        let token = create_test_token(&claims, "wrong-secret-key");
-        let result = jwt_auth.validate_token(&token);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_malformed_token_rejection() {
-        let jwt_auth = create_test_jwt_auth();
-        let result = jwt_auth.validate_token("not-a-valid-jwt-token");
-
-        assert!(result.is_err());
-    }
 
     #[test]
     fn test_extract_bearer_token() {
         let req = TestRequest::default()
             .insert_header(("Authorization", "Bearer my-test-token"))
-            .to_srv_request();
+            .to_http_request();
 
         let token = extract_bearer_token(&req);
         assert_eq!(token, Some("my-test-token".to_string()));
@@ -245,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_extract_bearer_token_missing_header() {
-        let req = TestRequest::default().to_srv_request();
+        let req = TestRequest::default().to_http_request();
 
         let token = extract_bearer_token(&req);
         assert!(token.is_none());
@@ -255,34 +233,24 @@ mod tests {
     fn test_extract_bearer_token_invalid_prefix() {
         let req = TestRequest::default()
             .insert_header(("Authorization", "Basic my-test-token"))
-            .to_srv_request();
+            .to_http_request();
 
         let token = extract_bearer_token(&req);
         assert!(token.is_none());
     }
 
     #[test]
-    fn test_validate_api_key_placeholder() {
-        let req = TestRequest::default().to_http_request();
-        assert!(validate_api_key(&req).is_ok());
+    fn test_aud_single_contains() {
+        let aud = Aud::Single("my-audience".to_string());
+        assert!(aud.contains("my-audience"));
+        assert!(!aud.contains("other"));
     }
 
     #[test]
-    fn test_claims_without_team_id() {
-        let jwt_auth = create_test_jwt_auth();
-        let now = get_current_timestamp();
-        let claims = Claims {
-            sub: Uuid::new_v4(),
-            exp: now + 3600,
-            iat: now,
-            team_id: None,
-        };
-
-        let token = create_test_token(&claims, "test-secret-key-for-jwt-testing");
-        let result = jwt_auth.validate_token(&token);
-
-        assert!(result.is_ok());
-        let validated_claims = result.unwrap();
-        assert!(validated_claims.team_id.is_none());
+    fn test_aud_multiple_contains() {
+        let aud = Aud::Multiple(vec!["aud1".to_string(), "aud2".to_string()]);
+        assert!(aud.contains("aud1"));
+        assert!(aud.contains("aud2"));
+        assert!(!aud.contains("aud3"));
     }
 }

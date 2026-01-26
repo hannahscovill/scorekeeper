@@ -7,8 +7,11 @@ info:
 servers:
   - url: https://localhost:8080
     description: Local
-  - url: https://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com/
+  - url: https://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com
     description: Remote
+
+security:
+  - bearerAuth: []
 
 tags:
   - name: Gameplay
@@ -36,6 +39,9 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Game"
+            examples:
+              default:
+                $ref: "data-examples/examples.yaml#/Game"
       responses:
         "200":
           description: Game graded successfully
@@ -43,12 +49,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameGraded"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/GameGraded"
         "304":
-          description: Guess not in words list
+          $ref: "#/components/responses/NotModified"
         "400":
-          description: Invalid request (bad puzzle date, invalid moves format, etc.)
+          $ref: "#/components/responses/BadRequest"
         "404":
-          description: Puzzle not found for the specified date
+          $ref: "#/components/responses/NotFound"
 
   /profile:
     get:
@@ -64,8 +73,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/UserProfile"
         "401":
-          description: Unauthorized
+          $ref: "#/components/responses/Unauthorized"
 
   /team:
     get:
@@ -88,10 +100,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Team"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/Team"
         "401":
-          description: Unauthorized
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: Team not found
+          $ref: "#/components/responses/NotFound"
 
     post:
       summary: Create a team
@@ -105,6 +120,9 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateTeamRequest"
+            examples:
+              default:
+                $ref: "data-examples/examples.yaml#/CreateTeamRequest"
       responses:
         "201":
           description: Team created successfully
@@ -112,10 +130,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Team"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/Team"
         "400":
-          description: Invalid request (missing or invalid team name)
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: Unauthorized
+          $ref: "#/components/responses/Unauthorized"
 
     delete:
       summary: Delete a team
@@ -137,11 +158,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Team"
         "401":
-          description: Unauthorized
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: Forbidden - only team admins can delete a team
+          $ref: "#/components/responses/Forbidden"
         "404":
-          description: Team not found
+          $ref: "#/components/responses/NotFound"
 
   /team/teammate:
     put:
@@ -156,6 +177,9 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/TeamMembership"
+            examples:
+              default:
+                $ref: "data-examples/examples.yaml#/TeamMembership"
       responses:
         "200":
           description: Teammate added successfully
@@ -163,14 +187,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Teammate"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/Teammate"
         "400":
-          description: Invalid request
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: Unauthorized
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: Forbidden - insufficient permissions to add teammate
+          $ref: "#/components/responses/Forbidden"
         "404":
-          description: Team or user not found
+          $ref: "#/components/responses/NotFound"
 
     delete:
       summary: Remove a teammate
@@ -192,13 +219,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Teammate"
         "400":
-          description: Invalid request
+          $ref: "#/components/responses/BadRequest"
         "401":
-          description: Unauthorized
+          $ref: "#/components/responses/Unauthorized"
         "403":
-          description: Forbidden - insufficient permissions to remove teammate
+          $ref: "#/components/responses/Forbidden"
         "404":
-          description: Team or user not found
+          $ref: "#/components/responses/NotFound"
 
   /score:
     get:
@@ -220,6 +247,7 @@ paths:
           schema:
             type: string
             format: date
+          example: '2026-01-01'
           description: Filter by puzzle date (YYYY-MM-DD)
         - name: start_dt_millis
           in: query
@@ -244,10 +272,13 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Score"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/ScoreArray"
         "401":
-          description: Unauthorized
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: User not found
+          $ref: "#/components/responses/NotFound"
 
   /scoreboard:
     get:
@@ -319,10 +350,13 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/Scoreboard"
                   - $ref: "#/components/schemas/ScoreboardPreview"
+              examples:
+                scoreboard:
+                  $ref: "data-examples/examples.yaml#/Scoreboard"
         "401":
-          description: Unauthorized
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: Team or scoreboard not found
+          $ref: "#/components/responses/NotFound"
 
 components:
   securitySchemes:
@@ -331,6 +365,48 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: JWT token for authentication
+
+  responses:
+    NotModified:
+      description: Not Modified
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: "not modified"
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: "bad request"
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: "unauthorized"
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: "forbidden"
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: "not found"
 
   schemas:
     Game:
@@ -355,12 +431,19 @@ components:
             description: A 5-character alphanumeric guess
             example: "crane"
 
+    LetterGrade:
+      type: string
+      enum:
+        - correct
+        - contained
+        - wrong
+      description: The grade for a single letter in a guess
+
     GuessLetterGraded:
       type: object
       required:
         - letter
-        - letter_contained_in_answer
-        - correct_letter_and_position
+        - grade
       properties:
         letter:
           type: string
@@ -368,12 +451,8 @@ components:
           maxLength: 1
           description: Single character from the guess
           example: "c"
-        letter_contained_in_answer:
-          type: boolean
-          description: Whether this letter exists anywhere in the answer
-        correct_letter_and_position:
-          type: boolean
-          description: Whether this letter is in the correct position
+        grade:
+          $ref: "#/components/schemas/LetterGrade"
 
     GuessGraded:
       type: array
@@ -478,7 +557,7 @@ components:
             full_name:
               type: string
               description: User's full name
-              example: "Alex Johnson"
+              example: "Jesse Doe"
             team_ids:
               type: array
               items:
@@ -637,3 +716,12 @@ components:
         participants_qty:
           type: integer
           description: Number of participants on this scoreboard
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Error message

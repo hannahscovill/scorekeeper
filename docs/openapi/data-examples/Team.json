@@ -1,0 +1,20 @@
+{
+  "team_id": "770e8400-e29b-41d4-a716-446655440002",
+  "team_name": "Word Wizards",
+  "created_at_millis": 1705334400000,
+  "members": [
+    {
+      "user_id": "550e8400-e29b-41d4-a716-446655440000",
+      "display_name": "wordmaster42",
+      "pronouns": "they/them",
+      "role": "admin",
+      "joined_at_millis": 1705334400000
+    },
+    {
+      "user_id": "660e8400-e29b-41d4-a716-446655440001",
+      "display_name": "puzzlelover99",
+      "role": "member",
+      "joined_at_millis": 1705420800000
+    }
+  ]
+}

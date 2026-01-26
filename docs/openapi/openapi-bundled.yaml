@@ -1,0 +1,1279 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Scorekeeper API",
+    "description": "API for the Scorekeeper word puzzle game",
+    "version": "2.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://localhost:8080",
+      "description": "Local"
+    },
+    {
+      "url": "https://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com",
+      "description": "Remote"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Gameplay",
+      "description": "Game submission and grading"
+    },
+    {
+      "name": "Users",
+      "description": "User profile management"
+    },
+    {
+      "name": "Teams",
+      "description": "Team management and membership"
+    },
+    {
+      "name": "Score",
+      "description": "Individual user score retrieval"
+    },
+    {
+      "name": "Scoreboard",
+      "description": "Team scoreboard retrieval and display"
+    }
+  ],
+  "paths": {
+    "/guess": {
+      "post": {
+        "summary": "Submit a game with moves",
+        "description": "Submit a game with puzzle date and moves (guesses). Returns graded results for each guess.",
+        "operationId": "submitGuess",
+        "tags": [
+          "Gameplay"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Game"
+              },
+              "examples": {
+                "default": {
+                  "summary": "A game submission with puzzle date and moves",
+                  "value": {
+                    "puzzle_date_iso_day": "2024-01-15",
+                    "moves": [
+                      "crane",
+                      "slate",
+                      "moist",
+                      "point"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Game graded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameGraded"
+                },
+                "examples": {
+                  "default": {
+                    "summary": "A graded game response with letter-by-letter results",
+                    "value": {
+                      "game_id": "550e8400-e29b-41d4-a716-446655440000",
+                      "user_id": "660e8400-e29b-41d4-a716-446655440001",
+                      "moves_qty": 4,
+                      "won": true,
+                      "moves": [
+                        [
+                          {
+                            "letter": "c",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "r",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "a",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "n",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "e",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          }
+                        ],
+                        [
+                          {
+                            "letter": "s",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "l",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "a",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "t",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "e",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          }
+                        ],
+                        [
+                          {
+                            "letter": "m",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "o",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": true
+                          },
+                          {
+                            "letter": "i",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": true
+                          },
+                          {
+                            "letter": "s",
+                            "letter_contained_in_answer": false,
+                            "correct_letter_and_position": false
+                          },
+                          {
+                            "letter": "t",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": false
+                          }
+                        ],
+                        [
+                          {
+                            "letter": "p",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": true
+                          },
+                          {
+                            "letter": "o",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": true
+                          },
+                          {
+                            "letter": "i",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": true
+                          },
+                          {
+                            "letter": "n",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": true
+                          },
+                          {
+                            "letter": "t",
+                            "letter_contained_in_answer": true,
+                            "correct_letter_and_position": true
+                          }
+                        ]
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "summary": "Get user profile",
+        "description": "Retrieve the authenticated user's full profile",
+        "operationId": "getProfile",
+        "tags": [
+          "Users"
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfile"
+                },
+                "examples": {
+                  "default": {
+                    "summary": "A full user profile",
+                    "value": {
+                      "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                      "display_name": "myUsername",
+                      "full_name": "Jesse Doe",
+                      "email": "jesse.doe@example.com",
+                      "pronouns": "they/them",
+                      "avatarUrl": "https://example.com/avatars/jesse.png",
+                      "team_ids": [
+                        "770e8400-e29b-41d4-a716-446655440002",
+                        "880e8400-e29b-41d4-a716-446655440003"
+                      ],
+                      "city": "Seattle",
+                      "state": "WA",
+                      "country": "USA"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/team": {
+      "get": {
+        "summary": "Get a team",
+        "description": "Retrieve a team by ID",
+        "operationId": "getTeam",
+        "tags": [
+          "Teams"
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique identifier for the team"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Team retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Team"
+                },
+                "examples": {
+                  "default": {
+                    "summary": "A team with members",
+                    "value": {
+                      "team_id": "770e8400-e29b-41d4-a716-446655440002",
+                      "team_name": "Word Wizards",
+                      "created_at_millis": 1705334400000,
+                      "members": [
+                        {
+                          "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                          "display_name": "wordmaster42",
+                          "pronouns": "they/them",
+                          "role": "admin",
+                          "joined_at_millis": 1705334400000
+                        },
+                        {
+                          "user_id": "660e8400-e29b-41d4-a716-446655440001",
+                          "display_name": "puzzlelover99",
+                          "role": "member",
+                          "joined_at_millis": 1705420800000
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a team",
+        "description": "Create a new team. The authenticated user becomes the team admin.",
+        "operationId": "createTeam",
+        "tags": [
+          "Teams"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTeamRequest"
+              },
+              "examples": {
+                "default": {
+                  "summary": "Request to create a new team",
+                  "value": {
+                    "team_name": "Word Wizards"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Team created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Team"
+                },
+                "examples": {
+                  "default": {
+                    "$ref": "#/paths/~1team/get/responses/200/content/application~1json/examples/default"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a team",
+        "description": "Delete an existing team. Only team admins can delete a team.",
+        "operationId": "deleteTeam",
+        "tags": [
+          "Teams"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteTeamRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Team deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Team"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/team/teammate": {
+      "put": {
+        "summary": "Add a teammate",
+        "description": "Add a user to a team with a specified role",
+        "operationId": "addTeammate",
+        "tags": [
+          "Teams"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamMembership"
+              },
+              "examples": {
+                "default": {
+                  "summary": "A team membership assignment",
+                  "value": {
+                    "team_id": "770e8400-e29b-41d4-a716-446655440002",
+                    "user_id": "660e8400-e29b-41d4-a716-446655440001",
+                    "role": "member"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Teammate added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Teammate"
+                },
+                "examples": {
+                  "default": {
+                    "summary": "A teammate with profile and role",
+                    "value": {
+                      "user_id": "660e8400-e29b-41d4-a716-446655440001",
+                      "display_name": "puzzlelover99",
+                      "pronouns": "she/her",
+                      "role": "member",
+                      "joined_at_millis": 1705420800000
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a teammate",
+        "description": "Remove a user from a team",
+        "operationId": "removeTeammate",
+        "tags": [
+          "Teams"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamMembership"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Teammate removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Teammate"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/score": {
+      "get": {
+        "summary": "Get user scores",
+        "description": "Retrieve scores for a user. If user_id is not provided, returns scores for the authenticated user.",
+        "operationId": "getScore",
+        "tags": [
+          "Score"
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique identifier for the user. If not provided, inferred from auth."
+          },
+          {
+            "name": "puzzle_date_iso_day",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01",
+            "description": "Filter by puzzle date (YYYY-MM-DD)"
+          },
+          {
+            "name": "start_dt_millis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Start date filter in milliseconds"
+          },
+          {
+            "name": "end_dt_millis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "End date filter in milliseconds"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scores retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Score"
+                  }
+                },
+                "examples": {
+                  "default": {
+                    "summary": "An array of scores for a user",
+                    "value": [
+                      {
+                        "game_id": "550e8400-e29b-41d4-a716-446655440000",
+                        "user_id": "660e8400-e29b-41d4-a716-446655440001",
+                        "moves_qty": 4,
+                        "won": true,
+                        "score": [
+                          "⬛⬛⬛🟨⬛",
+                          "⬛⬛⬛🟨⬛",
+                          "⬛🟩🟩⬛🟨",
+                          "🟩🟩🟩🟩🟩"
+                        ]
+                      },
+                      {
+                        "game_id": "aa0e8400-e29b-41d4-a716-446655440005",
+                        "user_id": "660e8400-e29b-41d4-a716-446655440001",
+                        "moves_qty": 3,
+                        "won": true,
+                        "score": [
+                          "⬛🟨⬛🟨⬛",
+                          "🟨🟩⬛🟩⬛",
+                          "🟩🟩🟩🟩🟩"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/scoreboard": {
+      "get": {
+        "summary": "Get scoreboard",
+        "description": "Retrieve scoreboards for a team. Use preview=true for a lightweight response without scores. If start_dt_millis or end_dt_millis is provided, only preview mode is returned.",
+        "operationId": "getScoreboard",
+        "tags": [
+          "Scoreboard"
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Unique identifier for the team"
+          },
+          {
+            "name": "puzzle_date_iso_day",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "The puzzle date (YYYY-MM-DD)"
+          },
+          {
+            "name": "preview",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "If true, returns ScoreboardPreview without scores"
+          },
+          {
+            "name": "start_dt_millis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Start date filter in milliseconds. If provided, only preview mode is returned."
+          },
+          {
+            "name": "end_dt_millis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "End date filter in milliseconds. If provided, only preview mode is returned."
+          },
+          {
+            "name": "page_size",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Number of items per page. If not provided, returns max response."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scoreboard retrieved successfully",
+            "headers": {
+              "page_qty": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Total number of pages"
+              },
+              "pg_query_forward": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Query string to get the next page"
+              },
+              "pg_query_backward": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Query string to get the previous page"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Scoreboard"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScoreboardPreview"
+                    }
+                  ]
+                },
+                "examples": {
+                  "scoreboard": {
+                    "summary": "A team scoreboard with participant scores",
+                    "value": {
+                      "scoreboard_id": "990e8400-e29b-41d4-a716-446655440004",
+                      "team_id": "770e8400-e29b-41d4-a716-446655440002",
+                      "puzzle_date_iso_day": "2024-01-15",
+                      "participants_qty": 2,
+                      "score": [
+                        {
+                          "game_id": "550e8400-e29b-41d4-a716-446655440000",
+                          "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                          "moves_qty": 3,
+                          "won": true,
+                          "score": [
+                            "⬛🟨⬛🟨⬛",
+                            "🟨🟩⬛🟩⬛",
+                            "🟩🟩🟩🟩🟩"
+                          ]
+                        },
+                        {
+                          "game_id": "aa0e8400-e29b-41d4-a716-446655440005",
+                          "user_id": "660e8400-e29b-41d4-a716-446655440001",
+                          "moves_qty": 4,
+                          "won": true,
+                          "score": [
+                            "⬛⬛⬛🟨⬛",
+                            "⬛⬛⬛🟨⬛",
+                            "⬛🟩🟩⬛🟨",
+                            "🟩🟩🟩🟩🟩"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token for authentication"
+      }
+    },
+    "responses": {
+      "NotModified": {
+        "description": "Not Modified",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "message": "not modified"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "message": "bad request"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "message": "unauthorized"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "message": "forbidden"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "message": "not found"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Game": {
+        "type": "object",
+        "required": [
+          "puzzle_date_iso_day",
+          "moves"
+        ],
+        "properties": {
+          "puzzle_date_iso_day": {
+            "type": "string",
+            "format": "date",
+            "description": "The date of the puzzle in ISO format (YYYY-MM-DD)",
+            "example": "2024-01-15"
+          },
+          "moves": {
+            "type": "array",
+            "description": "List of guesses (1-6 items)",
+            "minItems": 1,
+            "maxItems": 6,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9]{5}$",
+              "description": "A 5-character alphanumeric guess",
+              "example": "crane"
+            }
+          }
+        }
+      },
+      "LetterGrade": {
+        "type": "string",
+        "enum": [
+          "correct",
+          "contained",
+          "wrong"
+        ],
+        "description": "The grade for a single letter in a guess"
+      },
+      "GuessLetterGraded": {
+        "type": "object",
+        "required": [
+          "letter",
+          "grade"
+        ],
+        "properties": {
+          "letter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1,
+            "description": "Single character from the guess",
+            "example": "c"
+          },
+          "grade": {
+            "$ref": "#/components/schemas/LetterGrade"
+          }
+        }
+      },
+      "GuessGraded": {
+        "type": "array",
+        "description": "A graded guess consisting of exactly 5 graded letters",
+        "minItems": 5,
+        "maxItems": 5,
+        "items": {
+          "$ref": "#/components/schemas/GuessLetterGraded"
+        }
+      },
+      "GameMetadata": {
+        "type": "object",
+        "required": [
+          "game_id",
+          "user_id",
+          "moves_qty",
+          "won"
+        ],
+        "properties": {
+          "game_id": {
+            "type": "string",
+            "description": "Unique identifier for this game",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Unique identifier for the user who played",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "moves_qty": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "description": "Number of guesses made"
+          },
+          "won": {
+            "type": "boolean",
+            "description": "Whether the player won the game"
+          }
+        }
+      },
+      "GameGraded": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GameMetadata"
+          },
+          {
+            "type": "object",
+            "required": [
+              "moves"
+            ],
+            "properties": {
+              "moves": {
+                "type": "array",
+                "description": "List of graded guesses (1-6 items)",
+                "minItems": 1,
+                "maxItems": 6,
+                "items": {
+                  "$ref": "#/components/schemas/GuessGraded"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Score": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GameMetadata"
+          },
+          {
+            "type": "object",
+            "required": [
+              "score"
+            ],
+            "properties": {
+              "score": {
+                "type": "array",
+                "description": "1-6 5-char strings. The emojis that represent the graded game",
+                "minItems": 1,
+                "maxItems": 6,
+                "items": {
+                  "type": "string",
+                  "minLength": 5,
+                  "maxLength": 5
+                }
+              }
+            }
+          }
+        ]
+      },
+      "UserProfilePreview": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "Unique identifier for the user",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "display_name": {
+            "type": "string",
+            "description": "User's display name",
+            "example": "wordmaster42"
+          },
+          "name_pronunciation_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to audio file for name pronunciation"
+          },
+          "pronouns": {
+            "type": "string",
+            "description": "User's preferred pronouns",
+            "example": "they/them"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to user's avatar image"
+          }
+        }
+      },
+      "UserProfile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserProfilePreview"
+          },
+          {
+            "type": "object",
+            "required": [
+              "team_ids",
+              "email"
+            ],
+            "properties": {
+              "full_name": {
+                "type": "string",
+                "description": "User's full name",
+                "example": "Jesse Doe"
+              },
+              "team_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "List of team IDs the user belongs to"
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "description": "User's email address"
+              },
+              "city": {
+                "type": "string",
+                "description": "User's city"
+              },
+              "state": {
+                "type": "string",
+                "description": "User's state or province"
+              },
+              "country": {
+                "type": "string",
+                "description": "User's country"
+              }
+            }
+          }
+        ]
+      },
+      "CreateTeamRequest": {
+        "type": "object",
+        "required": [
+          "team_name"
+        ],
+        "properties": {
+          "team_name": {
+            "type": "string",
+            "description": "Name for the new team",
+            "example": "Word Wizards"
+          }
+        }
+      },
+      "DeleteTeamRequest": {
+        "type": "object",
+        "required": [
+          "team_id"
+        ],
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier of the team to delete",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        }
+      },
+      "TeamRole": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "member"
+        ],
+        "description": "Role of a team member"
+      },
+      "TeamMembership": {
+        "type": "object",
+        "required": [
+          "team_id",
+          "user_id",
+          "role"
+        ],
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Unique identifier for the team",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "user_id": {
+            "type": "string",
+            "description": "Unique identifier for the user",
+            "example": "660e8400-e29b-41d4-a716-446655440001"
+          },
+          "role": {
+            "$ref": "#/components/schemas/TeamRole"
+          }
+        }
+      },
+      "Teammate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UserProfilePreview"
+          },
+          {
+            "type": "object",
+            "required": [
+              "role",
+              "joined_at_millis"
+            ],
+            "properties": {
+              "role": {
+                "$ref": "#/components/schemas/TeamRole"
+              },
+              "joined_at_millis": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Unix timestamp in milliseconds when the user joined the team"
+              }
+            }
+          }
+        ]
+      },
+      "Team": {
+        "type": "object",
+        "required": [
+          "team_id",
+          "team_name",
+          "created_at_millis",
+          "members"
+        ],
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the team"
+          },
+          "team_name": {
+            "type": "string",
+            "description": "Name of the team"
+          },
+          "created_at_millis": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in milliseconds when the team was created"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Teammate"
+            },
+            "description": "List of team members"
+          }
+        }
+      },
+      "Scoreboard": {
+        "type": "object",
+        "required": [
+          "scoreboard_id",
+          "team_id",
+          "puzzle_date_iso_day",
+          "participants_qty",
+          "score"
+        ],
+        "properties": {
+          "scoreboard_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the scoreboard"
+          },
+          "team_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Team this scoreboard belongs to"
+          },
+          "puzzle_date_iso_day": {
+            "type": "string",
+            "format": "date",
+            "description": "The puzzle date this scoreboard is for (YYYY-MM-DD)"
+          },
+          "participants_qty": {
+            "type": "integer",
+            "description": "Number of participants on this scoreboard"
+          },
+          "score": {
+            "type": "array",
+            "description": "The scores for this scoreboard",
+            "items": {
+              "$ref": "#/components/schemas/Score"
+            }
+          }
+        }
+      },
+      "ScoreboardPreview": {
+        "type": "object",
+        "required": [
+          "scoreboard_id",
+          "team_id",
+          "puzzle_date_iso_day",
+          "participants_qty"
+        ],
+        "properties": {
+          "scoreboard_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the scoreboard"
+          },
+          "team_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Team this scoreboard belongs to"
+          },
+          "puzzle_date_iso_day": {
+            "type": "string",
+            "format": "date",
+            "description": "The puzzle date this scoreboard is for (YYYY-MM-DD)"
+          },
+          "participants_qty": {
+            "type": "integer",
+            "description": "Number of participants on this scoreboard"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          }
+        }
+      }
+    }
+  }
+}
