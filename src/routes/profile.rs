@@ -7,6 +7,7 @@ use std::sync::RwLock;
 
 use crate::middleware::auth::Claims;
 use crate::models::error::AppError;
+use crate::services::Auth0ManagementService;
 
 /// User profile data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +23,13 @@ pub struct UserProfile {
 pub struct UpdateProfileRequest {
     pub display_name: String,
     pub avatar_url: String,
+}
+
+/// Request body for updating display name via Auth0.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateDisplayNameRequest {
+    pub display_name: String,
 }
 
 /// In-memory profile store (for development).
@@ -86,6 +94,20 @@ pub async fn update_profile(
         .map_err(AppError::InternalError)?;
 
     Ok(HttpResponse::Ok().json(profile))
+}
+
+/// PUT /profile/display-name - Update the current user's display name via Auth0.
+#[put("/profile/display-name")]
+pub async fn update_display_name(
+    claims: Claims,
+    body: web::Json<UpdateDisplayNameRequest>,
+    auth0_service: web::Data<Auth0ManagementService>,
+) -> Result<HttpResponse, AppError> {
+    let response = auth0_service
+        .update_user_display_name(&claims.sub, &body.display_name)
+        .await?;
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
 #[cfg(test)]

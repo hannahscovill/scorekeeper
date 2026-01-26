@@ -15,6 +15,10 @@ pub struct Config {
     pub auth0_domain: String,
     /// Auth0 audience (API identifier).
     pub auth0_audience: String,
+    /// Auth0 M2M client ID for Management API access.
+    pub auth0_m2m_client_id: Option<String>,
+    /// Auth0 M2M client secret for Management API access.
+    pub auth0_m2m_client_secret: Option<String>,
     /// Enable TLS/HTTPS.
     pub tls_enabled: bool,
     /// Path to TLS certificate file (.pem).
@@ -35,6 +39,8 @@ impl Default for Config {
             database_url: None,
             auth0_domain: "dev-g32naui5mvpwnsg7.us.auth0.com".to_string(),
             auth0_audience: "com.hannahscovill.scorekeeper".to_string(),
+            auth0_m2m_client_id: None,
+            auth0_m2m_client_secret: None,
             tls_enabled: false,
             tls_cert_path: None,
             tls_key_path: None,
@@ -58,6 +64,8 @@ impl Config {
                 .unwrap_or_else(|_| "dev-g32naui5mvpwnsg7.us.auth0.com".to_string()),
             auth0_audience: std::env::var("AUTH0_AUDIENCE")
                 .unwrap_or_else(|_| "com.hannahscovill.scorekeeper".to_string()),
+            auth0_m2m_client_id: std::env::var("AUTH0_M2M_CLIENT_ID").ok(),
+            auth0_m2m_client_secret: std::env::var("AUTH0_M2M_CLIENT_SECRET").ok(),
             tls_enabled: std::env::var("TLS_ENABLED")
                 .map(|v| v.eq_ignore_ascii_case("true"))
                 .unwrap_or(false),
@@ -107,6 +115,16 @@ impl Config {
     pub fn dynamodb_table_name(&self) -> Option<&str> {
         self.dynamodb_table_name.as_deref()
     }
+
+    /// Returns the Auth0 M2M client ID.
+    pub fn auth0_m2m_client_id(&self) -> Option<&str> {
+        self.auth0_m2m_client_id.as_deref()
+    }
+
+    /// Returns the Auth0 M2M client secret.
+    pub fn auth0_m2m_client_secret(&self) -> Option<&str> {
+        self.auth0_m2m_client_secret.as_deref()
+    }
 }
 
 #[cfg(test)]
@@ -121,6 +139,8 @@ mod tests {
         assert!(config.database_url.is_none());
         assert_eq!(config.auth0_domain, "dev-g32naui5mvpwnsg7.us.auth0.com");
         assert_eq!(config.auth0_audience, "com.hannahscovill.scorekeeper");
+        assert!(config.auth0_m2m_client_id.is_none());
+        assert!(config.auth0_m2m_client_secret.is_none());
         assert_eq!(config.tls_enabled, false);
         assert!(config.tls_cert_path.is_none());
         assert!(config.tls_key_path.is_none());

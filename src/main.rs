@@ -20,8 +20,10 @@ use config::Config;
 use db::{DynamoDbRepository, GameDatabase, InMemoryDb};
 use middleware::auth::JwtAuth;
 use routes::{
-    create_games, get_games, get_profile, health_check, list_games, update_profile, ProfileStore,
+    create_games, get_games, get_profile, health_check, list_games, update_display_name,
+    update_profile, ProfileStore,
 };
+use services::Auth0ManagementService;
 
 /// Load TLS configuration from certificate and key files.
 fn load_tls_config(cert_path: &str, key_path: &str) -> std::io::Result<ServerConfig> {
@@ -104,6 +106,26 @@ async fn main() -> std::io::Result<()> {
         config.auth0_audience().to_string(),
     ));
     let profile_store = web::Data::new(ProfileStore::new());
+
+    // Initialize Auth0 Management API service (optional - requires M2M credentials)
+    let auth0_service = match (
+        config.auth0_m2m_client_id(),
+        config.auth0_m2m_client_secret(),
+    ) {
+        (Some(client_id), Some(client_secret)) => {
+            info!("Auth0 Management API service enabled");
+            Some(web::Data::new(Auth0ManagementService::new(
+                config.auth0_domain().to_string(),
+                client_id.to_string(),
+                client_secret.to_string(),
+            )))
+        }
+        _ => {
+            info!("Auth0 Management API service disabled (missing M2M credentials)");
+            None
+        }
+    };
+
     let config_for_tls = config.clone();
     let config = web::Data::new(config);
 
@@ -115,7 +137,7 @@ async fn main() -> std::io::Result<()> {
             .allowed_headers(vec![header::AUTHORIZATION, header::CONTENT_TYPE])
             .max_age(3600);
 
-        App::new()
+        let mut app = App::new()
             .wrap(cors)
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
@@ -127,7 +149,14 @@ async fn main() -> std::io::Result<()> {
             .service(get_games)
             .service(create_games)
             .service(get_profile)
-            .service(update_profile)
+            .service(update_profile);
+
+        // Only register the display name endpoint if Auth0 M2M is configured
+        if let Some(ref auth0) = auth0_service {
+            app = app.app_data(auth0.clone()).service(update_display_name);
+        }
+
+        app
     });
 
     // Bind with TLS if enabled, otherwise plain HTTP
