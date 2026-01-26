@@ -7,20 +7,24 @@ meta {
 get {
   url: https://{{baseUrl}}/profile
   body: none
-  auth: inherit
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
 }
 
 docs {
   Retrieves the profile for the currently authenticated user from Auth0.
-
+  
   ## Authentication
   Requires a valid Bearer token (inherited from collection).
-
+  
   ## Prerequisites
   The server must be configured with Auth0 M2M credentials:
   - `AUTH0_M2M_CLIENT_ID`
   - `AUTH0_M2M_CLIENT_SECRET`
-
+  
   ## Responses
   - `200`: Profile retrieved successfully
     ```json
