@@ -9,8 +9,8 @@ use uuid::Uuid;
 pub struct Game {
     /// Unique identifier for the game.
     pub id: Uuid,
-    /// User who created the game.
-    pub user_id: Uuid,
+    /// User who created the game (Auth0 subject, e.g., "auth0|123456").
+    pub user_id: String,
     /// Game session this game belongs to.
     pub game_id: Uuid,
     /// Optional team identifier.
@@ -24,10 +24,10 @@ pub struct Game {
 
 impl Game {
     /// Creates a new game entry.
-    pub fn new(user_id: Uuid, game_id: Uuid, score: i32) -> Self {
+    pub fn new(user_id: impl Into<String>, game_id: Uuid, score: i32) -> Self {
         Self {
             id: Uuid::new_v4(),
-            user_id,
+            user_id: user_id.into(),
             game_id,
             team_id: None,
             score,
@@ -36,10 +36,10 @@ impl Game {
     }
 
     /// Creates a new game entry with a team.
-    pub fn with_team(user_id: Uuid, game_id: Uuid, team_id: Uuid, score: i32) -> Self {
+    pub fn with_team(user_id: impl Into<String>, game_id: Uuid, team_id: Uuid, score: i32) -> Self {
         Self {
             id: Uuid::new_v4(),
-            user_id,
+            user_id: user_id.into(),
             game_id,
             team_id: Some(team_id),
             score,
@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     fn test_new_game() {
-        let user_id = Uuid::new_v4();
+        let user_id = "auth0|123456";
         let game_id = Uuid::new_v4();
         let game = Game::new(user_id, game_id, 100);
 
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_game_with_team() {
-        let user_id = Uuid::new_v4();
+        let user_id = "auth0|789012";
         let game_id = Uuid::new_v4();
         let team_id = Uuid::new_v4();
         let game = Game::with_team(user_id, game_id, team_id, 200);
@@ -113,11 +113,11 @@ mod tests {
 
     #[test]
     fn test_game_serialization() {
-        let user_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+        let user_id = "auth0|550e8400";
         let game_id = Uuid::parse_str("6ba7b810-9dad-11d1-80b4-00c04fd430c8").unwrap();
         let game = Game {
             id: Uuid::parse_str("7c9e6679-7425-40de-944b-e07fc1f90ae7").unwrap(),
-            user_id,
+            user_id: user_id.to_string(),
             game_id,
             team_id: None,
             score: 150,
@@ -136,7 +136,7 @@ mod tests {
     fn test_game_deserialization() {
         let json = r#"{
             "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-            "user_id": "550e8400-e29b-41d4-a716-446655440000",
+            "user_id": "auth0|123456",
             "game_id": "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
             "score": 150,
             "created_at": "2024-01-15T10:30:00Z"
@@ -149,12 +149,12 @@ mod tests {
 
     #[test]
     fn test_game_with_team_serialization() {
-        let user_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+        let user_id = "auth0|550e8400";
         let game_id = Uuid::parse_str("6ba7b810-9dad-11d1-80b4-00c04fd430c8").unwrap();
         let team_id = Uuid::parse_str("a1b2c3d4-e5f6-7890-abcd-ef1234567890").unwrap();
         let game = Game {
             id: Uuid::parse_str("7c9e6679-7425-40de-944b-e07fc1f90ae7").unwrap(),
-            user_id,
+            user_id: user_id.to_string(),
             game_id,
             team_id: Some(team_id),
             score: 200,
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_game_list() {
-        let user_id = Uuid::new_v4();
+        let user_id = "auth0|testuser";
         let game_id = Uuid::new_v4();
         let games: GameList = vec![
             Game::new(user_id, game_id, 100),

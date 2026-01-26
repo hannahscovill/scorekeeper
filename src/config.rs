@@ -11,10 +11,10 @@ pub struct Config {
     pub port: u16,
     /// Database URL.
     pub database_url: Option<String>,
-    /// JWT secret for token signing and validation.
-    pub jwt_secret: String,
-    /// Bypass authentication (for development/testing only).
-    pub bypass_auth: bool,
+    /// Auth0 domain (e.g., "dev-xxx.us.auth0.com").
+    pub auth0_domain: String,
+    /// Auth0 audience (API identifier).
+    pub auth0_audience: String,
     /// Enable TLS/HTTPS.
     pub tls_enabled: bool,
     /// Path to TLS certificate file (.pem).
@@ -33,8 +33,8 @@ impl Default for Config {
             host: "0.0.0.0".to_string(),
             port: 8080,
             database_url: None,
-            jwt_secret: "development-secret-change-in-production".to_string(),
-            bypass_auth: false,
+            auth0_domain: "dev-g32naui5mvpwnsg7.us.auth0.com".to_string(),
+            auth0_audience: "com.hannahscovill.scorekeeper".to_string(),
             tls_enabled: false,
             tls_cert_path: None,
             tls_key_path: None,
@@ -54,11 +54,10 @@ impl Config {
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8080),
             database_url: std::env::var("DATABASE_URL").ok(),
-            jwt_secret: std::env::var("JWT_SECRET")
-                .unwrap_or_else(|_| "development-secret-change-in-production".to_string()),
-            bypass_auth: std::env::var("BYPASS_AUTH")
-                .map(|v| v.eq_ignore_ascii_case("true"))
-                .unwrap_or(false),
+            auth0_domain: std::env::var("AUTH0_DOMAIN")
+                .unwrap_or_else(|_| "dev-g32naui5mvpwnsg7.us.auth0.com".to_string()),
+            auth0_audience: std::env::var("AUTH0_AUDIENCE")
+                .unwrap_or_else(|_| "com.hannahscovill.scorekeeper".to_string()),
             tls_enabled: std::env::var("TLS_ENABLED")
                 .map(|v| v.eq_ignore_ascii_case("true"))
                 .unwrap_or(false),
@@ -74,14 +73,14 @@ impl Config {
         (self.host.clone(), self.port)
     }
 
-    /// Returns the JWT secret.
-    pub fn jwt_secret(&self) -> &str {
-        &self.jwt_secret
+    /// Returns the Auth0 domain.
+    pub fn auth0_domain(&self) -> &str {
+        &self.auth0_domain
     }
 
-    /// Returns whether authentication should be bypassed.
-    pub fn bypass_auth(&self) -> bool {
-        self.bypass_auth
+    /// Returns the Auth0 audience.
+    pub fn auth0_audience(&self) -> &str {
+        &self.auth0_audience
     }
 
     /// Returns whether TLS is enabled.
@@ -120,8 +119,8 @@ mod tests {
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 8080);
         assert!(config.database_url.is_none());
-        assert_eq!(config.jwt_secret, "development-secret-change-in-production");
-        assert_eq!(config.bypass_auth, false);
+        assert_eq!(config.auth0_domain, "dev-g32naui5mvpwnsg7.us.auth0.com");
+        assert_eq!(config.auth0_audience, "com.hannahscovill.scorekeeper");
         assert_eq!(config.tls_enabled, false);
         assert!(config.tls_cert_path.is_none());
         assert!(config.tls_key_path.is_none());

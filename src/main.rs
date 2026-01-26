@@ -1,6 +1,7 @@
 //! Scorekeeper API - Sports score tracking server.
 
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_cors::Cors;
+use actix_web::{get, http::header, web, App, HttpResponse, HttpServer, Responder};
 use rustls::ServerConfig;
 use std::fs::File;
 use std::io::BufReader;
@@ -18,7 +19,9 @@ pub mod services;
 use config::Config;
 use db::{DynamoDbRepository, GameDatabase, InMemoryDb};
 use middleware::auth::JwtAuth;
-use routes::{create_games, get_games, health_check, list_games};
+use routes::{
+    create_games, get_games, get_profile, health_check, list_games, update_profile, ProfileStore,
+};
 
 /// Load TLS configuration from certificate and key files.
 fn load_tls_config(cert_path: &str, key_path: &str) -> std::io::Result<ServerConfig> {
@@ -75,15 +78,6 @@ async fn main() -> std::io::Result<()> {
     let config = Config::from_env();
     let bind_addr = config.bind_address();
 
-    // SECURITY: Warn if authentication bypass is enabled
-    if config.bypass_auth() {
-        tracing::warn!("🚨🚨🚨 SECURITY WARNING 🚨🚨🚨");
-        tracing::warn!("AUTH BYPASS IS ENABLED - JWT validation is DISABLED");
-        tracing::warn!("This should ONLY be used in local development!");
-        tracing::warn!("DO NOT run in production with BYPASS_AUTH=true");
-        tracing::warn!("🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨");
-    }
-
     // Initialize database - use DynamoDB if configured, otherwise in-memory
     let db: Arc<dyn GameDatabase> = if let Some(table_name) = config.dynamodb_table_name() {
         info!("Initializing DynamoDB client for table: {}", table_name);
@@ -105,20 +99,35 @@ async fn main() -> std::io::Result<()> {
     let db = web::Data::new(db);
 
     // Initialize other shared state
-    let jwt_auth = web::Data::new(JwtAuth::new(config.jwt_secret().to_string()));
+    let jwt_auth = web::Data::new(JwtAuth::new(
+        config.auth0_domain().to_string(),
+        config.auth0_audience().to_string(),
+    ));
+    let profile_store = web::Data::new(ProfileStore::new());
     let config_for_tls = config.clone();
     let config = web::Data::new(config);
 
     let server = HttpServer::new(move || {
+        // Configure CORS for local development
+        let cors = Cors::default()
+            .allowed_origin("http://localhost:3000")
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+            .allowed_headers(vec![header::AUTHORIZATION, header::CONTENT_TYPE])
+            .max_age(3600);
+
         App::new()
+            .wrap(cors)
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
+            .app_data(profile_store.clone())
             .app_data(config.clone())
             .service(hello)
             .service(health_check)
             .service(list_games)
             .service(get_games)
             .service(create_games)
+            .service(get_profile)
+            .service(update_profile)
     });
 
     // Bind with TLS if enabled, otherwise plain HTTP

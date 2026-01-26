@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn test_insert_and_get_game() {
         let db = InMemoryDb::new();
-        let user_id = Uuid::new_v4();
+        let user_id = "auth0|testuser";
         let game_id = Uuid::new_v4();
         let game = Game::new(user_id, game_id, 100);
         let id = game.id;
@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn test_delete_game() {
         let db = InMemoryDb::new();
-        let user_id = Uuid::new_v4();
+        let user_id = "auth0|testuser";
         let game_id = Uuid::new_v4();
         let game = Game::new(user_id, game_id, 200);
         let id = game.id;
@@ -180,7 +180,7 @@ mod tests {
     #[test]
     fn test_get_games_by_game_id() {
         let db = InMemoryDb::new();
-        let user_id = Uuid::new_v4();
+        let user_id = "auth0|testuser";
         let game_id = Uuid::new_v4();
         let other_game_id = Uuid::new_v4();
 
@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn test_get_games_by_game_id_with_team_filter() {
         let db = InMemoryDb::new();
-        let user_id = Uuid::new_v4();
+        let user_id = "auth0|testuser";
         let game_id = Uuid::new_v4();
         let team_id = Uuid::new_v4();
         let other_team_id = Uuid::new_v4();

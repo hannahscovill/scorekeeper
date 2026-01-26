@@ -13,7 +13,12 @@ impl GameService {
     }
 
     /// Creates a new game from a GameCreate request.
-    pub fn create_game(&self, user_id: Uuid, game_id: Uuid, create: &GameCreate) -> Game {
+    pub fn create_game(
+        &self,
+        user_id: impl Into<String>,
+        game_id: Uuid,
+        create: &GameCreate,
+    ) -> Game {
         Game::new(user_id, game_id, create.score)
     }
 }
@@ -31,7 +36,7 @@ mod tests {
     #[test]
     fn test_create_game() {
         let service = GameService::new();
-        let user_id = Uuid::new_v4();
+        let user_id = "auth0|testuser";
         let game_id = Uuid::new_v4();
         let create = GameCreate::new(100);
         let game = service.create_game(user_id, game_id, &create);
