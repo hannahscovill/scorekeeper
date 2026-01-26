@@ -1,7 +1,11 @@
 //! Business logic services for the scorekeeper API.
 
+pub mod auth0;
+
 use crate::models::{Game, GameCreate};
 use uuid::Uuid;
+
+pub use auth0::Auth0ManagementService;
 
 /// Service for managing games.
 pub struct GameService;

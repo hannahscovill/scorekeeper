@@ -25,6 +25,7 @@ aws-sdk-dynamodb = "1"
 aws-config = { version = "1", features = ["behavior-version-latest"] }
 async-trait = "0.1"
 base64 = "0.22"
+urlencoding = "2"
 
 [dev-dependencies]
 actix-web = { version = "4", features = ["macros"] }

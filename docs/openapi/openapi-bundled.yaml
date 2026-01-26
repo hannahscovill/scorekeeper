@@ -222,7 +222,7 @@
     "/profile": {
       "get": {
         "summary": "Get user profile",
-        "description": "Retrieve the authenticated user's full profile",
+        "description": "Retrieve the authenticated user's profile from Auth0 user_metadata.\n\nRequires Auth0 M2M credentials to be configured on the server.",
         "operationId": "getProfile",
         "tags": [
           "Users"
@@ -233,25 +233,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserProfile"
+                  "$ref": "#/components/schemas/ProfileResponse"
                 },
                 "examples": {
                   "default": {
-                    "summary": "A full user profile",
                     "value": {
-                      "user_id": "550e8400-e29b-41d4-a716-446655440000",
-                      "display_name": "myUsername",
-                      "full_name": "Jesse Doe",
-                      "email": "jesse.doe@example.com",
-                      "pronouns": "they/them",
-                      "avatarUrl": "https://example.com/avatars/jesse.png",
-                      "team_ids": [
-                        "770e8400-e29b-41d4-a716-446655440002",
-                        "880e8400-e29b-41d4-a716-446655440003"
-                      ],
-                      "city": "Seattle",
-                      "state": "WA",
-                      "country": "USA"
+                      "userId": "auth0|123456789",
+                      "displayName": "wordmaster42"
                     }
                   }
                 }
@@ -260,6 +248,63 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update user profile",
+        "description": "Update the authenticated user's profile in Auth0 user_metadata.\n\nChanges will be reflected in new ID tokens issued after the update.\nRequires Auth0 M2M credentials to be configured on the server.",
+        "operationId": "updateProfile",
+        "tags": [
+          "Users"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "displayName": "New Display Name"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                },
+                "examples": {
+                  "default": {
+                    "value": {
+                      "userId": "auth0|123456789",
+                      "displayName": "New Display Name"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }
@@ -1259,6 +1304,37 @@
           "participants_qty": {
             "type": "integer",
             "description": "Number of participants on this scoreboard"
+          }
+        }
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "required": [
+          "displayName"
+        ],
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "description": "The user's display name",
+            "example": "wordmaster42"
+          }
+        }
+      },
+      "ProfileResponse": {
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "The Auth0 user ID",
+            "example": "auth0|123456789"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "The user's display name (from Auth0 user_metadata)",
+            "example": "wordmaster42"
           }
         }
       },

@@ -3,3 +3,5 @@ zzLocalDev/
 certs/
 **.pem
 *.DS_Store*
+TEST_CREDENTIALS.txt
+.env

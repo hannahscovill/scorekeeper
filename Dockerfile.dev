@@ -1,5 +1,5 @@
 # Development Dockerfile with hot reload using cargo-watch
-FROM rust:1.83
+FROM rust:latest
 
 WORKDIR /app
 
