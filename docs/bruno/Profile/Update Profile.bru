@@ -1,0 +1,55 @@
+meta {
+  name: Update Profile
+  type: http
+  seq: 2
+}
+
+put {
+  url: https://{{baseUrl}}/profile
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Origin: http://localhost:3000
+}
+
+auth:bearer {
+  token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik9udmZjejNLV3oyY0htWGhXUHdMNCJ9.eyJpc3MiOiJodHRwczovL2Rldi1nMzJuYXVpNW12cHduc2c3LnVzLmF1dGgwLmNvbS8iLCJzdWIiOiJhdXRoMHw2OTc2YzZiNTQwNzRhODFkNWIyY2IxYmIiLCJhdWQiOlsiY29tLmhhbm5haHNjb3ZpbGwuc2NvcmVrZWVwZXIiLCJodHRwczovL2Rldi1nMzJuYXVpNW12cHduc2c3LnVzLmF1dGgwLmNvbS91c2VyaW5mbyJdLCJpYXQiOjE3Njk0MTkwMjUsImV4cCI6MTc2OTUwNTQyNSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsImF6cCI6IjRBR1VTS01QV2djNGpNS1VGSUp6YlM3R0JZOUlEWm9iIn0.Nronoj2SizvHgEHuj5GrLcUMc6d0IXhUIfAud-bh2tnr8dYmnMbko1x1YndRHLjwFWCPU9gN_WgfQk6E7qzjLVsZr8nxmMU6LrJSUABBh8LhZ5ovlmnuSmNPpYUhsQ3Waz_NvABOCea3CBk_0zSQNLEkwOvaiMTIYie1Gcu8hFXjuyk_0mmoVP6tVJz_vs_ABPWss7cxEF4N65_WwbUe703YRO0qUOV5-OFvopsPKc5OnZLNc-rY_wRQS-cqL7wMIKydwWhWVJmwgTIPEDrGzSXesubVSjHG4_Ck0gBXsPWnZE_MkU5v6f7n1CK7PXOayGvgbqFKOScrYRtigV18ww
+}
+
+body:json {
+  {
+    "displayName": "New <3"
+  }
+}
+
+docs {
+  Updates the profile for the currently authenticated user in Auth0 user_metadata.
+  
+  Changes will be reflected in new ID tokens issued after the update.
+  
+  ## Authentication
+  Requires a valid Bearer token (inherited from collection).
+  
+  ## Prerequisites
+  The server must be configured with Auth0 M2M credentials:
+  - `AUTH0_M2M_CLIENT_ID`
+  - `AUTH0_M2M_CLIENT_SECRET`
+  
+  ## Request Body
+  - `displayName` (string, required): The user's display name
+  
+  ## Responses
+  - `200`: Profile updated successfully
+    ```json
+    {
+      "userId": "auth0|123456",
+      "displayName": "New Display Name"
+    }
+    ```
+  - `400`: Request body missing required field (displayName)
+  - `401`: Authentication required or invalid token
+  - `404`: User not found in Auth0
+}

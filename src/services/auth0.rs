@@ -35,29 +35,33 @@ struct TokenResponse {
 /// Request body for updating user metadata.
 #[derive(Debug, Serialize)]
 struct UpdateUserRequest {
-    user_metadata: UserMetadata,
+    user_metadata: UserMetadataUpdate,
 }
 
-/// User metadata containing the display name.
-#[derive(Debug, Serialize, Deserialize)]
+/// User metadata for updates (all fields optional).
+#[derive(Debug, Serialize)]
+struct UserMetadataUpdate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    avatar_url: Option<String>,
+}
+
+/// User metadata from Auth0.
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserMetadata {
+    #[serde(default)]
     pub display_name: String,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
 }
 
-/// Response from Auth0 user update endpoint (partial).
+/// Response from Auth0 user endpoints.
 #[derive(Debug, Deserialize)]
 pub struct Auth0User {
     pub user_id: String,
     #[serde(default)]
     pub user_metadata: Option<UserMetadata>,
-}
-
-/// Response returned to the client after updating display name.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateDisplayNameResponse {
-    pub user_id: String,
-    pub display_name: String,
 }
 
 impl Auth0ManagementService {
@@ -143,12 +147,58 @@ impl Auth0ManagementService {
         Ok(access_token)
     }
 
-    /// Updates a user's display name in Auth0.
-    pub async fn update_user_display_name(
+    /// Gets a user from Auth0 by user ID.
+    pub async fn get_user(&self, user_id: &str) -> Result<Auth0User, AppError> {
+        let token = self.get_access_token().await?;
+
+        let url = format!(
+            "https://{}/api/v2/users/{}",
+            self.domain,
+            urlencoding::encode(user_id)
+        );
+
+        debug!("Fetching user from Auth0: {}", user_id);
+
+        let response = self
+            .client
+            .get(&url)
+            .bearer_auth(&token)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("Failed to fetch user from Auth0: {}", e);
+                AppError::internal("Failed to communicate with Auth0")
+            })?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            error!("Auth0 get user failed: {} - {}", status, body);
+
+            return match status.as_u16() {
+                404 => Err(AppError::not_found("User not found")),
+                401 | 403 => Err(AppError::internal(
+                    "Auth0 Management API authorization failed",
+                )),
+                _ => Err(AppError::internal("Failed to fetch user from Auth0")),
+            };
+        }
+
+        let user: Auth0User = response.json().await.map_err(|e| {
+            error!("Failed to parse user response: {}", e);
+            AppError::internal("Invalid response from Auth0")
+        })?;
+
+        Ok(user)
+    }
+
+    /// Updates a user's metadata in Auth0.
+    pub async fn update_user_metadata(
         &self,
         user_id: &str,
-        display_name: &str,
-    ) -> Result<UpdateDisplayNameResponse, AppError> {
+        display_name: Option<&str>,
+        avatar_url: Option<&str>,
+    ) -> Result<Auth0User, AppError> {
         let token = self.get_access_token().await?;
 
         let url = format!(
@@ -158,12 +208,13 @@ impl Auth0ManagementService {
         );
 
         let request_body = UpdateUserRequest {
-            user_metadata: UserMetadata {
-                display_name: display_name.to_string(),
+            user_metadata: UserMetadataUpdate {
+                display_name: display_name.map(|s| s.to_string()),
+                avatar_url: avatar_url.map(|s| s.to_string()),
             },
         };
 
-        debug!("Updating display name for user: {}", user_id);
+        debug!("Updating user metadata for user: {}", user_id);
 
         let response = self
             .client
@@ -191,18 +242,12 @@ impl Auth0ManagementService {
             };
         }
 
-        let auth0_user: Auth0User = response.json().await.map_err(|e| {
+        let user: Auth0User = response.json().await.map_err(|e| {
             error!("Failed to parse user update response: {}", e);
             AppError::internal("Invalid response from Auth0")
         })?;
 
-        Ok(UpdateDisplayNameResponse {
-            user_id: auth0_user.user_id,
-            display_name: auth0_user
-                .user_metadata
-                .map(|m| m.display_name)
-                .unwrap_or_else(|| display_name.to_string()),
-        })
+        Ok(user)
     }
 }
 
@@ -222,13 +267,24 @@ mod tests {
     }
 
     #[test]
-    fn test_update_display_name_response_serialization() {
-        let response = UpdateDisplayNameResponse {
-            user_id: "auth0|123".to_string(),
-            display_name: "Test User".to_string(),
+    fn test_user_metadata_serialization() {
+        let metadata = UserMetadataUpdate {
+            display_name: Some("Test User".to_string()),
+            avatar_url: Some("https://example.com/avatar.png".to_string()),
         };
-        let json = serde_json::to_string(&response).unwrap();
-        assert!(json.contains("userId"));
-        assert!(json.contains("displayName"));
+        let json = serde_json::to_string(&metadata).unwrap();
+        assert!(json.contains("display_name"));
+        assert!(json.contains("Test User"));
+        assert!(json.contains("avatar_url"));
+        assert!(json.contains("https://example.com/avatar.png"));
+
+        // Test with None - should be omitted
+        let metadata = UserMetadataUpdate {
+            display_name: None,
+            avatar_url: None,
+        };
+        let json = serde_json::to_string(&metadata).unwrap();
+        assert!(!json.contains("display_name"));
+        assert!(!json.contains("avatar_url"));
     }
 }

@@ -62,7 +62,10 @@ paths:
   /profile:
     get:
       summary: Get user profile
-      description: Retrieve the authenticated user's full profile
+      description: |
+        Retrieve the authenticated user's profile from Auth0 user_metadata.
+
+        Requires Auth0 M2M credentials to be configured on the server.
       operationId: getProfile
       tags:
         - Users
@@ -72,12 +75,55 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfile"
+                $ref: "#/components/schemas/ProfileResponse"
               examples:
                 default:
-                  $ref: "data-examples/examples.yaml#/UserProfile"
+                  value:
+                    userId: "auth0|123456789"
+                    displayName: "wordmaster42"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Update user profile
+      description: |
+        Update the authenticated user's profile in Auth0 user_metadata.
+
+        Changes will be reflected in new ID tokens issued after the update.
+        Requires Auth0 M2M credentials to be configured on the server.
+      operationId: updateProfile
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+            examples:
+              default:
+                value:
+                  displayName: "New Display Name"
+      responses:
+        "200":
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+              examples:
+                default:
+                  value:
+                    userId: "auth0|123456789"
+                    displayName: "New Display Name"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /team:
     get:
@@ -716,6 +762,30 @@ components:
         participants_qty:
           type: integer
           description: Number of participants on this scoreboard
+
+    UpdateProfileRequest:
+      type: object
+      required:
+        - displayName
+      properties:
+        displayName:
+          type: string
+          description: The user's display name
+          example: "wordmaster42"
+
+    ProfileResponse:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          description: The Auth0 user ID
+          example: "auth0|123456789"
+        displayName:
+          type: string
+          description: The user's display name (from Auth0 user_metadata)
+          example: "wordmaster42"
 
     ErrorResponse:
       type: object

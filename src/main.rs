@@ -19,10 +19,7 @@ pub mod services;
 use config::Config;
 use db::{DynamoDbRepository, GameDatabase, InMemoryDb};
 use middleware::auth::JwtAuth;
-use routes::{
-    create_games, get_games, get_profile, health_check, list_games, update_display_name,
-    update_profile, ProfileStore,
-};
+use routes::{create_games, get_games, get_profile, health_check, list_games, update_profile};
 use services::Auth0ManagementService;
 
 /// Load TLS configuration from certificate and key files.
@@ -105,9 +102,8 @@ async fn main() -> std::io::Result<()> {
         config.auth0_domain().to_string(),
         config.auth0_audience().to_string(),
     ));
-    let profile_store = web::Data::new(ProfileStore::new());
 
-    // Initialize Auth0 Management API service (optional - requires M2M credentials)
+    // Initialize Auth0 Management API service (required for profile endpoints)
     let auth0_service = match (
         config.auth0_m2m_client_id(),
         config.auth0_m2m_client_secret(),
@@ -122,6 +118,7 @@ async fn main() -> std::io::Result<()> {
         }
         _ => {
             info!("Auth0 Management API service disabled (missing M2M credentials)");
+            info!("Profile endpoints will not be available");
             None
         }
     };
@@ -129,31 +126,46 @@ async fn main() -> std::io::Result<()> {
     let config_for_tls = config.clone();
     let config = web::Data::new(config);
 
+    // Clone CORS origins for use in closure
+    let cors_origins = config.cors_allowed_origins().to_vec();
+    info!("CORS allowed origins: {:?}", cors_origins);
+
     let server = HttpServer::new(move || {
-        // Configure CORS for local development
-        let cors = Cors::default()
-            .allowed_origin("http://localhost:3000")
+        // Configure CORS with allowed origins from config
+        let mut cors = Cors::default()
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-            .allowed_headers(vec![header::AUTHORIZATION, header::CONTENT_TYPE])
+            .allowed_headers(vec![
+                header::AUTHORIZATION,
+                header::CONTENT_TYPE,
+                header::ACCEPT,
+                header::ORIGIN,
+            ])
+            .expose_headers(vec![header::CONTENT_LENGTH, header::CONTENT_TYPE])
+            .supports_credentials()
             .max_age(3600);
+
+        // Add each allowed origin
+        for origin in &cors_origins {
+            cors = cors.allowed_origin(origin);
+        }
 
         let mut app = App::new()
             .wrap(cors)
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
-            .app_data(profile_store.clone())
             .app_data(config.clone())
             .service(hello)
             .service(health_check)
             .service(list_games)
             .service(get_games)
-            .service(create_games)
-            .service(get_profile)
-            .service(update_profile);
+            .service(create_games);
 
-        // Only register the display name endpoint if Auth0 M2M is configured
+        // Only register profile endpoints if Auth0 M2M is configured
         if let Some(ref auth0) = auth0_service {
-            app = app.app_data(auth0.clone()).service(update_display_name);
+            app = app
+                .app_data(auth0.clone())
+                .service(get_profile)
+                .service(update_profile);
         }
 
         app

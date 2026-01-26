@@ -1,113 +1,77 @@
 //! User profile route handlers.
+//! All profile data is stored in Auth0 user_metadata.
 
 use actix_web::{get, put, web, HttpResponse};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::RwLock;
 
 use crate::middleware::auth::Claims;
 use crate::models::error::AppError;
 use crate::services::Auth0ManagementService;
 
-/// User profile data.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserProfile {
-    pub user_id: String,
-    pub display_name: String,
-    pub avatar_url: String,
-}
-
 /// Request body for updating a profile.
+/// All fields are optional - only provided fields will be updated.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateProfileRequest {
-    pub display_name: String,
-    pub avatar_url: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
 }
 
-/// Request body for updating display name via Auth0.
-#[derive(Debug, Deserialize)]
+/// Response from profile endpoints.
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpdateDisplayNameRequest {
-    pub display_name: String,
+pub struct ProfileResponse {
+    pub user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
 }
 
-/// In-memory profile store (for development).
-/// In production, this would be replaced with DynamoDB or another persistent store.
-pub struct ProfileStore {
-    profiles: RwLock<HashMap<String, UserProfile>>,
-}
-
-impl ProfileStore {
-    pub fn new() -> Self {
-        Self {
-            profiles: RwLock::new(HashMap::new()),
-        }
-    }
-
-    pub fn get(&self, user_id: &str) -> Option<UserProfile> {
-        self.profiles.read().ok()?.get(user_id).cloned()
-    }
-
-    pub fn set(&self, profile: UserProfile) -> Result<(), String> {
-        let mut profiles = self.profiles.write().map_err(|e| e.to_string())?;
-        profiles.insert(profile.user_id.clone(), profile);
-        Ok(())
-    }
-}
-
-impl Default for ProfileStore {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// GET /profile - Get the current user's profile.
+/// GET /profile - Get the current user's profile from Auth0.
 #[get("/profile")]
 pub async fn get_profile(
     claims: Claims,
-    store: web::Data<ProfileStore>,
+    auth0_service: web::Data<Auth0ManagementService>,
 ) -> Result<HttpResponse, AppError> {
-    match store.get(&claims.sub) {
-        Some(profile) => Ok(HttpResponse::Ok().json(profile)),
-        None => Ok(HttpResponse::NotFound().json(serde_json::json!({
-            "error": "Profile not found"
-        }))),
-    }
+    let user = auth0_service.get_user(&claims.sub).await?;
+
+    Ok(HttpResponse::Ok().json(ProfileResponse {
+        user_id: user.user_id,
+        display_name: user.user_metadata.as_ref().map(|m| m.display_name.clone()),
+        avatar_url: user.user_metadata.and_then(|m| m.avatar_url),
+    }))
 }
 
-/// PUT /profile - Update the current user's profile.
+/// PUT /profile - Update the current user's profile in Auth0.
 #[put("/profile")]
 pub async fn update_profile(
     claims: Claims,
     body: web::Json<UpdateProfileRequest>,
-    store: web::Data<ProfileStore>,
-) -> Result<HttpResponse, AppError> {
-    let profile = UserProfile {
-        user_id: claims.sub.clone(),
-        display_name: body.display_name.clone(),
-        avatar_url: body.avatar_url.clone(),
-    };
-
-    store
-        .set(profile.clone())
-        .map_err(AppError::InternalError)?;
-
-    Ok(HttpResponse::Ok().json(profile))
-}
-
-/// PUT /profile/display-name - Update the current user's display name via Auth0.
-#[put("/profile/display-name")]
-pub async fn update_display_name(
-    claims: Claims,
-    body: web::Json<UpdateDisplayNameRequest>,
     auth0_service: web::Data<Auth0ManagementService>,
 ) -> Result<HttpResponse, AppError> {
-    let response = auth0_service
-        .update_user_display_name(&claims.sub, &body.display_name)
+    // Must have at least one field to update
+    if body.display_name.is_none() && body.avatar_url.is_none() {
+        return Err(AppError::bad_request(
+            "At least one field (displayName or avatarUrl) must be provided",
+        ));
+    }
+
+    let user = auth0_service
+        .update_user_metadata(
+            &claims.sub,
+            body.display_name.as_deref(),
+            body.avatar_url.as_deref(),
+        )
         .await?;
 
-    Ok(HttpResponse::Ok().json(response))
+    Ok(HttpResponse::Ok().json(ProfileResponse {
+        user_id: user.user_id,
+        display_name: user.user_metadata.as_ref().map(|m| m.display_name.clone()),
+        avatar_url: user.user_metadata.and_then(|m| m.avatar_url),
+    }))
 }
 
 #[cfg(test)]
@@ -115,22 +79,59 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_profile_store() {
-        let store = ProfileStore::new();
+    fn test_update_profile_request_deserialization() {
+        // Test with just displayName
+        let json = r#"{"displayName": "Test User"}"#;
+        let request: UpdateProfileRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.display_name, Some("Test User".to_string()));
+        assert_eq!(request.avatar_url, None);
 
-        // Initially empty
-        assert!(store.get("user1").is_none());
+        // Test with just avatarUrl
+        let json = r#"{"avatarUrl": "https://example.com/avatar.png"}"#;
+        let request: UpdateProfileRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.display_name, None);
+        assert_eq!(
+            request.avatar_url,
+            Some("https://example.com/avatar.png".to_string())
+        );
 
-        // Add a profile
-        let profile = UserProfile {
-            user_id: "user1".to_string(),
-            display_name: "Test User".to_string(),
-            avatar_url: "https://example.com/avatar.png".to_string(),
+        // Test with both fields
+        let json = r#"{"displayName": "Test User", "avatarUrl": "https://example.com/avatar.png"}"#;
+        let request: UpdateProfileRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.display_name, Some("Test User".to_string()));
+        assert_eq!(
+            request.avatar_url,
+            Some("https://example.com/avatar.png".to_string())
+        );
+
+        // Test with empty object
+        let json = r#"{}"#;
+        let request: UpdateProfileRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(request.display_name, None);
+        assert_eq!(request.avatar_url, None);
+    }
+
+    #[test]
+    fn test_profile_response_serialization() {
+        let response = ProfileResponse {
+            user_id: "auth0|123".to_string(),
+            display_name: Some("Test User".to_string()),
+            avatar_url: Some("https://example.com/avatar.png".to_string()),
         };
-        store.set(profile.clone()).unwrap();
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("userId"));
+        assert!(json.contains("displayName"));
+        assert!(json.contains("avatarUrl"));
 
-        // Retrieve it
-        let retrieved = store.get("user1").unwrap();
-        assert_eq!(retrieved.display_name, "Test User");
+        // Test with None fields - should be omitted
+        let response = ProfileResponse {
+            user_id: "auth0|123".to_string(),
+            display_name: None,
+            avatar_url: None,
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("userId"));
+        assert!(!json.contains("displayName"));
+        assert!(!json.contains("avatarUrl"));
     }
 }
