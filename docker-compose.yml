@@ -58,12 +58,15 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8080
-      - JWT_SECRET=local-development-secret
-      - BYPASS_AUTH=true
+      - AUTH0_DOMAIN=dev-g32naui5mvpwnsg7.us.auth0.com
+      - AUTH0_AUDIENCE=com.hannahscovill.scorekeeper
+      - AUTH0_M2M_CLIENT_ID=${AUTH0_M2M_CLIENT_ID}
+      - AUTH0_M2M_CLIENT_SECRET=${AUTH0_M2M_CLIENT_SECRET}
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3000,https://localhost:3000,https://localhost:3000
       - RUST_LOG=debug
-      - TLS_ENABLED=true
-      - TLS_CERT_PATH=/app/certs/cert.pem
-      - TLS_KEY_PATH=/app/certs/key.pem
+      - TLS_ENABLED=false
+      # - TLS_CERT_PATH=/app/certs/cert.pem
+      # - TLS_KEY_PATH=/app/certs/key.pem
       - AWS_ENDPOINT_URL_DYNAMODB=http://dynamodb-local:8000
       - AWS_ACCESS_KEY_ID=local
       - AWS_SECRET_ACCESS_KEY=local
@@ -74,7 +77,7 @@ services:
     networks:
       - scorekeeper-network
     healthcheck:
-      test: ["CMD", "curl", "-kf", "https://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3

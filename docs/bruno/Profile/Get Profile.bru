@@ -1,0 +1,38 @@
+meta {
+  name: Get Profile
+  type: http
+  seq: 1
+}
+
+get {
+  url: https://{{baseUrl}}/profile
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+docs {
+  Retrieves the profile for the currently authenticated user from Auth0.
+  
+  ## Authentication
+  Requires a valid Bearer token (inherited from collection).
+  
+  ## Prerequisites
+  The server must be configured with Auth0 M2M credentials:
+  - `AUTH0_M2M_CLIENT_ID`
+  - `AUTH0_M2M_CLIENT_SECRET`
+  
+  ## Responses
+  - `200`: Profile retrieved successfully
+    ```json
+    {
+      "userId": "auth0|123456",
+      "displayName": "John Doe"
+    }
+    ```
+  - `401`: Authentication required or invalid token
+  - `404`: User not found in Auth0
+}

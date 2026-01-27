@@ -1,6 +1,7 @@
 //! Scorekeeper API - Sports score tracking server.
 
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_cors::Cors;
+use actix_web::{get, http::header, web, App, HttpResponse, HttpServer, Responder};
 use rustls::ServerConfig;
 use std::fs::File;
 use std::io::BufReader;
@@ -18,7 +19,8 @@ pub mod services;
 use config::Config;
 use db::{DynamoDbRepository, GameDatabase, InMemoryDb};
 use middleware::auth::JwtAuth;
-use routes::{create_games, get_games, health_check, list_games};
+use routes::{create_games, get_games, get_profile, health_check, list_games, update_profile};
+use services::Auth0ManagementService;
 
 /// Load TLS configuration from certificate and key files.
 fn load_tls_config(cert_path: &str, key_path: &str) -> std::io::Result<ServerConfig> {
@@ -75,15 +77,6 @@ async fn main() -> std::io::Result<()> {
     let config = Config::from_env();
     let bind_addr = config.bind_address();
 
-    // SECURITY: Warn if authentication bypass is enabled
-    if config.bypass_auth() {
-        tracing::warn!("🚨🚨🚨 SECURITY WARNING 🚨🚨🚨");
-        tracing::warn!("AUTH BYPASS IS ENABLED - JWT validation is DISABLED");
-        tracing::warn!("This should ONLY be used in local development!");
-        tracing::warn!("DO NOT run in production with BYPASS_AUTH=true");
-        tracing::warn!("🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨");
-    }
-
     // Initialize database - use DynamoDB if configured, otherwise in-memory
     let db: Arc<dyn GameDatabase> = if let Some(table_name) = config.dynamodb_table_name() {
         info!("Initializing DynamoDB client for table: {}", table_name);
@@ -105,12 +98,59 @@ async fn main() -> std::io::Result<()> {
     let db = web::Data::new(db);
 
     // Initialize other shared state
-    let jwt_auth = web::Data::new(JwtAuth::new(config.jwt_secret().to_string()));
+    let jwt_auth = web::Data::new(JwtAuth::new(
+        config.auth0_domain().to_string(),
+        config.auth0_audience().to_string(),
+    ));
+
+    // Initialize Auth0 Management API service (required for profile endpoints)
+    let auth0_service = match (
+        config.auth0_m2m_client_id(),
+        config.auth0_m2m_client_secret(),
+    ) {
+        (Some(client_id), Some(client_secret)) => {
+            info!("Auth0 Management API service enabled");
+            Some(web::Data::new(Auth0ManagementService::new(
+                config.auth0_domain().to_string(),
+                client_id.to_string(),
+                client_secret.to_string(),
+            )))
+        }
+        _ => {
+            info!("Auth0 Management API service disabled (missing M2M credentials)");
+            info!("Profile endpoints will not be available");
+            None
+        }
+    };
+
     let config_for_tls = config.clone();
     let config = web::Data::new(config);
 
+    // Clone CORS origins for use in closure
+    let cors_origins = config.cors_allowed_origins().to_vec();
+    info!("CORS allowed origins: {:?}", cors_origins);
+
     let server = HttpServer::new(move || {
-        App::new()
+        // Configure CORS with allowed origins from config
+        let mut cors = Cors::default()
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+            .allowed_headers(vec![
+                header::AUTHORIZATION,
+                header::CONTENT_TYPE,
+                header::ACCEPT,
+                header::ORIGIN,
+            ])
+            .expose_headers(vec![header::CONTENT_LENGTH, header::CONTENT_TYPE])
+            .supports_credentials()
+            .max_age(3600);
+
+        // Add each allowed origin
+        for origin in &cors_origins {
+            cors = cors.allowed_origin(origin);
+        }
+
+        let mut app = App::new()
+            .wrap(cors)
             .app_data(db.clone())
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
@@ -118,7 +158,17 @@ async fn main() -> std::io::Result<()> {
             .service(health_check)
             .service(list_games)
             .service(get_games)
-            .service(create_games)
+            .service(create_games);
+
+        // Only register profile endpoints if Auth0 M2M is configured
+        if let Some(ref auth0) = auth0_service {
+            app = app
+                .app_data(auth0.clone())
+                .service(get_profile)
+                .service(update_profile);
+        }
+
+        app
     });
 
     // Bind with TLS if enabled, otherwise plain HTTP
