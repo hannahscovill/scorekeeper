@@ -152,6 +152,20 @@ export class GitHubOidcStack extends cdk.Stack {
       })
     );
 
+    // CloudFormation read permissions (needed for CDK to get detailed errors)
+    githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CloudFormationRead',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'cloudformation:DescribeStacks',
+          'cloudformation:DescribeStackEvents',
+          'cloudformation:ListStacks',
+        ],
+        resources: ['*'],
+      })
+    );
+
     // ECS permissions
     githubActionsRole.addToPolicy(
       new iam.PolicyStatement({
@@ -314,6 +328,37 @@ export class GitHubOidcStack extends cdk.Stack {
         resources: [
           `arn:aws:s3:::cdk-*-assets-${this.account}-*`,
           `arn:aws:s3:::cdk-*-assets-${this.account}-*/*`,
+        ],
+      })
+    );
+
+    // S3 permissions for avatar bucket (created by PrerequisiteInfraStack)
+    githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'S3AvatarBucket',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          's3:CreateBucket',
+          's3:DeleteBucket',
+          's3:GetBucketPolicy',
+          's3:PutBucketPolicy',
+          's3:DeleteBucketPolicy',
+          's3:GetBucketAcl',
+          's3:PutBucketAcl',
+          's3:GetBucketCORS',
+          's3:PutBucketCORS',
+          's3:DeleteBucketCORS',
+          's3:GetBucketPublicAccessBlock',
+          's3:PutBucketPublicAccessBlock',
+          's3:GetEncryptionConfiguration',
+          's3:PutEncryptionConfiguration',
+          's3:GetBucketTagging',
+          's3:PutBucketTagging',
+          's3:GetBucketVersioning',
+          's3:PutBucketVersioning',
+        ],
+        resources: [
+          'arn:aws:s3:::scorekeeper-avatars',
         ],
       })
     );
