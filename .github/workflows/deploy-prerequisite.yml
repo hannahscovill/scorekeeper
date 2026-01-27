@@ -28,6 +28,14 @@ on:
           - deploy
           - diff
           - destroy
+      import_existing:
+        description: "Import existing ECR repo instead of creating (use if ECR already exists)"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 concurrency:
   group: deploy-prerequisite
@@ -67,7 +75,7 @@ jobs:
       - name: CDK Diff (show changes)
         if: ${{ inputs.action == 'diff' }}
         working-directory: infra
-        run: npx cdk diff PrerequisiteInfraStack -c prerequisite=true
+        run: npx cdk diff PrerequisiteInfraStack -c prerequisite=true -c importExisting=${{ inputs.import_existing }}
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
@@ -75,7 +83,7 @@ jobs:
       - name: Deploy Prerequisite Infrastructure
         if: ${{ inputs.action == 'deploy' }}
         working-directory: infra
-        run: npx cdk deploy PrerequisiteInfraStack --require-approval never -c prerequisite=true
+        run: npx cdk deploy PrerequisiteInfraStack --require-approval never -c prerequisite=true -c importExisting=${{ inputs.import_existing }}
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}

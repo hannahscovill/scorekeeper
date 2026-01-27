@@ -15,6 +15,13 @@ export interface PrerequisiteInfraStackProps extends cdk.StackProps {
    * @default 'scorekeeper-avatars'
    */
   readonly avatarBucketName?: string;
+
+  /**
+   * Whether to import existing resources instead of creating new ones.
+   * Use this when the ECR repo already exists outside of this stack.
+   * @default false
+   */
+  readonly importExisting?: boolean;
 }
 
 export class PrerequisiteInfraStack extends cdk.Stack {
@@ -28,20 +35,32 @@ export class PrerequisiteInfraStack extends cdk.Stack {
 
     const repositoryName = props?.repositoryName ?? 'scorekeeper';
     const avatarBucketName = props?.avatarBucketName ?? 'scorekeeper-avatars';
+    const importExisting = props?.importExisting ?? false;
 
-    // Create ECR Repository for the Docker image
-    const ecrRepository = new ecr.Repository(this, 'ScorekeeperEcrRepository', {
-      repositoryName,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      imageScanOnPush: true,
-      encryption: ecr.RepositoryEncryption.AES_256,
-      lifecycleRules: [
-        {
-          maxImageCount: 25,
-          description: 'Keep only recent images',
-        },
-      ],
-    });
+    // ECR Repository - import existing or create new
+    let ecrRepository: ecr.IRepository;
+    if (importExisting) {
+      // Import existing ECR repository (when repo exists outside this stack)
+      ecrRepository = ecr.Repository.fromRepositoryName(
+        this,
+        'ScorekeeperEcrRepository',
+        repositoryName
+      );
+    } else {
+      // Create new ECR Repository for the Docker image
+      ecrRepository = new ecr.Repository(this, 'ScorekeeperEcrRepository', {
+        repositoryName,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        imageScanOnPush: true,
+        encryption: ecr.RepositoryEncryption.AES_256,
+        lifecycleRules: [
+          {
+            maxImageCount: 25,
+            description: 'Keep only recent images',
+          },
+        ],
+      });
+    }
 
     // Create S3 bucket for avatar uploads
     const avatarBucket = new s3.Bucket(this, 'AvatarBucket', {

@@ -58,12 +58,16 @@ if (isBootstrap || githubOrg) {
   });
 }
 
-// Create the Prerequisite Infrastructure stack (ECR repository)
+// Create the Prerequisite Infrastructure stack (ECR repository, S3 bucket)
 // This stack creates shared infrastructure that must exist before deployment
 // Deploy with: cdk deploy -c prerequisite=true PrerequisiteInfraStack
+// If ECR already exists: cdk deploy -c prerequisite=true -c importExisting=true PrerequisiteInfraStack
 if (isPrerequisite) {
+  const importExisting = app.node.tryGetContext('importExisting') === 'true';
+
   new PrerequisiteInfraStack(app, 'PrerequisiteInfraStack', {
     repositoryName: 'scorekeeper',
+    importExisting,
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
       region: process.env.CDK_DEFAULT_REGION || 'us-west-2',
