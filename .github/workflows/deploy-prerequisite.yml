@@ -1,0 +1,99 @@
+# Deploy Prerequisite Infrastructure to AWS via CDK
+#
+# This workflow deploys long-lived infrastructure (ECR repository, S3 buckets)
+# that should exist before the main service stack.
+#
+# This workflow is MANUAL ONLY (workflow_dispatch) - it does not run on push.
+# Use this for:
+# - Initial setup of prerequisite infrastructure
+# - Adding new long-lived resources (S3 buckets, etc.)
+# - Updating prerequisite infrastructure independently of the main service
+#
+# Required GitHub Variables (same as deploy.yml):
+# - AWS_ACCOUNT_ID
+# - AWS_REGION
+# - AWS_OIDC_ROLE_ARN
+
+name: Deploy Prerequisite Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "CDK action to perform"
+        required: true
+        default: "deploy"
+        type: choice
+        options:
+          - deploy
+          - diff
+          - destroy
+
+concurrency:
+  group: deploy-prerequisite
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  deploy-prerequisite:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install CDK dependencies
+        working-directory: infra
+        run: npm ci
+
+      - name: CDK Diff (show changes)
+        if: ${{ inputs.action == 'diff' }}
+        working-directory: infra
+        run: npx cdk diff PrerequisiteInfraStack -c prerequisite=true
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+
+      - name: Deploy Prerequisite Infrastructure
+        if: ${{ inputs.action == 'deploy' }}
+        working-directory: infra
+        run: npx cdk deploy PrerequisiteInfraStack --require-approval never -c prerequisite=true
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+
+      - name: Destroy Prerequisite Infrastructure
+        if: ${{ inputs.action == 'destroy' }}
+        working-directory: infra
+        run: npx cdk destroy PrerequisiteInfraStack --force -c prerequisite=true
+        env:
+          CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
+
+      - name: Show stack outputs
+        if: ${{ inputs.action == 'deploy' }}
+        run: |
+          echo "=== Prerequisite Infrastructure Outputs ==="
+          aws cloudformation describe-stacks \
+            --stack-name PrerequisiteInfraStack \
+            --query 'Stacks[0].Outputs[*].[OutputKey,OutputValue]' \
+            --output table \
+            --region ${{ env.AWS_REGION }}
