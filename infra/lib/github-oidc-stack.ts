@@ -313,6 +313,21 @@ export class GitHubOidcStack extends cdk.Stack {
       })
     );
 
+    // STS permissions to assume CDK bootstrap roles
+    githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'AssumeBootstrapRoles',
+        effect: iam.Effect.ALLOW,
+        actions: ['sts:AssumeRole'],
+        resources: [
+          `arn:aws:iam::${this.account}:role/cdk-*-deploy-role-${this.account}-*`,
+          `arn:aws:iam::${this.account}:role/cdk-*-file-publishing-role-${this.account}-*`,
+          `arn:aws:iam::${this.account}:role/cdk-*-image-publishing-role-${this.account}-*`,
+          `arn:aws:iam::${this.account}:role/cdk-*-lookup-role-${this.account}-*`,
+        ],
+      })
+    );
+
     // S3 permissions for CDK asset bucket
     githubActionsRole.addToPolicy(
       new iam.PolicyStatement({
