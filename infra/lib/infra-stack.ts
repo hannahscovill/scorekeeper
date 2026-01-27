@@ -3,6 +3,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 export interface ScorekeeperStackProps extends cdk.StackProps {
@@ -17,6 +18,12 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
    * @default 1 for dev, 2 for prod
    */
   readonly desiredCount?: number;
+
+  /**
+   * The name of the S3 bucket for avatar uploads (created in PrerequisiteInfraStack)
+   * @default 'scorekeeper-avatars'
+   */
+  readonly avatarBucketName?: string;
 }
 
 export class ScorekeeperStack extends cdk.Stack {
@@ -35,6 +42,14 @@ export class ScorekeeperStack extends cdk.Stack {
       this,
       'ScorekeeperRepository',
       'scorekeeper'
+    );
+
+    // Look up the existing S3 bucket for avatars created by PrerequisiteInfraStack
+    const avatarBucketName = props?.avatarBucketName ?? 'scorekeeper-avatars';
+    const avatarBucket = s3.Bucket.fromBucketName(
+      this,
+      'AvatarBucket',
+      avatarBucketName
     );
 
     // Create VPC - using a simple 2-AZ VPC setup
@@ -81,6 +96,8 @@ export class ScorekeeperStack extends cdk.Stack {
           environment: {
             ENVIRONMENT: environmentName,
             RUST_LOG: isProd ? 'info' : 'debug',
+            S3_AVATAR_BUCKET: avatarBucket.bucketName,
+            AWS_REGION: this.region,
           },
         },
         circuitBreaker: {
@@ -124,6 +141,9 @@ export class ScorekeeperStack extends cdk.Stack {
 
     // Grant the task execution role permission to pull from ECR
     ecrRepository.grantPull(fargateService.taskDefinition.executionRole!);
+
+    // Grant the task role permission to upload avatars to S3
+    avatarBucket.grantPut(fargateService.taskDefinition.taskRole);
 
     // Outputs
     this.loadBalancerDnsName = new cdk.CfnOutput(this, 'LoadBalancerDnsName', {
