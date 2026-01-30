@@ -1,9 +1,13 @@
 import * as cdk from 'aws-cdk-lib/core';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
@@ -73,6 +77,21 @@ export class ScorekeeperStack extends cdk.Stack {
           ],
         });
 
+    // Route 53 Hosted Zone for the domain (DNS managed in Namecheap, forwarded to AWS NS)
+    const domainName = this.node.tryGetContext('domainName') ?? 'wordles.dev';
+    const apiSubdomain = this.node.tryGetContext('apiSubdomain') ?? 'api';
+    const apiDomainName = `${apiSubdomain}.${domainName}`;
+
+    const hostedZone = new route53.HostedZone(this, 'HostedZone', {
+      zoneName: domainName,
+    });
+
+    // ACM Certificate for the API subdomain with DNS validation
+    const certificate = new acm.Certificate(this, 'ApiCertificate', {
+      domainName: apiDomainName,
+      validation: acm.CertificateValidation.fromDns(hostedZone),
+    });
+
     // DynamoDB table for game data (single-table design)
     const table = new dynamodb.Table(this, 'ScorekeeperTable', {
       tableName: `scorekeeper-${environmentName}`,
@@ -127,6 +146,11 @@ export class ScorekeeperStack extends cdk.Stack {
         memoryLimitMiB: 512,
         desiredCount,
         publicLoadBalancer: true,
+        domainName: apiDomainName,
+        domainZone: hostedZone,
+        certificate,
+        redirectHTTP: true,
+        protocol: elbv2.ApplicationProtocol.HTTPS,
         taskImageOptions: {
           image: ecs.ContainerImage.fromEcrRepository(ecrRepository, 'latest'),
           containerName: 'scorekeeper',
@@ -213,6 +237,16 @@ export class ScorekeeperStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'DynamoDbTableName', {
       value: table.tableName,
       description: 'The name of the DynamoDB table',
+    });
+
+    new cdk.CfnOutput(this, 'HostedZoneNameServers', {
+      value: cdk.Fn.join(',', hostedZone.hostedZoneNameServers!),
+      description: 'Name servers to configure in Namecheap for DNS delegation',
+    });
+
+    new cdk.CfnOutput(this, 'ApiDomainName', {
+      value: apiDomainName,
+      description: 'The API domain name',
     });
   }
 }
