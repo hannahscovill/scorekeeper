@@ -84,6 +84,8 @@ if (isPrerequisite) {
 if (!isBootstrap && !isPrerequisite) {
   new ScorekeeperStack(app, `ScorekeeperStack-${environmentName}`, {
     environmentName,
+    // Import existing S3 bucket (created outside CDK)
+    importExistingAvatarBucket: true,
     // Use the current CLI configuration for account and region
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
