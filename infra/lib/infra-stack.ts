@@ -20,8 +20,8 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
   readonly desiredCount?: number;
 
   /**
-   * The name of the S3 bucket for avatar uploads (created in PrerequisiteInfraStack)
-   * @default 'scorekeeper-avatars'
+   * The name of the S3 bucket for avatar uploads
+   * @default 'scorekeeper-avatars-{environment}'
    */
   readonly avatarBucketName?: string;
 }
@@ -44,13 +44,23 @@ export class ScorekeeperStack extends cdk.Stack {
       'scorekeeper'
     );
 
-    // Look up the existing S3 bucket for avatars created by PrerequisiteInfraStack
-    const avatarBucketName = props?.avatarBucketName ?? 'scorekeeper-avatars';
-    const avatarBucket = s3.Bucket.fromBucketName(
-      this,
-      'AvatarBucket',
-      avatarBucketName
-    );
+    // Create S3 bucket for avatar uploads
+    const avatarBucketName = props?.avatarBucketName ?? `scorekeeper-avatars-${environmentName}`;
+    const avatarBucket = new s3.Bucket(this, 'AvatarBucket', {
+      bucketName: avatarBucketName,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
+          allowedOrigins: ['*'], // Restricted by IAM and pre-signed URLs
+          allowedHeaders: ['*'],
+          maxAge: 3600,
+        },
+      ],
+    });
 
     // Create VPC - using a simple 2-AZ VPC setup
     const vpc = new ec2.Vpc(this, 'ScorekeeperVpc', {
