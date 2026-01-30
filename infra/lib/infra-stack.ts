@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib/core';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
@@ -72,6 +73,23 @@ export class ScorekeeperStack extends cdk.Stack {
           ],
         });
 
+    // DynamoDB table for game data (single-table design)
+    const table = new dynamodb.Table(this, 'ScorekeeperTable', {
+      tableName: `scorekeeper-${environmentName}`,
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecovery: isProd,
+    });
+
+    // GSI for querying games by game_id (leaderboard queries)
+    table.addGlobalSecondaryIndex({
+      indexName: 'GameSessionIndex',
+      partitionKey: { name: 'game_id', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     // Create VPC - using a simple 2-AZ VPC setup
     const vpc = new ec2.Vpc(this, 'ScorekeeperVpc', {
       vpcName: `scorekeeper-vpc-${environmentName}`,
@@ -117,6 +135,7 @@ export class ScorekeeperStack extends cdk.Stack {
             ENVIRONMENT: environmentName,
             RUST_LOG: isProd ? 'info' : 'debug',
             S3_AVATAR_BUCKET: avatarBucket.bucketName,
+            DYNAMODB_TABLE: table.tableName,
             AWS_REGION: this.region,
           },
         },
@@ -165,6 +184,9 @@ export class ScorekeeperStack extends cdk.Stack {
     // Grant the task role permission to upload avatars to S3
     avatarBucket.grantPut(fargateService.taskDefinition.taskRole);
 
+    // Grant the task role permission to read/write DynamoDB
+    table.grantReadWriteData(fargateService.taskDefinition.taskRole);
+
     // Outputs
     this.loadBalancerDnsName = new cdk.CfnOutput(this, 'LoadBalancerDnsName', {
       value: fargateService.loadBalancer.loadBalancerDnsName,
@@ -186,6 +208,11 @@ export class ScorekeeperStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ServiceName', {
       value: fargateService.service.serviceName,
       description: 'The name of the ECS service',
+    });
+
+    new cdk.CfnOutput(this, 'DynamoDbTableName', {
+      value: table.tableName,
+      description: 'The name of the DynamoDB table',
     });
   }
 }
