@@ -11,15 +11,21 @@ use tracing_subscriber::EnvFilter;
 
 pub mod config;
 pub mod db;
+pub mod dictionary;
 pub mod middleware;
 pub mod models;
 pub mod routes;
 pub mod services;
 
 use config::Config;
-use db::{DynamoDbRepository, GameDatabase, InMemoryDb};
+use db::{
+    DynamoDbPuzzleRepository, DynamoDbRepository, GameDatabase, InMemoryDb, InMemoryPuzzleDb,
+    PuzzleDatabase,
+};
 use middleware::auth::JwtAuth;
-use routes::{create_games, get_games, get_profile, health_check, list_games, update_profile};
+use routes::{
+    create_games, get_games, get_profile, health_check, list_games, submit_guess, update_profile,
+};
 use services::Auth0ManagementService;
 
 /// Load TLS configuration from certificate and key files.
@@ -78,24 +84,38 @@ async fn main() -> std::io::Result<()> {
     let bind_addr = config.bind_address();
 
     // Initialize database - use DynamoDB if configured, otherwise in-memory
-    let db: Arc<dyn GameDatabase> = if let Some(table_name) = config.dynamodb_table_name() {
-        info!("Initializing DynamoDB client for table: {}", table_name);
-        let sdk_config = if let Some(endpoint_url) = config.dynamodb_endpoint_url() {
-            info!("Using DynamoDB endpoint: {}", endpoint_url);
-            aws_config::from_env()
-                .endpoint_url(endpoint_url)
-                .load()
-                .await
+    let (db, puzzle_db): (Arc<dyn GameDatabase>, Arc<dyn PuzzleDatabase>) =
+        if let Some(table_name) = config.dynamodb_table_name() {
+            info!("Initializing DynamoDB client for table: {}", table_name);
+            let sdk_config = if let Some(endpoint_url) = config.dynamodb_endpoint_url() {
+                info!("Using DynamoDB endpoint: {}", endpoint_url);
+                aws_config::from_env()
+                    .endpoint_url(endpoint_url)
+                    .load()
+                    .await
+            } else {
+                aws_config::load_from_env().await
+            };
+            let client = aws_sdk_dynamodb::Client::new(&sdk_config);
+            (
+                Arc::new(DynamoDbRepository::new(
+                    client.clone(),
+                    table_name.to_string(),
+                )),
+                Arc::new(DynamoDbPuzzleRepository::new(
+                    client,
+                    table_name.to_string(),
+                )),
+            )
         } else {
-            aws_config::load_from_env().await
+            info!("Using in-memory database");
+            (
+                Arc::new(InMemoryDb::new()),
+                Arc::new(InMemoryPuzzleDb::new()),
+            )
         };
-        let client = aws_sdk_dynamodb::Client::new(&sdk_config);
-        Arc::new(DynamoDbRepository::new(client, table_name.to_string()))
-    } else {
-        info!("Using in-memory database");
-        Arc::new(InMemoryDb::new())
-    };
     let db = web::Data::new(db);
+    let puzzle_db = web::Data::new(puzzle_db);
 
     // Initialize other shared state
     let jwt_auth = web::Data::new(JwtAuth::new(
@@ -152,13 +172,15 @@ async fn main() -> std::io::Result<()> {
         let mut app = App::new()
             .wrap(cors)
             .app_data(db.clone())
+            .app_data(puzzle_db.clone())
             .app_data(jwt_auth.clone())
             .app_data(config.clone())
             .service(hello)
             .service(health_check)
             .service(list_games)
             .service(get_games)
-            .service(create_games);
+            .service(create_games)
+            .service(submit_guess);
 
         // Only register profile endpoints if Auth0 M2M is configured
         if let Some(ref auth0) = auth0_service {
