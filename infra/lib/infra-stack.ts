@@ -21,9 +21,15 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
 
   /**
    * The name of the S3 bucket for avatar uploads
-   * @default 'scorekeeper-avatars-{environment}'
+   * @default 'scorekeeper-avatars'
    */
   readonly avatarBucketName?: string;
+
+  /**
+   * Whether to import an existing S3 avatar bucket instead of creating a new one
+   * @default false
+   */
+  readonly importExistingAvatarBucket?: boolean;
 }
 
 export class ScorekeeperStack extends cdk.Stack {
@@ -44,23 +50,27 @@ export class ScorekeeperStack extends cdk.Stack {
       'scorekeeper'
     );
 
-    // Create S3 bucket for avatar uploads
-    const avatarBucketName = props?.avatarBucketName ?? `scorekeeper-avatars-${environmentName}`;
-    const avatarBucket = new s3.Bucket(this, 'AvatarBucket', {
-      bucketName: avatarBucketName,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      enforceSSL: true,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      cors: [
-        {
-          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
-          allowedOrigins: ['*'], // Restricted by IAM and pre-signed URLs
-          allowedHeaders: ['*'],
-          maxAge: 3600,
-        },
-      ],
-    });
+    // S3 bucket for avatar uploads
+    const avatarBucketName = props?.avatarBucketName ?? 'scorekeeper-avatars';
+
+    // Either import an existing bucket or create a new one
+    const avatarBucket = props?.importExistingAvatarBucket
+      ? s3.Bucket.fromBucketName(this, 'AvatarBucket', avatarBucketName)
+      : new s3.Bucket(this, 'AvatarBucket', {
+          bucketName: avatarBucketName,
+          blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+          encryption: s3.BucketEncryption.S3_MANAGED,
+          enforceSSL: true,
+          removalPolicy: cdk.RemovalPolicy.RETAIN,
+          cors: [
+            {
+              allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
+              allowedOrigins: ['*'], // Restricted by IAM and pre-signed URLs
+              allowedHeaders: ['*'],
+              maxAge: 3600,
+            },
+          ],
+        });
 
     // Create VPC - using a simple 2-AZ VPC setup
     const vpc = new ec2.Vpc(this, 'ScorekeeperVpc', {
