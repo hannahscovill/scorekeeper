@@ -82,15 +82,23 @@ export class ScorekeeperStack extends cdk.Stack {
     const apiSubdomain = this.node.tryGetContext('apiSubdomain') ?? 'api';
     const apiDomainName = `${apiSubdomain}.${domainName}`;
 
+    // Enable HTTPS only after DNS is configured (staged deployment)
+    // Stage 1: Deploy with enableHttps=false to get hosted zone nameservers
+    // Stage 2: Configure NS records in Namecheap, wait for propagation
+    // Stage 3: Deploy with enableHttps=true to create certificate and enable HTTPS
+    const enableHttps = this.node.tryGetContext('enableHttps') === 'true';
+
     const hostedZone = new route53.HostedZone(this, 'HostedZone', {
       zoneName: apiDomainName,
     });
 
-    // ACM Certificate for the API subdomain with DNS validation
-    const certificate = new acm.Certificate(this, 'ApiCertificate', {
-      domainName: apiDomainName,
-      validation: acm.CertificateValidation.fromDns(hostedZone),
-    });
+    // ACM Certificate for the API subdomain with DNS validation (only when HTTPS enabled)
+    const certificate = enableHttps
+      ? new acm.Certificate(this, 'ApiCertificate', {
+          domainName: apiDomainName,
+          validation: acm.CertificateValidation.fromDns(hostedZone),
+        })
+      : undefined;
 
     // DynamoDB table for game data (single-table design)
     const table = new dynamodb.Table(this, 'ScorekeeperTable', {
@@ -146,11 +154,16 @@ export class ScorekeeperStack extends cdk.Stack {
         memoryLimitMiB: 512,
         desiredCount,
         publicLoadBalancer: true,
-        domainName: apiDomainName,
-        domainZone: hostedZone,
-        certificate,
-        redirectHTTP: true,
-        protocol: elbv2.ApplicationProtocol.HTTPS,
+        // Only configure custom domain and HTTPS when certificate is available
+        ...(enableHttps && certificate
+          ? {
+              domainName: apiDomainName,
+              domainZone: hostedZone,
+              certificate,
+              redirectHTTP: true,
+              protocol: elbv2.ApplicationProtocol.HTTPS,
+            }
+          : {}),
         taskImageOptions: {
           image: ecs.ContainerImage.fromEcrRepository(ecrRepository, 'latest'),
           containerName: 'scorekeeper',
