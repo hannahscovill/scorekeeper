@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::db::PuzzleDatabase;
 use crate::dictionary::is_valid_word;
-use crate::middleware::auth::{extract_token, JwtAuth};
+use crate::middleware::auth::{extract_bearer_token, extract_cookie_token, JwtAuth};
 use crate::models::error::AppError;
 use crate::models::guess::{GameState, GradedGame, GuessRequest};
 use crate::services::{grade_guess, is_winning_guess};
@@ -14,8 +14,8 @@ use crate::services::{grade_guess, is_winning_guess};
 /// POST /guess - Submit a guess for a word puzzle.
 ///
 /// Accepts authentication via either:
-/// - Authorization header: Bearer <token>
-/// - Cookie: auth_token=<token>
+/// - Authorization header: Bearer <token> (validated as JWT)
+/// - Cookie: auth_token=<user_id> (used directly, for embedded games)
 #[post("/guess")]
 pub async fn submit_guess(
     req: HttpRequest,
@@ -23,13 +23,17 @@ pub async fn submit_guess(
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
     jwt_auth: web::Data<JwtAuth>,
 ) -> Result<HttpResponse, AppError> {
-    // Extract token from header or cookie
-    let token = extract_token(&req)
-        .ok_or_else(|| AppError::Unauthorized("Missing authentication".to_string()))?;
-
-    // Validate token and get user ID
-    let claims = jwt_auth.validate_token(&token).await?;
-    let user_id = &claims.sub;
+    // Try JWT first (Authorization header), fall back to cookie
+    let user_id: String = if let Some(token) = extract_bearer_token(&req) {
+        // Validate JWT and extract user ID
+        let claims = jwt_auth.validate_token(&token).await?;
+        claims.sub
+    } else if let Some(cookie_value) = extract_cookie_token(&req) {
+        // Use cookie value directly as user ID (for embedded games)
+        cookie_value
+    } else {
+        return Err(AppError::Unauthorized("Missing authentication".to_string()));
+    };
 
     let puzzle_date = body.puzzle_date_iso_day;
     let guess = body.word_guessed.to_lowercase();
@@ -53,10 +57,10 @@ pub async fn submit_guess(
 
     // Get or create game state
     let mut game_state = puzzle_db
-        .get_game_state(user_id, puzzle_date)
+        .get_game_state(&user_id, puzzle_date)
         .await
         .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?
-        .unwrap_or_else(|| GameState::new(user_id, puzzle_date));
+        .unwrap_or_else(|| GameState::new(&user_id, puzzle_date));
 
     // Check if game is still in progress
     if !game_state.is_in_progress() {
@@ -91,7 +95,7 @@ pub async fn submit_guess(
         format!("{}#{}", user_id, puzzle_date).as_bytes(),
     );
 
-    let response = GradedGame::new(game_id, user_id, moves, game_state.won);
+    let response = GradedGame::new(game_id, &user_id, moves, game_state.won);
 
     Ok(HttpResponse::Ok().json(response))
 }
