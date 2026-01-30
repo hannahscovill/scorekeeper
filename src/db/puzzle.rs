@@ -1,0 +1,376 @@
+//! Database operations for word puzzle games.
+
+use async_trait::async_trait;
+use aws_sdk_dynamodb::types::AttributeValue;
+use aws_sdk_dynamodb::Client;
+use chrono::{DateTime, NaiveDate, Utc};
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
+use std::sync::RwLock;
+
+use crate::models::guess::{GameState, PuzzleAnswer};
+
+use super::traits::{DatabaseError, DatabaseResult};
+
+/// Cache for puzzle answers (puzzle_date -> word).
+/// Answers rarely change, so we cache them indefinitely.
+static ANSWER_CACHE: Lazy<RwLock<HashMap<NaiveDate, String>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
+
+/// Trait for puzzle database operations.
+#[async_trait]
+pub trait PuzzleDatabase: Send + Sync {
+    /// Gets the game state for a user on a specific puzzle date.
+    async fn get_game_state(
+        &self,
+        user_id: &str,
+        puzzle_date: NaiveDate,
+    ) -> DatabaseResult<Option<GameState>>;
+
+    /// Creates or updates a game state.
+    async fn upsert_game_state(&self, game_state: &GameState) -> DatabaseResult<GameState>;
+
+    /// Gets the puzzle answer for a specific date.
+    async fn get_puzzle_answer(&self, puzzle_date: NaiveDate) -> DatabaseResult<Option<String>>;
+}
+
+/// DynamoDB implementation of puzzle database.
+pub struct DynamoDbPuzzleRepository {
+    client: Client,
+    table_name: String,
+}
+
+impl DynamoDbPuzzleRepository {
+    /// Creates a new DynamoDB puzzle repository.
+    pub fn new(client: Client, table_name: String) -> Self {
+        Self { client, table_name }
+    }
+
+    /// Converts a GameState to DynamoDB item attributes.
+    fn game_state_to_item(state: &GameState) -> HashMap<String, AttributeValue> {
+        let mut item = HashMap::new();
+
+        item.insert("pk".to_string(), AttributeValue::S(state.pk()));
+        item.insert(
+            "sk".to_string(),
+            AttributeValue::S(GameState::sk().to_string()),
+        );
+        item.insert(
+            "user_id".to_string(),
+            AttributeValue::S(state.user_id.clone()),
+        );
+        item.insert(
+            "puzzle_date".to_string(),
+            AttributeValue::S(state.puzzle_date.to_string()),
+        );
+        item.insert(
+            "guesses".to_string(),
+            AttributeValue::L(
+                state
+                    .guesses
+                    .iter()
+                    .map(|g| AttributeValue::S(g.clone()))
+                    .collect(),
+            ),
+        );
+        item.insert("won".to_string(), AttributeValue::Bool(state.won));
+        item.insert(
+            "created_at".to_string(),
+            AttributeValue::S(state.created_at.to_rfc3339()),
+        );
+        item.insert(
+            "updated_at".to_string(),
+            AttributeValue::S(state.updated_at.to_rfc3339()),
+        );
+
+        item
+    }
+
+    /// Converts DynamoDB item attributes to a GameState.
+    fn item_to_game_state(item: &HashMap<String, AttributeValue>) -> DatabaseResult<GameState> {
+        let user_id = item
+            .get("user_id")
+            .and_then(|v| v.as_s().ok())
+            .map(|s| s.to_string())
+            .ok_or_else(|| DatabaseError::Other("Missing user_id".to_string()))?;
+
+        let puzzle_date = item
+            .get("puzzle_date")
+            .and_then(|v| v.as_s().ok())
+            .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+            .ok_or_else(|| DatabaseError::Other("Missing or invalid puzzle_date".to_string()))?;
+
+        let guesses = item
+            .get("guesses")
+            .and_then(|v| v.as_l().ok())
+            .map(|list| {
+                list.iter()
+                    .filter_map(|v| v.as_s().ok().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let won = item
+            .get("won")
+            .and_then(|v| v.as_bool().ok())
+            .copied()
+            .unwrap_or(false);
+
+        let created_at = item
+            .get("created_at")
+            .and_then(|v| v.as_s().ok())
+            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(Utc::now);
+
+        let updated_at = item
+            .get("updated_at")
+            .and_then(|v| v.as_s().ok())
+            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(Utc::now);
+
+        Ok(GameState {
+            user_id,
+            puzzle_date,
+            guesses,
+            won,
+            created_at,
+            updated_at,
+        })
+    }
+}
+
+#[async_trait]
+impl PuzzleDatabase for DynamoDbPuzzleRepository {
+    async fn get_game_state(
+        &self,
+        user_id: &str,
+        puzzle_date: NaiveDate,
+    ) -> DatabaseResult<Option<GameState>> {
+        let pk = format!("USER#{}#PUZZLE#{}", user_id, puzzle_date);
+        let sk = GameState::sk();
+
+        let result = self
+            .client
+            .get_item()
+            .table_name(&self.table_name)
+            .key("pk", AttributeValue::S(pk))
+            .key("sk", AttributeValue::S(sk.to_string()))
+            .send()
+            .await
+            .map_err(|e| DatabaseError::Other(format!("DynamoDB get error: {}", e)))?;
+
+        match result.item {
+            Some(item) => Ok(Some(Self::item_to_game_state(&item)?)),
+            None => Ok(None),
+        }
+    }
+
+    async fn upsert_game_state(&self, game_state: &GameState) -> DatabaseResult<GameState> {
+        let item = Self::game_state_to_item(game_state);
+
+        self.client
+            .put_item()
+            .table_name(&self.table_name)
+            .set_item(Some(item))
+            .send()
+            .await
+            .map_err(|e| DatabaseError::Other(format!("DynamoDB put error: {}", e)))?;
+
+        Ok(game_state.clone())
+    }
+
+    async fn get_puzzle_answer(&self, puzzle_date: NaiveDate) -> DatabaseResult<Option<String>> {
+        // Check cache first
+        {
+            let cache = ANSWER_CACHE
+                .read()
+                .map_err(|e| DatabaseError::Other(format!("Cache lock error: {}", e)))?;
+            if let Some(answer) = cache.get(&puzzle_date) {
+                return Ok(Some(answer.clone()));
+            }
+        }
+
+        // Fetch from DynamoDB
+        let pk = PuzzleAnswer::pk(puzzle_date);
+        let sk = PuzzleAnswer::sk();
+
+        let result = self
+            .client
+            .get_item()
+            .table_name(&self.table_name)
+            .key("pk", AttributeValue::S(pk))
+            .key("sk", AttributeValue::S(sk.to_string()))
+            .send()
+            .await
+            .map_err(|e| DatabaseError::Other(format!("DynamoDB get error: {}", e)))?;
+
+        let answer = result
+            .item
+            .and_then(|item| item.get("word").and_then(|v| v.as_s().ok()).cloned());
+
+        // Cache the answer if found
+        if let Some(ref word) = answer {
+            if let Ok(mut cache) = ANSWER_CACHE.write() {
+                cache.insert(puzzle_date, word.clone());
+            }
+        }
+
+        Ok(answer)
+    }
+}
+
+/// In-memory puzzle database for testing.
+pub struct InMemoryPuzzleDb {
+    game_states: RwLock<HashMap<String, GameState>>,
+    puzzle_answers: RwLock<HashMap<NaiveDate, String>>,
+}
+
+impl InMemoryPuzzleDb {
+    /// Creates a new in-memory puzzle database.
+    pub fn new() -> Self {
+        Self {
+            game_states: RwLock::new(HashMap::new()),
+            puzzle_answers: RwLock::new(HashMap::new()),
+        }
+    }
+
+    /// Seeds a puzzle answer (for testing).
+    pub fn seed_answer(&self, date: NaiveDate, word: impl Into<String>) {
+        if let Ok(mut answers) = self.puzzle_answers.write() {
+            answers.insert(date, word.into());
+        }
+    }
+}
+
+impl Default for InMemoryPuzzleDb {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl PuzzleDatabase for InMemoryPuzzleDb {
+    async fn get_game_state(
+        &self,
+        user_id: &str,
+        puzzle_date: NaiveDate,
+    ) -> DatabaseResult<Option<GameState>> {
+        let key = format!("{}#{}", user_id, puzzle_date);
+        let states = self
+            .game_states
+            .read()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        Ok(states.get(&key).cloned())
+    }
+
+    async fn upsert_game_state(&self, game_state: &GameState) -> DatabaseResult<GameState> {
+        let key = format!("{}#{}", game_state.user_id, game_state.puzzle_date);
+        let mut states = self
+            .game_states
+            .write()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        states.insert(key, game_state.clone());
+        Ok(game_state.clone())
+    }
+
+    async fn get_puzzle_answer(&self, puzzle_date: NaiveDate) -> DatabaseResult<Option<String>> {
+        let answers = self
+            .puzzle_answers
+            .read()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        Ok(answers.get(&puzzle_date).cloned())
+    }
+}
+
+/// Clears the answer cache (useful for testing).
+pub fn clear_answer_cache() {
+    if let Ok(mut cache) = ANSWER_CACHE.write() {
+        cache.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_inmemory_game_state_roundtrip() {
+        let db = InMemoryPuzzleDb::new();
+        let date = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+
+        // Initially no state
+        let state = db.get_game_state("user1", date).await.unwrap();
+        assert!(state.is_none());
+
+        // Create state
+        let mut new_state = GameState::new("user1", date);
+        new_state.add_guess("crane");
+        db.upsert_game_state(&new_state).await.unwrap();
+
+        // Retrieve state
+        let retrieved = db.get_game_state("user1", date).await.unwrap();
+        assert!(retrieved.is_some());
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.guesses, vec!["crane"]);
+    }
+
+    #[tokio::test]
+    async fn test_inmemory_puzzle_answer() {
+        let db = InMemoryPuzzleDb::new();
+        let date = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+
+        // No answer initially
+        let answer = db.get_puzzle_answer(date).await.unwrap();
+        assert!(answer.is_none());
+
+        // Seed answer
+        db.seed_answer(date, "crane");
+
+        // Retrieve answer
+        let answer = db.get_puzzle_answer(date).await.unwrap();
+        assert_eq!(answer, Some("crane".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_inmemory_multiple_users() {
+        let db = InMemoryPuzzleDb::new();
+        let date = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+
+        let mut state1 = GameState::new("user1", date);
+        state1.add_guess("crane");
+
+        let mut state2 = GameState::new("user2", date);
+        state2.add_guess("slate");
+        state2.add_guess("moist");
+
+        db.upsert_game_state(&state1).await.unwrap();
+        db.upsert_game_state(&state2).await.unwrap();
+
+        let retrieved1 = db.get_game_state("user1", date).await.unwrap().unwrap();
+        let retrieved2 = db.get_game_state("user2", date).await.unwrap().unwrap();
+
+        assert_eq!(retrieved1.guesses.len(), 1);
+        assert_eq!(retrieved2.guesses.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_inmemory_update_state() {
+        let db = InMemoryPuzzleDb::new();
+        let date = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+
+        let mut state = GameState::new("user1", date);
+        state.add_guess("crane");
+        db.upsert_game_state(&state).await.unwrap();
+
+        // Update with more guesses
+        state.add_guess("slate");
+        state.mark_won();
+        db.upsert_game_state(&state).await.unwrap();
+
+        let retrieved = db.get_game_state("user1", date).await.unwrap().unwrap();
+        assert_eq!(retrieved.guesses.len(), 2);
+        assert!(retrieved.won);
+    }
+}
