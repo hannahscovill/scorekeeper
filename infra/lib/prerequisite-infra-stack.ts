@@ -30,7 +30,8 @@ export class PrerequisiteInfraStack extends cdk.Stack {
     const repositoryName = props?.repositoryName ?? 'scorekeeper';
     const avatarBucketName = props?.avatarBucketName ?? 'scorekeeper-avatars';
 
-    // Create ECR Repository for the Docker image
+    // ECR Repository for the Docker image
+    // Use `cdk import` to import an existing repository into this stack
     const ecrRepository = new ecr.Repository(this, 'ScorekeeperEcrRepository', {
       repositoryName,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
