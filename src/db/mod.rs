@@ -1,6 +1,7 @@
 //! Database layer for the scorekeeper API.
 
 pub mod dynamodb;
+pub mod puzzle;
 pub mod traits;
 
 use async_trait::async_trait;
@@ -11,6 +12,7 @@ use uuid::Uuid;
 use crate::models::Game;
 
 pub use dynamodb::DynamoDbRepository;
+pub use puzzle::{clear_answer_cache, DynamoDbPuzzleRepository, InMemoryPuzzleDb, PuzzleDatabase};
 pub use traits::{DatabaseError, DatabaseResult, GameDatabase};
 
 /// In-memory database for development and testing.
