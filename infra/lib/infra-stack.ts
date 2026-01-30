@@ -82,11 +82,10 @@ export class ScorekeeperStack extends cdk.Stack {
     const apiSubdomain = this.node.tryGetContext('apiSubdomain') ?? 'api';
     const apiDomainName = `${apiSubdomain}.${domainName}`;
 
-    // Enable HTTPS only after DNS is configured (staged deployment)
-    // Stage 1: Deploy with enableHttps=false to get hosted zone nameservers
-    // Stage 2: Configure NS records in Namecheap, wait for propagation
-    // Stage 3: Deploy with enableHttps=true to create certificate and enable HTTPS
-    const enableHttps = this.node.tryGetContext('enableHttps') === 'true';
+    // HTTPS enabled by default. For initial deployment before DNS is configured,
+    // use -c enableHttps=false to deploy without certificate, then redeploy once
+    // NS records are configured in Namecheap.
+    const enableHttps = this.node.tryGetContext('enableHttps') !== 'false';
 
     const hostedZone = new route53.HostedZone(this, 'HostedZone', {
       zoneName: apiDomainName,
