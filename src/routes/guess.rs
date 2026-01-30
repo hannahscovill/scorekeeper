@@ -15,7 +15,7 @@ use crate::services::{grade_guess, is_winning_guess};
 ///
 /// Accepts authentication via either:
 /// - Authorization header: Bearer <token> (validated as JWT)
-/// - Cookie: auth_token=<user_id> (used directly, for embedded games)
+/// - Cookie: wordle_session=<user_id> (used directly, for embedded games)
 #[post("/guess")]
 pub async fn submit_guess(
     req: HttpRequest,
