@@ -51,7 +51,8 @@ impl Default for Config {
             cors_allowed_origins: vec![
                 "http://localhost:3000".to_string(),
                 "https://localhost:3000".to_string(),
-                "https://d4fxqc3yrokd1.cloudfront.net".to_string(),
+                "https://d3g0psl1n9xo36.cloudfront.net".to_string(),
+                "https://wordles.dev".to_string(),
             ],
         }
     }
@@ -63,7 +64,8 @@ impl Config {
         let default_origins = vec![
             "http://localhost:3000".to_string(),
             "https://localhost:3000".to_string(),
-            "https://d4fxqc3yrokd1.cloudfront.net".to_string(),
+            "https://d3g0psl1n9xo36.cloudfront.net".to_string(),
+            "https://wordles.dev".to_string(),
         ];
 
         Self {
@@ -167,7 +169,7 @@ mod tests {
         assert!(config.tls_key_path.is_none());
         assert!(config.dynamodb_endpoint_url.is_none());
         assert!(config.dynamodb_table_name.is_none());
-        assert_eq!(config.cors_allowed_origins.len(), 3);
+        assert_eq!(config.cors_allowed_origins.len(), 4);
         assert!(config
             .cors_allowed_origins
             .contains(&"http://localhost:3000".to_string()));
@@ -176,6 +178,9 @@ mod tests {
             .contains(&"https://localhost:3000".to_string()));
         assert!(config
             .cors_allowed_origins
-            .contains(&"https://d4fxqc3yrokd1.cloudfront.net".to_string()));
+            .contains(&"https://d3g0psl1n9xo36.cloudfront.net".to_string()));
+        assert!(config
+            .cors_allowed_origins
+            .contains(&"https://wordles.dev".to_string()));
     }
 }
