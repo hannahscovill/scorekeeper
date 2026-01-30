@@ -130,7 +130,15 @@ bd sync                               # Sync with git
 ---
 
 ## Critical Rules
-**MANDATORY WORKFLOW:**
+
+### Deployments
+**NEVER deploy from the command line.** All deployments MUST go through GitHub Actions:
+- Push code to main (or create a PR and merge it)
+- Let GitHub Actions handle the build and deployment
+- Do NOT run `cdk deploy`, `aws ecs update-service`, or any deployment commands locally
+- If you need to trigger a deployment, push to the repo and let CI/CD handle it
+
+### Mandatory Workflow
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
 
 - pick up only tasks, not epics
