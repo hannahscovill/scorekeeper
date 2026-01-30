@@ -62,7 +62,7 @@ on:
       cdk_action:
         description: "The CDK action to take"
         required: true
-        default: destroy
+        default: deploy
         type: choice
         options:
           - deploy
@@ -92,7 +92,7 @@ jobs:
     outputs:
       repository_uri: ${{ steps.get-outputs.outputs.repository_uri }}
     env:
-      CDK_ACTION: ${{ inputs.cdk_action || 'destroy' }}
+      CDK_ACTION: ${{ inputs.cdk_action || 'deploy' }}
 
     steps:
       - name: Checkout repository
