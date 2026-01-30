@@ -47,3 +47,11 @@ echo "Waiting for table to become active..."
 aws dynamodb wait table-exists --endpoint-url "$ENDPOINT_URL" --table-name "$TABLE_NAME"
 
 echo "Table '$TABLE_NAME' created successfully!"
+
+# Seed puzzle answers for local development
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/seed-puzzle-answers.sh" ]; then
+  echo ""
+  echo "Seeding puzzle answers for local development..."
+  AWS_ENDPOINT_URL_DYNAMODB="$ENDPOINT_URL" DYNAMODB_TABLE_NAME="$TABLE_NAME" "$SCRIPT_DIR/seed-puzzle-answers.sh"
+fi
