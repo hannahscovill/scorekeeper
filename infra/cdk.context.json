@@ -1,5 +1,13 @@
 {
   "acknowledged-issue-numbers": [
     34892
-  ]
+  ],
+  "availability-zones:account=587838441384:region=us-west-2": [
+    "us-west-2a",
+    "us-west-2b",
+    "us-west-2c",
+    "us-west-2d"
+  ],
+  "domainName": "wordles.dev",
+  "apiSubdomain": "api"
 }
