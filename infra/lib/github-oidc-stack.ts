@@ -2,6 +2,19 @@ import * as cdk from 'aws-cdk-lib/core';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
+export interface GitHubRepoConfig {
+  /**
+   * The GitHub repository name
+   */
+  readonly repo: string;
+
+  /**
+   * Branches allowed to assume this role
+   * @default ['main']
+   */
+  readonly branches?: string[];
+}
+
 export interface GitHubOidcStackProps extends cdk.StackProps {
   /**
    * The GitHub organization or username
@@ -9,15 +22,22 @@ export interface GitHubOidcStackProps extends cdk.StackProps {
   readonly githubOrg: string;
 
   /**
-   * The GitHub repository name
+   * The GitHub repository name (for backwards compatibility)
+   * @deprecated Use `repos` instead
    */
-  readonly githubRepo: string;
+  readonly githubRepo?: string;
 
   /**
-   * Branches allowed to assume this role
+   * Branches allowed to assume this role (for backwards compatibility)
    * @default ['main']
+   * @deprecated Use `repos` instead
    */
   readonly allowedBranches?: string[];
+
+  /**
+   * List of repos allowed to assume this role
+   */
+  readonly repos?: GitHubRepoConfig[];
 }
 
 export class GitHubOidcStack extends cdk.Stack {
@@ -26,7 +46,16 @@ export class GitHubOidcStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: GitHubOidcStackProps) {
     super(scope, id, props);
 
-    const { githubOrg, githubRepo, allowedBranches = ['main'] } = props;
+    const { githubOrg, githubRepo, allowedBranches = ['main'], repos } = props;
+
+    // Build repos list - support both old single-repo and new multi-repo config
+    const repoConfigs: GitHubRepoConfig[] =
+      repos ||
+      (githubRepo ? [{ repo: githubRepo, branches: allowedBranches }] : []);
+
+    if (repoConfigs.length === 0) {
+      throw new Error('At least one repo must be configured');
+    }
 
     // Create the OIDC provider for GitHub Actions
     // Note: This may already exist in the account - CDK handles this gracefully
@@ -44,15 +73,24 @@ export class GitHubOidcStack extends cdk.Stack {
       }
     );
 
-    // Build the subject claim conditions for allowed branches
-    const subjectConditions: string[] = allowedBranches.map(
-      (branch) => `repo:${githubOrg}/${githubRepo}:ref:refs/heads/${branch}`
-    ).concat([`repo:${githubOrg}/${githubRepo}:*`]); // maybe go back to just main??
+    // Build the subject claim conditions for all allowed repos and branches
+    const subjectConditions: string[] = repoConfigs.flatMap((config) => {
+      const branches = config.branches || ['main'];
+      return branches
+        .map(
+          (branch) =>
+            `repo:${githubOrg}/${config.repo}:ref:refs/heads/${branch}`
+        )
+        .concat([`repo:${githubOrg}/${config.repo}:*`]);
+    });
+
+    // Use first repo name for role naming (backwards compatible)
+    const primaryRepo = repoConfigs[0].repo;
 
     // Create the IAM role that GitHub Actions will assume
     const githubActionsRole = new iam.Role(this, 'GitHubActionsRole', {
-      roleName: `GitHubActions-${githubRepo}`,
-      description: `Role for GitHub Actions to deploy ${githubRepo}`,
+      roleName: `GitHubActions-${primaryRepo}`,
+      description: `Role for GitHub Actions to deploy ${repoConfigs.map((r) => r.repo).join(', ')}`,
       maxSessionDuration: cdk.Duration.hours(1),
       assumedBy: new iam.WebIdentityPrincipal(
         githubOidcProvider.openIdConnectProviderArn,
@@ -147,6 +185,7 @@ export class GitHubOidcStack extends cdk.Stack {
         resources: [
           `arn:aws:cloudformation:*:${this.account}:stack/ScorekeeperStack-*/*`,
           `arn:aws:cloudformation:*:${this.account}:stack/PrerequisiteInfraStack/*`,
+          `arn:aws:cloudformation:*:${this.account}:stack/WordlesWithFriendsStack/*`,
           `arn:aws:cloudformation:*:${this.account}:stack/CDKToolkit/*`,
         ],
       })
@@ -308,6 +347,7 @@ export class GitHubOidcStack extends cdk.Stack {
         ],
         resources: [
           `arn:aws:iam::${this.account}:role/ScorekeeperStack-*`,
+          `arn:aws:iam::${this.account}:role/WordlesWithFriendsStack-*`,
           `arn:aws:iam::${this.account}:role/cdk-*`,
         ],
       })
@@ -347,10 +387,10 @@ export class GitHubOidcStack extends cdk.Stack {
       })
     );
 
-    // S3 permissions for avatar bucket (created by PrerequisiteInfraStack)
+    // S3 permissions for application buckets
     githubActionsRole.addToPolicy(
       new iam.PolicyStatement({
-        sid: 'S3AvatarBucket',
+        sid: 'S3AppBuckets',
         effect: iam.Effect.ALLOW,
         actions: [
           's3:CreateBucket',
@@ -371,13 +411,58 @@ export class GitHubOidcStack extends cdk.Stack {
           's3:PutBucketTagging',
           's3:GetBucketVersioning',
           's3:PutBucketVersioning',
+          's3:GetBucketWebsite',
+          's3:PutBucketWebsite',
+          's3:DeleteBucketWebsite',
+          's3:GetBucketLogging',
+          's3:PutBucketLogging',
+          's3:GetLifecycleConfiguration',
+          's3:PutLifecycleConfiguration',
+          's3:ListBucket',
+          's3:GetObject',
+          's3:PutObject',
+          's3:DeleteObject',
         ],
         resources: [
           'arn:aws:s3:::scorekeeper-avatars',
+          'arn:aws:s3:::scorekeeper-avatars/*',
+          `arn:aws:s3:::wordleswithfriendsstack-*`,
+          `arn:aws:s3:::wordleswithfriendsstack-*/*`,
         ],
       })
     );
 
+    // CloudFront permissions for Wordles static site
+    githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CloudFront',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'cloudfront:CreateDistribution',
+          'cloudfront:DeleteDistribution',
+          'cloudfront:GetDistribution',
+          'cloudfront:GetDistributionConfig',
+          'cloudfront:UpdateDistribution',
+          'cloudfront:TagResource',
+          'cloudfront:UntagResource',
+          'cloudfront:ListTagsForResource',
+          'cloudfront:CreateInvalidation',
+          'cloudfront:GetInvalidation',
+          'cloudfront:ListInvalidations',
+          'cloudfront:CreateOriginAccessControl',
+          'cloudfront:DeleteOriginAccessControl',
+          'cloudfront:GetOriginAccessControl',
+          'cloudfront:UpdateOriginAccessControl',
+          'cloudfront:ListOriginAccessControls',
+          'cloudfront:CreateCachePolicy',
+          'cloudfront:DeleteCachePolicy',
+          'cloudfront:GetCachePolicy',
+          'cloudfront:UpdateCachePolicy',
+          'cloudfront:ListCachePolicies',
+        ],
+        resources: ['*'],
+      })
+    );
 
     // SSM Parameter Store (CDK bootstrap version)
     githubActionsRole.addToPolicy(
@@ -427,6 +512,31 @@ export class GitHubOidcStack extends cdk.Stack {
           'application-autoscaling:DescribeScalingPolicies',
         ],
         resources: ['*'],
+      })
+    );
+
+    // Lambda permissions for CDK custom resources (BucketDeployment uses Lambda)
+    githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'Lambda',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'lambda:CreateFunction',
+          'lambda:DeleteFunction',
+          'lambda:GetFunction',
+          'lambda:GetFunctionConfiguration',
+          'lambda:UpdateFunctionCode',
+          'lambda:UpdateFunctionConfiguration',
+          'lambda:InvokeFunction',
+          'lambda:AddPermission',
+          'lambda:RemovePermission',
+          'lambda:TagResource',
+          'lambda:UntagResource',
+          'lambda:ListTags',
+        ],
+        resources: [
+          `arn:aws:lambda:*:${this.account}:function:WordlesWithFriendsStack-*`,
+        ],
       })
     );
 

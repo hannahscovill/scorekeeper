@@ -44,14 +44,16 @@ if (isBootstrap || githubOrg) {
 
   new GitHubOidcStack(app, 'GitHubOidcStack', {
     githubOrg,
-    githubRepo,
-    allowedBranches: ['main'],
+    repos: [
+      { repo: 'scorekeeper', branches: ['main'] },
+      { repo: 'wordles-with-friends-client-web', branches: ['main'] },
+    ],
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
       region: process.env.CDK_DEFAULT_REGION,
     },
     tags: {
-      Project: 'scorekeeper',
+      Project: 'orchestra',
       ManagedBy: 'cdk',
       Purpose: 'github-oidc-bootstrap',
     },
@@ -61,6 +63,7 @@ if (isBootstrap || githubOrg) {
 // Create the Prerequisite Infrastructure stack (ECR repository)
 // This stack creates shared infrastructure that must exist before deployment
 // Deploy with: cdk deploy -c prerequisite=true PrerequisiteInfraStack
+// To import existing ECR: cdk import -c prerequisite=true PrerequisiteInfraStack
 if (isPrerequisite) {
   new PrerequisiteInfraStack(app, 'PrerequisiteInfraStack', {
     repositoryName: 'scorekeeper',
