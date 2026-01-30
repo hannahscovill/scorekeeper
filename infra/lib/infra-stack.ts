@@ -77,13 +77,13 @@ export class ScorekeeperStack extends cdk.Stack {
           ],
         });
 
-    // Route 53 Hosted Zone for the domain (DNS managed in Namecheap, forwarded to AWS NS)
+    // Route 53 Hosted Zone for the API subdomain (NS records configured in Namecheap)
     const domainName = this.node.tryGetContext('domainName') ?? 'wordles.dev';
     const apiSubdomain = this.node.tryGetContext('apiSubdomain') ?? 'api';
     const apiDomainName = `${apiSubdomain}.${domainName}`;
 
     const hostedZone = new route53.HostedZone(this, 'HostedZone', {
-      zoneName: domainName,
+      zoneName: apiDomainName,
     });
 
     // ACM Certificate for the API subdomain with DNS validation
