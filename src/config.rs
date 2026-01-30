@@ -51,6 +51,7 @@ impl Default for Config {
             cors_allowed_origins: vec![
                 "http://localhost:3000".to_string(),
                 "https://localhost:3000".to_string(),
+                "https://d4fxqc3yrokd1.cloudfront.net".to_string(),
             ],
         }
     }
@@ -62,6 +63,7 @@ impl Config {
         let default_origins = vec![
             "http://localhost:3000".to_string(),
             "https://localhost:3000".to_string(),
+            "https://d4fxqc3yrokd1.cloudfront.net".to_string(),
         ];
 
         Self {
@@ -165,12 +167,15 @@ mod tests {
         assert!(config.tls_key_path.is_none());
         assert!(config.dynamodb_endpoint_url.is_none());
         assert!(config.dynamodb_table_name.is_none());
-        assert_eq!(config.cors_allowed_origins.len(), 2);
+        assert_eq!(config.cors_allowed_origins.len(), 3);
         assert!(config
             .cors_allowed_origins
             .contains(&"http://localhost:3000".to_string()));
         assert!(config
             .cors_allowed_origins
             .contains(&"https://localhost:3000".to_string()));
+        assert!(config
+            .cors_allowed_origins
+            .contains(&"https://d4fxqc3yrokd1.cloudfront.net".to_string()));
     }
 }
