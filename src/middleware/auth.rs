@@ -181,8 +181,8 @@ pub fn extract_bearer_token(req: &HttpRequest) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Cookie name for auth token.
-pub const AUTH_COOKIE_NAME: &str = "auth_token";
+/// Cookie name for auth token (used by /guess endpoint for embedded games).
+pub const AUTH_COOKIE_NAME: &str = "wordle_session";
 
 /// Extracts the auth token from a cookie.
 pub fn extract_cookie_token(req: &HttpRequest) -> Option<String> {
@@ -271,7 +271,10 @@ mod tests {
     #[test]
     fn test_extract_cookie_token() {
         let req = TestRequest::default()
-            .cookie(actix_web::cookie::Cookie::new("auth_token", "cookie-token"))
+            .cookie(actix_web::cookie::Cookie::new(
+                "wordle_session",
+                "cookie-token",
+            ))
             .to_http_request();
 
         let token = extract_cookie_token(&req);
@@ -290,7 +293,10 @@ mod tests {
     fn test_extract_token_prefers_bearer() {
         let req = TestRequest::default()
             .insert_header(("Authorization", "Bearer bearer-token"))
-            .cookie(actix_web::cookie::Cookie::new("auth_token", "cookie-token"))
+            .cookie(actix_web::cookie::Cookie::new(
+                "wordle_session",
+                "cookie-token",
+            ))
             .to_http_request();
 
         let token = extract_token(&req);
@@ -300,7 +306,10 @@ mod tests {
     #[test]
     fn test_extract_token_falls_back_to_cookie() {
         let req = TestRequest::default()
-            .cookie(actix_web::cookie::Cookie::new("auth_token", "cookie-token"))
+            .cookie(actix_web::cookie::Cookie::new(
+                "wordle_session",
+                "cookie-token",
+            ))
             .to_http_request();
 
         let token = extract_token(&req);
