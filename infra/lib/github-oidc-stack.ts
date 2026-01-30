@@ -378,6 +378,7 @@ export class GitHubOidcStack extends cdk.Stack {
       })
     );
 
+
     // SSM Parameter Store (CDK bootstrap version)
     githubActionsRole.addToPolicy(
       new iam.PolicyStatement({

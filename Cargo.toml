@@ -26,6 +26,10 @@ aws-config = { version = "1", features = ["behavior-version-latest"] }
 async-trait = "0.1"
 base64 = "0.22"
 urlencoding = "2"
+phf = "0.11"
+
+[build-dependencies]
+phf_codegen = "0.11"
 
 [dev-dependencies]
 actix-web = { version = "4", features = ["macros"] }

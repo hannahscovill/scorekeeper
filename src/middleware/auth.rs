@@ -181,6 +181,20 @@ pub fn extract_bearer_token(req: &HttpRequest) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+/// Cookie name for auth token.
+pub const AUTH_COOKIE_NAME: &str = "auth_token";
+
+/// Extracts the auth token from a cookie.
+pub fn extract_cookie_token(req: &HttpRequest) -> Option<String> {
+    req.cookie(AUTH_COOKIE_NAME)
+        .map(|cookie| cookie.value().to_string())
+}
+
+/// Extracts auth token from either Authorization header (preferred) or cookie.
+pub fn extract_token(req: &HttpRequest) -> Option<String> {
+    extract_bearer_token(req).or_else(|| extract_cookie_token(req))
+}
+
 /// Implement FromRequest for Claims to enable automatic extraction in handlers.
 impl FromRequest for Claims {
     type Error = AppError;
@@ -195,7 +209,7 @@ impl FromRequest for Claims {
                 .app_data::<web::Data<JwtAuth>>()
                 .ok_or_else(|| AppError::InternalError("JwtAuth not configured".to_string()))?;
 
-            // Extract bearer token
+            // Extract bearer token (Claims extractor requires Authorization header)
             let token = extract_bearer_token(&req).ok_or_else(|| {
                 AppError::Unauthorized("Missing Authorization header".to_string())
             })?;
@@ -252,5 +266,44 @@ mod tests {
         assert!(aud.contains("aud1"));
         assert!(aud.contains("aud2"));
         assert!(!aud.contains("aud3"));
+    }
+
+    #[test]
+    fn test_extract_cookie_token() {
+        let req = TestRequest::default()
+            .cookie(actix_web::cookie::Cookie::new("auth_token", "cookie-token"))
+            .to_http_request();
+
+        let token = extract_cookie_token(&req);
+        assert_eq!(token, Some("cookie-token".to_string()));
+    }
+
+    #[test]
+    fn test_extract_cookie_token_missing() {
+        let req = TestRequest::default().to_http_request();
+
+        let token = extract_cookie_token(&req);
+        assert!(token.is_none());
+    }
+
+    #[test]
+    fn test_extract_token_prefers_bearer() {
+        let req = TestRequest::default()
+            .insert_header(("Authorization", "Bearer bearer-token"))
+            .cookie(actix_web::cookie::Cookie::new("auth_token", "cookie-token"))
+            .to_http_request();
+
+        let token = extract_token(&req);
+        assert_eq!(token, Some("bearer-token".to_string()));
+    }
+
+    #[test]
+    fn test_extract_token_falls_back_to_cookie() {
+        let req = TestRequest::default()
+            .cookie(actix_web::cookie::Cookie::new("auth_token", "cookie-token"))
+            .to_http_request();
+
+        let token = extract_token(&req);
+        assert_eq!(token, Some("cookie-token".to_string()));
     }
 }

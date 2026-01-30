@@ -1,5 +1,5 @@
 Game:
-  summary: A game submission with puzzle date and moves
+  summary: A word guess submission with puzzle date
   value:
     $ref: "./Game.json"
 

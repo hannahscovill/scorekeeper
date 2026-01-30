@@ -12,6 +12,7 @@ servers:
 
 security:
   - bearerAuth: []
+  - cookieAuth: []
 
 tags:
   - name: Gameplay
@@ -28,8 +29,8 @@ tags:
 paths:
   /guess:
     post:
-      summary: Submit a game with moves
-      description: Submit a game with puzzle date and moves (guesses). Returns graded results for each guess.
+      summary: Submit a word guess
+      description: Submit a guess for a puzzle. Authentication via Authorization header (Bearer token) or auth_token cookie.
       operationId: submitGuess
       tags:
         - Gameplay
@@ -410,7 +411,12 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT token for authentication
+      description: JWT token in Authorization header
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: JWT token in auth_token cookie
 
   responses:
     NotModified:
@@ -459,23 +465,18 @@ components:
       type: object
       required:
         - puzzle_date_iso_day
-        - moves
+        - word_guessed
       properties:
         puzzle_date_iso_day:
           type: string
           format: date
           description: The date of the puzzle in ISO format (YYYY-MM-DD)
           example: "2024-01-15"
-        moves:
-          type: array
-          description: List of guesses (1-6 items)
-          minItems: 1
-          maxItems: 6
-          items:
-            type: string
-            pattern: "^[a-zA-Z0-9]{5}$"
-            description: A 5-character alphanumeric guess
-            example: "crane"
+        word_guessed:
+          type: string
+          pattern: "^[a-zA-Z]{5}$"
+          description: The 5-letter word guessed by the player
+          example: "crane"
 
     LetterGrade:
       type: string

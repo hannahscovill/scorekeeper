@@ -15,6 +15,7 @@ export interface PrerequisiteInfraStackProps extends cdk.StackProps {
    * @default 'scorekeeper-avatars'
    */
   readonly avatarBucketName?: string;
+
 }
 
 export class PrerequisiteInfraStack extends cdk.Stack {
@@ -60,6 +61,7 @@ export class PrerequisiteInfraStack extends cdk.Stack {
       ],
     });
 
+
     // Outputs
     this.repositoryUri = new cdk.CfnOutput(this, 'EcrRepositoryUri', {
       value: ecrRepository.repositoryUri,
@@ -84,5 +86,6 @@ export class PrerequisiteInfraStack extends cdk.Stack {
       description: 'The ARN of the S3 bucket for avatar uploads',
       exportName: 'ScorekeeperAvatarBucketArn',
     });
+
   }
 }

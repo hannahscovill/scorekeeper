@@ -3,13 +3,16 @@ FROM rust:latest AS builder
 
 WORKDIR /app
 
-# Copy manifests
-COPY Cargo.toml Cargo.lock* ./
+# Copy manifests and build script
+COPY Cargo.toml Cargo.lock* build.rs ./
+
+# Copy data files needed by build.rs
+COPY data ./data
 
 # Create a dummy main.rs to build dependencies first (for better caching)
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
-# Build dependencies only
+# Build dependencies only (includes running build.rs)
 RUN cargo build --release && rm -rf src
 
 # Copy actual source code
