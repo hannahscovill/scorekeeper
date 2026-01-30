@@ -432,6 +432,30 @@ export class GitHubOidcStack extends cdk.Stack {
       })
     );
 
+    // DynamoDB permissions for scorekeeper table
+    githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'DynamoDB',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'dynamodb:CreateTable',
+          'dynamodb:DeleteTable',
+          'dynamodb:DescribeTable',
+          'dynamodb:UpdateTable',
+          'dynamodb:DescribeTimeToLive',
+          'dynamodb:UpdateTimeToLive',
+          'dynamodb:DescribeContinuousBackups',
+          'dynamodb:UpdateContinuousBackups',
+          'dynamodb:ListTagsOfResource',
+          'dynamodb:TagResource',
+          'dynamodb:UntagResource',
+        ],
+        resources: [
+          `arn:aws:dynamodb:*:${this.account}:table/scorekeeper-*`,
+        ],
+      })
+    );
+
     // CloudFront permissions for Wordles static site
     githubActionsRole.addToPolicy(
       new iam.PolicyStatement({
