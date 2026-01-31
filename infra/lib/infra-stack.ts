@@ -6,6 +6,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -71,19 +72,40 @@ export class ScorekeeperStack extends cdk.Stack {
       ? s3.Bucket.fromBucketName(this, 'AvatarBucket', avatarBucketName)
       : new s3.Bucket(this, 'AvatarBucket', {
           bucketName: avatarBucketName,
-          blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+          // Allow public read access for avatar images via bucket policy
+          // Block ACLs to prevent individual object ACL changes
+          blockPublicAccess: new s3.BlockPublicAccess({
+            blockPublicAcls: true,
+            ignorePublicAcls: true,
+            blockPublicPolicy: false,
+            restrictPublicBuckets: false,
+          }),
           encryption: s3.BucketEncryption.S3_MANAGED,
           enforceSSL: true,
           removalPolicy: cdk.RemovalPolicy.RETAIN,
           cors: [
             {
               allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
-              allowedOrigins: ['*'], // Restricted by IAM and pre-signed URLs
+              allowedOrigins: ['*'],
               allowedHeaders: ['*'],
               maxAge: 3600,
             },
           ],
         });
+
+    // Add bucket policy for public read access to avatars
+    // This works for both new and imported buckets
+    new s3.BucketPolicy(this, 'AvatarBucketPolicy', {
+      bucket: avatarBucket,
+    }).document.addStatements(
+      new iam.PolicyStatement({
+        sid: 'PublicReadAvatars',
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.AnyPrincipal()],
+        actions: ['s3:GetObject'],
+        resources: [`${avatarBucket.bucketArn}/avatars/*`],
+      })
+    );
 
     // Route 53 Hosted Zone for the API subdomain (NS records configured in Namecheap)
     const domainName = this.node.tryGetContext('domainName') ?? 'wordles.dev';
