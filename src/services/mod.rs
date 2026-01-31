@@ -2,12 +2,14 @@
 
 pub mod auth0;
 pub mod grading;
+pub mod s3_avatar;
 
 use crate::models::{Game, GameCreate};
 use uuid::Uuid;
 
 pub use auth0::Auth0ManagementService;
 pub use grading::{grade_guess, is_winning_guess};
+pub use s3_avatar::S3AvatarService;
 
 /// Service for managing games.
 pub struct GameService;

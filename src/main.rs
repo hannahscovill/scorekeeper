@@ -25,8 +25,9 @@ use db::{
 use middleware::auth::JwtAuth;
 use routes::{
     create_games, get_games, get_profile, health_check, list_games, submit_guess, update_profile,
+    upload_avatar,
 };
-use services::Auth0ManagementService;
+use services::{Auth0ManagementService, S3AvatarService};
 
 /// Load TLS configuration from certificate and key files.
 fn load_tls_config(cert_path: &str, key_path: &str) -> std::io::Result<ServerConfig> {
@@ -143,6 +144,20 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
+    // Initialize S3 Avatar service (requires both S3 bucket and Auth0 M2M)
+    let s3_avatar_service = if let Some(bucket) = config.s3_avatar_bucket() {
+        info!("S3 Avatar service enabled for bucket: {}", bucket);
+        let sdk_config = aws_config::load_from_env().await;
+        let s3_client = aws_sdk_s3::Client::new(&sdk_config);
+        Some(web::Data::new(S3AvatarService::new(
+            s3_client,
+            bucket.to_string(),
+        )))
+    } else {
+        info!("S3 Avatar service disabled (S3_AVATAR_BUCKET not configured)");
+        None
+    };
+
     let config_for_tls = config.clone();
     let config = web::Data::new(config);
 
@@ -188,6 +203,11 @@ async fn main() -> std::io::Result<()> {
                 .app_data(auth0.clone())
                 .service(get_profile)
                 .service(update_profile);
+
+            // Only register avatar upload if both Auth0 and S3 are configured
+            if let Some(ref s3) = s3_avatar_service {
+                app = app.app_data(s3.clone()).service(upload_avatar);
+            }
         }
 
         app
