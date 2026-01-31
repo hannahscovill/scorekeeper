@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib/core';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as cr from 'aws-cdk-lib/custom-resources';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
@@ -93,19 +94,85 @@ export class ScorekeeperStack extends cdk.Stack {
           ],
         });
 
-    // Add bucket policy for public read access to avatars
-    // This works for both new and imported buckets
-    new s3.BucketPolicy(this, 'AvatarBucketPolicy', {
-      bucket: avatarBucket,
-    }).document.addStatements(
-      new iam.PolicyStatement({
-        sid: 'PublicReadAvatars',
-        effect: iam.Effect.ALLOW,
-        principals: [new iam.AnyPrincipal()],
-        actions: ['s3:GetObject'],
-        resources: [`${avatarBucket.bucketArn}/avatars/*`],
-      })
-    );
+    // For imported buckets, we need to update the public access block settings
+    // before we can add a public bucket policy
+    if (props?.importExistingAvatarBucket) {
+      const updatePublicAccessBlock = new cr.AwsCustomResource(
+        this,
+        'UpdateAvatarBucketPublicAccessBlock',
+        {
+          onCreate: {
+            service: 'S3',
+            action: 'putPublicAccessBlock',
+            parameters: {
+              Bucket: avatarBucketName,
+              PublicAccessBlockConfiguration: {
+                BlockPublicAcls: true,
+                IgnorePublicAcls: true,
+                BlockPublicPolicy: false,
+                RestrictPublicBuckets: false,
+              },
+            },
+            physicalResourceId: cr.PhysicalResourceId.of(
+              `${avatarBucketName}-public-access-block`
+            ),
+          },
+          onUpdate: {
+            service: 'S3',
+            action: 'putPublicAccessBlock',
+            parameters: {
+              Bucket: avatarBucketName,
+              PublicAccessBlockConfiguration: {
+                BlockPublicAcls: true,
+                IgnorePublicAcls: true,
+                BlockPublicPolicy: false,
+                RestrictPublicBuckets: false,
+              },
+            },
+            physicalResourceId: cr.PhysicalResourceId.of(
+              `${avatarBucketName}-public-access-block`
+            ),
+          },
+          policy: cr.AwsCustomResourcePolicy.fromStatements([
+            new iam.PolicyStatement({
+              actions: [
+                's3:PutBucketPublicAccessBlock',
+                's3:GetBucketPublicAccessBlock',
+              ],
+              resources: [`arn:aws:s3:::${avatarBucketName}`],
+            }),
+          ]),
+        }
+      );
+
+      // Create the bucket policy and ensure it depends on the public access block update
+      const bucketPolicy = new s3.BucketPolicy(this, 'AvatarBucketPolicy', {
+        bucket: avatarBucket,
+      });
+      bucketPolicy.document.addStatements(
+        new iam.PolicyStatement({
+          sid: 'PublicReadAvatars',
+          effect: iam.Effect.ALLOW,
+          principals: [new iam.AnyPrincipal()],
+          actions: ['s3:GetObject'],
+          resources: [`${avatarBucket.bucketArn}/avatars/*`],
+        })
+      );
+      bucketPolicy.node.addDependency(updatePublicAccessBlock);
+    } else {
+      // For new buckets, just add the policy directly (public access is already configured)
+      new s3.BucketPolicy(this, 'AvatarBucketPolicy', {
+        bucket: avatarBucket,
+      }).document.addStatements(
+        new iam.PolicyStatement({
+          sid: 'PublicReadAvatars',
+          effect: iam.Effect.ALLOW,
+          principals: [new iam.AnyPrincipal()],
+          actions: ['s3:GetObject'],
+          resources: [`${avatarBucket.bucketArn}/avatars/*`],
+        })
+      );
+    }
 
     // Route 53 Hosted Zone for the API subdomain (NS records configured in Namecheap)
     const domainName = this.node.tryGetContext('domainName') ?? 'wordles.dev';
