@@ -126,6 +126,54 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /profile/avatar:
+    post:
+      summary: Upload user avatar
+      description: |
+        Upload an avatar image for the authenticated user.
+
+        The image is uploaded to S3 and the URL is stored in Auth0 user_metadata.
+        Requires both Auth0 M2M credentials and S3_AVATAR_BUCKET to be configured.
+      operationId: uploadAvatar
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+                  description: Image file to upload (JPEG or PNG, max 2MB)
+      responses:
+        "200":
+          description: Avatar uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarUploadResponse"
+              examples:
+                default:
+                  value:
+                    avatarUrl: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Internal Server Error (S3 upload failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Failed to upload avatar"
+
   /team:
     get:
       summary: Get a team
@@ -787,6 +835,22 @@ components:
           type: string
           description: The user's display name (from Auth0 user_metadata)
           example: "wordmaster42"
+        avatarUrl:
+          type: string
+          format: uri
+          description: URL to the user's avatar image
+          example: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
+
+    AvatarUploadResponse:
+      type: object
+      required:
+        - avatarUrl
+      properties:
+        avatarUrl:
+          type: string
+          format: uri
+          description: URL to the uploaded avatar image
+          example: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
 
     ErrorResponse:
       type: object

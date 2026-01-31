@@ -1,0 +1,53 @@
+meta {
+  name: Upload Avatar
+  type: http
+  seq: 3
+}
+
+post {
+  url: https://{{baseUrl}}/profile/avatar
+  body: multipartForm
+  auth: bearer
+}
+
+headers {
+  Origin: http://localhost:3000
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:multipart-form {
+  avatar: @file(/path/to/avatar.jpg)
+}
+
+docs {
+  Uploads an avatar image for the currently authenticated user.
+
+  The image is uploaded to S3 and the URL is stored in Auth0 user_metadata.
+
+  ## Authentication
+  Requires a valid Bearer token (inherited from collection).
+
+  ## Prerequisites
+  The server must be configured with:
+  - `AUTH0_M2M_CLIENT_ID` and `AUTH0_M2M_CLIENT_SECRET`
+  - `S3_AVATAR_BUCKET`
+
+  ## Request Body
+  - `avatar` (file, required): Image file to upload
+    - Allowed types: JPEG, PNG
+    - Maximum size: 2MB
+
+  ## Responses
+  - `200`: Avatar uploaded successfully
+    ```json
+    {
+      "avatarUrl": "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
+    }
+    ```
+  - `400`: Invalid file type, file too large, empty file, or missing avatar field
+  - `401`: Authentication required or invalid token
+  - `500`: S3 upload failure
+}
