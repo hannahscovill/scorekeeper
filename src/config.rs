@@ -31,6 +31,8 @@ pub struct Config {
     pub dynamodb_table_name: Option<String>,
     /// Comma-separated list of allowed CORS origins.
     pub cors_allowed_origins: Vec<String>,
+    /// S3 bucket name for avatar uploads.
+    pub s3_avatar_bucket: Option<String>,
 }
 
 impl Default for Config {
@@ -54,6 +56,7 @@ impl Default for Config {
                 "https://d3g0psl1n9xo36.cloudfront.net".to_string(),
                 "https://wordles.dev".to_string(),
             ],
+            s3_avatar_bucket: None,
         }
     }
 }
@@ -91,6 +94,7 @@ impl Config {
             cors_allowed_origins: std::env::var("CORS_ALLOWED_ORIGINS")
                 .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
                 .unwrap_or(default_origins),
+            s3_avatar_bucket: std::env::var("S3_AVATAR_BUCKET").ok(),
         }
     }
 
@@ -148,6 +152,11 @@ impl Config {
     pub fn cors_allowed_origins(&self) -> &[String] {
         &self.cors_allowed_origins
     }
+
+    /// Returns the S3 avatar bucket name.
+    pub fn s3_avatar_bucket(&self) -> Option<&str> {
+        self.s3_avatar_bucket.as_deref()
+    }
 }
 
 #[cfg(test)]
@@ -182,5 +191,6 @@ mod tests {
         assert!(config
             .cors_allowed_origins
             .contains(&"https://wordles.dev".to_string()));
+        assert!(config.s3_avatar_bucket.is_none());
     }
 }

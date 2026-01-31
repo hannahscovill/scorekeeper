@@ -1,12 +1,14 @@
 //! User profile route handlers.
 //! All profile data is stored in Auth0 user_metadata.
 
-use actix_web::{get, put, web, HttpResponse};
+use actix_multipart::Multipart;
+use actix_web::{get, post, put, web, HttpResponse};
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 
 use crate::middleware::auth::Claims;
 use crate::models::error::AppError;
-use crate::services::Auth0ManagementService;
+use crate::services::{Auth0ManagementService, S3AvatarService};
 
 /// Request body for updating a profile.
 /// All fields are optional - only provided fields will be updated.
@@ -28,6 +30,13 @@ pub struct ProfileResponse {
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+}
+
+/// Response from avatar upload endpoint.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AvatarUploadResponse {
+    pub avatar_url: String,
 }
 
 /// GET /profile - Get the current user's profile from Auth0.
@@ -72,6 +81,62 @@ pub async fn update_profile(
         display_name: user.user_metadata.as_ref().map(|m| m.display_name.clone()),
         avatar_url: user.user_metadata.and_then(|m| m.avatar_url),
     }))
+}
+
+/// POST /profile/avatar - Upload an avatar image.
+#[post("/profile/avatar")]
+pub async fn upload_avatar(
+    claims: Claims,
+    mut payload: Multipart,
+    s3_service: web::Data<S3AvatarService>,
+    auth0_service: web::Data<Auth0ManagementService>,
+) -> Result<HttpResponse, AppError> {
+    // Find the "avatar" field in the multipart payload
+    let mut file_data: Option<(Vec<u8>, String)> = None;
+
+    while let Some(item) = payload.next().await {
+        let mut field = item
+            .map_err(|e| AppError::bad_request(format!("Failed to read multipart field: {}", e)))?;
+
+        // Check if this is the "avatar" field
+        let field_name = field.name().map(|s| s.to_string());
+        if field_name.as_deref() != Some("avatar") {
+            continue;
+        }
+
+        // Get content type
+        let content_type = field
+            .content_type()
+            .map(|ct| ct.to_string())
+            .unwrap_or_default();
+
+        // Read all chunks into a buffer
+        let mut data = Vec::new();
+        while let Some(chunk) = field.next().await {
+            let chunk = chunk
+                .map_err(|e| AppError::bad_request(format!("Failed to read file chunk: {}", e)))?;
+            data.extend_from_slice(&chunk);
+        }
+
+        file_data = Some((data, content_type));
+        break;
+    }
+
+    // Ensure we got a file
+    let (data, content_type) =
+        file_data.ok_or_else(|| AppError::bad_request("Missing 'avatar' field in request"))?;
+
+    // Upload to S3
+    let avatar_url = s3_service
+        .upload_avatar(&claims.sub, data, &content_type)
+        .await?;
+
+    // Update Auth0 user metadata with the new avatar URL
+    auth0_service
+        .update_user_metadata(&claims.sub, None, Some(&avatar_url))
+        .await?;
+
+    Ok(HttpResponse::Ok().json(AvatarUploadResponse { avatar_url }))
 }
 
 #[cfg(test)]
