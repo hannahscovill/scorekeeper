@@ -87,7 +87,7 @@ impl Config {
             tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
             tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
             dynamodb_endpoint_url: std::env::var("AWS_ENDPOINT_URL_DYNAMODB").ok(),
-            dynamodb_table_name: std::env::var("DYNAMODB_TABLE_NAME").ok(),
+            dynamodb_table_name: std::env::var("DYNAMODB_TABLE").ok(),
             cors_allowed_origins: std::env::var("CORS_ALLOWED_ORIGINS")
                 .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
                 .unwrap_or(default_origins),
