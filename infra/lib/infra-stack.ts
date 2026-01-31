@@ -9,6 +9,7 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export interface ScorekeeperStackProps extends cdk.StackProps {
@@ -35,6 +36,13 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
    * @default false
    */
   readonly importExistingAvatarBucket?: boolean;
+
+  /**
+   * ARN of the Secrets Manager secret containing Auth0 M2M credentials.
+   * The secret should be a JSON object with 'clientId' and 'clientSecret' fields.
+   * If not provided, profile endpoints will not be available.
+   */
+  readonly auth0M2mSecretArn?: string;
 }
 
 export class ScorekeeperStack extends cdk.Stack {
@@ -142,6 +150,12 @@ export class ScorekeeperStack extends cdk.Stack {
       containerInsightsV2: isProd ? ecs.ContainerInsights.ENABLED : ecs.ContainerInsights.DISABLED,
     });
 
+    // Look up Auth0 M2M secret if ARN is provided (required for profile endpoints)
+    const auth0M2mSecretArn = props?.auth0M2mSecretArn ?? this.node.tryGetContext('auth0M2mSecretArn');
+    const auth0M2mSecret = auth0M2mSecretArn
+      ? secretsmanager.Secret.fromSecretCompleteArn(this, 'Auth0M2mSecret', auth0M2mSecretArn)
+      : undefined;
+
     // Create Fargate Service with Application Load Balancer
     const fargateService = new ecsPatterns.ApplicationLoadBalancedFargateService(
       this,
@@ -174,6 +188,15 @@ export class ScorekeeperStack extends cdk.Stack {
             DYNAMODB_TABLE: table.tableName,
             AWS_REGION: this.region,
           },
+          // Auth0 M2M credentials for profile endpoints (from Secrets Manager)
+          ...(auth0M2mSecret
+            ? {
+                secrets: {
+                  AUTH0_M2M_CLIENT_ID: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'clientId'),
+                  AUTH0_M2M_CLIENT_SECRET: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'clientSecret'),
+                },
+              }
+            : {}),
         },
         circuitBreaker: {
           rollback: true,

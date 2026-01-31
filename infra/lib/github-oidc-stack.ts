@@ -500,6 +500,21 @@ export class GitHubOidcStack extends cdk.Stack {
       })
     );
 
+    // Secrets Manager permissions for Auth0 M2M credentials
+    githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SecretsManager',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'secretsmanager:GetSecretValue',
+          'secretsmanager:DescribeSecret',
+        ],
+        resources: [
+          `arn:aws:secretsmanager:*:${this.account}:secret:scorekeeper/*`,
+        ],
+      })
+    );
+
     // CloudWatch Logs permissions
     githubActionsRole.addToPolicy(
       new iam.PolicyStatement({
