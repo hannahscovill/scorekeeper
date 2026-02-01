@@ -27,6 +27,9 @@ pub trait PuzzleDatabase: Send + Sync {
         puzzle_date: NaiveDate,
     ) -> DatabaseResult<Option<GameState>>;
 
+    /// Gets all game states for a user.
+    async fn get_user_game_states(&self, user_id: &str) -> DatabaseResult<Vec<GameState>>;
+
     /// Creates or updates a game state.
     async fn upsert_game_state(&self, game_state: &GameState) -> DatabaseResult<GameState>;
 
@@ -175,6 +178,36 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
         }
     }
 
+    async fn get_user_game_states(&self, user_id: &str) -> DatabaseResult<Vec<GameState>> {
+        // Query using a begins_with on pk to find all USER#{user_id}#PUZZLE# entries
+        // Since DynamoDB partition key is the full pk, we need to use a scan with filter
+        // or create a GSI. For now, we'll use a scan with filter expression.
+        let pk_prefix = format!("USER#{}#PUZZLE#", user_id);
+
+        let result = self
+            .client
+            .scan()
+            .table_name(&self.table_name)
+            .filter_expression("begins_with(pk, :pk_prefix) AND sk = :sk")
+            .expression_attribute_values(":pk_prefix", AttributeValue::S(pk_prefix))
+            .expression_attribute_values(":sk", AttributeValue::S(GameState::sk().to_string()))
+            .send()
+            .await
+            .map_err(|e| DatabaseError::Other(format!("DynamoDB scan error: {}", e)))?;
+
+        let mut game_states = Vec::new();
+        if let Some(items) = result.items {
+            for item in items {
+                game_states.push(Self::item_to_game_state(&item)?);
+            }
+        }
+
+        // Sort by puzzle_date descending (most recent first)
+        game_states.sort_by(|a, b| b.puzzle_date.cmp(&a.puzzle_date));
+
+        Ok(game_states)
+    }
+
     async fn upsert_game_state(&self, game_state: &GameState) -> DatabaseResult<GameState> {
         let item = Self::game_state_to_item(game_state);
 
@@ -309,6 +342,24 @@ impl PuzzleDatabase for InMemoryPuzzleDb {
             .read()
             .map_err(|e| DatabaseError::LockError(e.to_string()))?;
         Ok(states.get(&key).cloned())
+    }
+
+    async fn get_user_game_states(&self, user_id: &str) -> DatabaseResult<Vec<GameState>> {
+        let states = self
+            .game_states
+            .read()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+
+        let mut user_states: Vec<GameState> = states
+            .values()
+            .filter(|s| s.user_id == user_id)
+            .cloned()
+            .collect();
+
+        // Sort by puzzle_date descending (most recent first)
+        user_states.sort_by(|a, b| b.puzzle_date.cmp(&a.puzzle_date));
+
+        Ok(user_states)
     }
 
     async fn upsert_game_state(&self, game_state: &GameState) -> DatabaseResult<GameState> {
