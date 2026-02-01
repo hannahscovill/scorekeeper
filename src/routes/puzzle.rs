@@ -1,11 +1,10 @@
 //! Route handler for puzzle management (admin-only).
 
-use actix_web::{put, web, HttpResponse};
+use actix_web::{get, put, web, HttpResponse};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::config::Config;
 use crate::db::PuzzleDatabase;
 use crate::middleware::auth::Claims;
 use crate::models::error::AppError;
@@ -34,22 +33,83 @@ pub struct SetPuzzleResponse {
     pub team_id: Option<String>,
 }
 
-/// PUT /puzzle - Set the answer for a puzzle (admin-only).
+/// Query parameters for getting puzzle answers.
+#[derive(Debug, Clone, Deserialize)]
+pub struct GetPuzzlesQuery {
+    /// Start date for filtering puzzles (inclusive).
+    pub start_date: Option<NaiveDate>,
+    /// End date for filtering puzzles (inclusive).
+    pub end_date: Option<NaiveDate>,
+}
+
+/// Response item for a puzzle answer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PuzzleAnswerResponse {
+    /// The date of the puzzle.
+    pub date: NaiveDate,
+    /// The answer word.
+    pub word: String,
+}
+
+/// Response for getting puzzle answers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetPuzzlesResponse {
+    /// List of puzzle answers.
+    pub puzzles: Vec<PuzzleAnswerResponse>,
+}
+
+/// GET /puzzle - Get puzzle answers (game admin only).
 ///
-/// This endpoint allows administrators to set or update the puzzle answer
-/// for a specific date. Only users whose Auth0 subject is in the
-/// ADMIN_USER_IDS environment variable can access this endpoint.
+/// This endpoint allows game administrators to retrieve puzzle answers.
+/// With no query parameters, returns all puzzles. Use start_date and end_date
+/// to filter by date range. Only users with app_metadata.game_admin = true
+/// can access this endpoint.
+#[get("/puzzle")]
+pub async fn get_puzzles(
+    claims: Claims,
+    query: web::Query<GetPuzzlesQuery>,
+    puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
+) -> Result<HttpResponse, AppError> {
+    // Check if user is a game admin
+    if !claims.is_game_admin() {
+        return Err(AppError::Forbidden(
+            "Only game administrators can view puzzle answers".to_string(),
+        ));
+    }
+
+    let puzzles = puzzle_db
+        .get_puzzle_answers(query.start_date, query.end_date)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
+
+    let response = GetPuzzlesResponse {
+        puzzles: puzzles
+            .into_iter()
+            .map(|p| PuzzleAnswerResponse {
+                date: p.puzzle_date,
+                word: p.word,
+            })
+            .collect(),
+    };
+
+    Ok(HttpResponse::Ok().json(response))
+}
+
+/// PUT /puzzle - Set the answer for a puzzle (game admin only).
+///
+/// This endpoint allows game administrators to set or update the puzzle answer
+/// for a specific date. Only users with app_metadata.game_admin = true
+/// can access this endpoint.
 #[put("/puzzle")]
 pub async fn set_puzzle(
     claims: Claims,
     body: web::Json<SetPuzzleRequest>,
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
-    config: web::Data<Config>,
 ) -> Result<HttpResponse, AppError> {
-    // Check if user is an admin
-    if !config.is_admin(&claims.sub) {
+    // Check if user is a game admin
+    if !claims.is_game_admin() {
         return Err(AppError::Forbidden(
-            "Only administrators can set puzzle answers".to_string(),
+            "Only game administrators can set puzzle answers".to_string(),
         ));
     }
 

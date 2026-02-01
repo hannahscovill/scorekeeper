@@ -36,6 +36,13 @@ pub trait PuzzleDatabase: Send + Sync {
     /// Gets the puzzle answer for a specific date.
     async fn get_puzzle_answer(&self, puzzle_date: NaiveDate) -> DatabaseResult<Option<String>>;
 
+    /// Gets all puzzle answers, optionally filtered by date range.
+    async fn get_puzzle_answers(
+        &self,
+        start_date: Option<NaiveDate>,
+        end_date: Option<NaiveDate>,
+    ) -> DatabaseResult<Vec<PuzzleAnswer>>;
+
     /// Sets the puzzle answer for a specific date.
     async fn set_puzzle_answer(
         &self,
@@ -261,6 +268,69 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
         Ok(answer)
     }
 
+    async fn get_puzzle_answers(
+        &self,
+        start_date: Option<NaiveDate>,
+        end_date: Option<NaiveDate>,
+    ) -> DatabaseResult<Vec<PuzzleAnswer>> {
+        // Scan for all PUZZLE# items with sk = ANSWER
+        let mut builder = self
+            .client
+            .scan()
+            .table_name(&self.table_name)
+            .filter_expression("begins_with(pk, :pk_prefix) AND sk = :sk")
+            .expression_attribute_values(":pk_prefix", AttributeValue::S("PUZZLE#".to_string()))
+            .expression_attribute_values(":sk", AttributeValue::S(PuzzleAnswer::sk().to_string()));
+
+        // Add date range filters if specified
+        if start_date.is_some() || end_date.is_some() {
+            let mut filter_parts = vec!["begins_with(pk, :pk_prefix)", "sk = :sk"];
+
+            if let Some(start) = start_date {
+                filter_parts.push("puzzle_date >= :start_date");
+                builder = builder.expression_attribute_values(
+                    ":start_date",
+                    AttributeValue::S(start.to_string()),
+                );
+            }
+
+            if let Some(end) = end_date {
+                filter_parts.push("puzzle_date <= :end_date");
+                builder = builder
+                    .expression_attribute_values(":end_date", AttributeValue::S(end.to_string()));
+            }
+
+            builder = builder.filter_expression(filter_parts.join(" AND "));
+        }
+
+        let result = builder
+            .send()
+            .await
+            .map_err(|e| DatabaseError::Other(format!("DynamoDB scan error: {}", e)))?;
+
+        let mut puzzles = Vec::new();
+        if let Some(items) = result.items {
+            for item in items {
+                if let (Some(date_str), Some(word)) = (
+                    item.get("puzzle_date").and_then(|v| v.as_s().ok()),
+                    item.get("word").and_then(|v| v.as_s().ok()),
+                ) {
+                    if let Ok(puzzle_date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
+                        puzzles.push(PuzzleAnswer {
+                            puzzle_date,
+                            word: word.clone(),
+                        });
+                    }
+                }
+            }
+        }
+
+        // Sort by date ascending
+        puzzles.sort_by(|a, b| a.puzzle_date.cmp(&b.puzzle_date));
+
+        Ok(puzzles)
+    }
+
     async fn set_puzzle_answer(
         &self,
         puzzle_date: NaiveDate,
@@ -378,6 +448,35 @@ impl PuzzleDatabase for InMemoryPuzzleDb {
             .read()
             .map_err(|e| DatabaseError::LockError(e.to_string()))?;
         Ok(answers.get(&puzzle_date).cloned())
+    }
+
+    async fn get_puzzle_answers(
+        &self,
+        start_date: Option<NaiveDate>,
+        end_date: Option<NaiveDate>,
+    ) -> DatabaseResult<Vec<PuzzleAnswer>> {
+        let answers = self
+            .puzzle_answers
+            .read()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+
+        let mut puzzles: Vec<PuzzleAnswer> = answers
+            .iter()
+            .filter(|(date, _)| {
+                let after_start = start_date.is_none_or(|start| **date >= start);
+                let before_end = end_date.is_none_or(|end| **date <= end);
+                after_start && before_end
+            })
+            .map(|(date, word)| PuzzleAnswer {
+                puzzle_date: *date,
+                word: word.clone(),
+            })
+            .collect();
+
+        // Sort by date ascending
+        puzzles.sort_by(|a, b| a.puzzle_date.cmp(&b.puzzle_date));
+
+        Ok(puzzles)
     }
 
     async fn set_puzzle_answer(
