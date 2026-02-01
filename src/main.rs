@@ -24,8 +24,8 @@ use db::{
 };
 use middleware::auth::JwtAuth;
 use routes::{
-    create_games, get_games, get_history, get_profile, health_check, list_games, set_puzzle,
-    submit_guess, update_profile, upload_avatar,
+    create_games, get_game, get_games, get_history, get_profile, health_check, list_games,
+    set_puzzle, submit_guess, update_profile, upload_avatar,
 };
 use services::{Auth0ManagementService, S3AvatarService};
 
@@ -194,6 +194,7 @@ async fn main() -> std::io::Result<()> {
             .service(health_check)
             .service(list_games)
             .service(get_games)
+            .service(get_game)
             .service(create_games)
             .service(submit_guess)
             .service(set_puzzle)
