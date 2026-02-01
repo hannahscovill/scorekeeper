@@ -1,11 +1,10 @@
 //! Route handler for puzzle management (admin-only).
 
-use actix_web::{put, web, HttpResponse};
+use actix_web::{get, put, web, HttpResponse};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::config::Config;
 use crate::db::PuzzleDatabase;
 use crate::middleware::auth::Claims;
 use crate::models::error::AppError;
@@ -34,22 +33,89 @@ pub struct SetPuzzleResponse {
     pub team_id: Option<String>,
 }
 
-/// PUT /puzzle - Set the answer for a puzzle (admin-only).
+/// Query parameters for getting puzzle answers.
+#[derive(Debug, Clone, Deserialize)]
+pub struct GetPuzzlesQuery {
+    /// Start date for filtering puzzles (inclusive).
+    pub start_date: Option<NaiveDate>,
+    /// End date for filtering puzzles (inclusive).
+    pub end_date: Option<NaiveDate>,
+    /// If true, omit the answer words from the response (only return dates).
+    #[serde(default)]
+    pub omit_answers: bool,
+}
+
+/// Response item for a puzzle answer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PuzzleAnswerResponse {
+    /// The date of the puzzle.
+    pub date: NaiveDate,
+    /// The answer word. Omitted when omit_answers=true.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub word: Option<String>,
+}
+
+/// Response for getting puzzle answers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetPuzzlesResponse {
+    /// List of puzzle answers.
+    pub puzzles: Vec<PuzzleAnswerResponse>,
+}
+
+/// GET /puzzle - Get puzzle answers (game admin only).
 ///
-/// This endpoint allows administrators to set or update the puzzle answer
-/// for a specific date. Only users whose Auth0 subject is in the
-/// ADMIN_USER_IDS environment variable can access this endpoint.
+/// This endpoint allows game administrators to retrieve puzzle answers.
+/// With no query parameters, returns all puzzles. Use start_date and end_date
+/// to filter by date range. Use omit_answers=true to only return dates without
+/// the answer words. Only users with app_metadata.game_admin = true can access
+/// this endpoint.
+#[get("/puzzle")]
+pub async fn get_puzzles(
+    claims: Claims,
+    query: web::Query<GetPuzzlesQuery>,
+    puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
+) -> Result<HttpResponse, AppError> {
+    // Check if user is a game admin
+    if !claims.is_game_admin() {
+        return Err(AppError::Forbidden(
+            "Only game administrators can view puzzle answers".to_string(),
+        ));
+    }
+
+    let puzzles = puzzle_db
+        .get_puzzle_answers(query.start_date, query.end_date)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
+
+    let omit_answers = query.omit_answers;
+    let response = GetPuzzlesResponse {
+        puzzles: puzzles
+            .into_iter()
+            .map(|p| PuzzleAnswerResponse {
+                date: p.puzzle_date,
+                word: if omit_answers { None } else { Some(p.word) },
+            })
+            .collect(),
+    };
+
+    Ok(HttpResponse::Ok().json(response))
+}
+
+/// PUT /puzzle - Set the answer for a puzzle (game admin only).
+///
+/// This endpoint allows game administrators to set or update the puzzle answer
+/// for a specific date. Only users with app_metadata.game_admin = true
+/// can access this endpoint.
 #[put("/puzzle")]
 pub async fn set_puzzle(
     claims: Claims,
     body: web::Json<SetPuzzleRequest>,
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
-    config: web::Data<Config>,
 ) -> Result<HttpResponse, AppError> {
-    // Check if user is an admin
-    if !config.is_admin(&claims.sub) {
+    // Check if user is a game admin
+    if !claims.is_game_admin() {
         return Err(AppError::Forbidden(
-            "Only administrators can set puzzle answers".to_string(),
+            "Only game administrators can set puzzle answers".to_string(),
         ));
     }
 
@@ -122,5 +188,28 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("teamId"));
         assert!(json.contains("team-123"));
+    }
+
+    #[test]
+    fn test_puzzle_answer_response_with_word() {
+        let response = PuzzleAnswerResponse {
+            date: NaiveDate::from_ymd_opt(2026, 2, 15).unwrap(),
+            word: Some("crane".to_string()),
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("2026-02-15"));
+        assert!(json.contains("crane"));
+        assert!(json.contains("word"));
+    }
+
+    #[test]
+    fn test_puzzle_answer_response_without_word() {
+        let response = PuzzleAnswerResponse {
+            date: NaiveDate::from_ymd_opt(2026, 2, 15).unwrap(),
+            word: None,
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("2026-02-15"));
+        assert!(!json.contains("word")); // word field should be omitted entirely
     }
 }

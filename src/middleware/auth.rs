@@ -11,6 +11,14 @@ use std::sync::RwLock;
 
 use crate::models::AppError;
 
+/// App metadata from Auth0 user profile.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct AppMetadata {
+    /// Whether the user is a game admin.
+    #[serde(default)]
+    pub game_admin: bool,
+}
+
 /// JWT Claims structure matching Auth0 token format.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
@@ -30,6 +38,16 @@ pub struct Claims {
     /// Authorized party - the client ID.
     #[serde(default)]
     pub azp: Option<String>,
+    /// App metadata from Auth0 (namespaced to avoid OIDC claim conflicts).
+    #[serde(default, rename = "wordles.dev/app_metadata")]
+    pub app_metadata: AppMetadata,
+}
+
+impl Claims {
+    /// Checks if the user is a game admin.
+    pub fn is_game_admin(&self) -> bool {
+        self.app_metadata.game_admin
+    }
 }
 
 /// Audience can be a single string or array of strings.
