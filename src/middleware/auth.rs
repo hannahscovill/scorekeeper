@@ -39,7 +39,7 @@ pub struct Claims {
     #[serde(default)]
     pub azp: Option<String>,
     /// App metadata from Auth0 (namespaced to avoid OIDC claim conflicts).
-    #[serde(default, rename = "https://wordles.dev/app_metadata")]
+    #[serde(default, rename = "wordles.dev/app_metadata")]
     pub app_metadata: AppMetadata,
 }
 
