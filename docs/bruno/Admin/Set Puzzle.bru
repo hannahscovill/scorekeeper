@@ -27,15 +27,11 @@ body:json {
 }
 
 docs {
-  Sets the puzzle answer for a specific date. This is an admin-only endpoint.
+  Sets the puzzle answer for a specific date. This is a game admin-only endpoint.
 
   ## Authentication
   Requires a valid Bearer token (inherited from collection).
-  The authenticated user must be in the ADMIN_USER_IDS environment variable.
-
-  ## Prerequisites
-  The server must be configured with:
-  - `ADMIN_USER_IDS`: Comma-separated list of Auth0 user IDs that are admins
+  The authenticated user must have `app_metadata.game_admin = true` in their token.
 
   ## Request Body
   - `date` (string, required): The puzzle date in YYYY-MM-DD format
@@ -52,5 +48,5 @@ docs {
     ```
   - `400`: Invalid request (word not 5 letters, contains non-letters)
   - `401`: Authentication required or invalid token
-  - `403`: User is not an administrator
+  - `403`: User is not a game administrator
 }

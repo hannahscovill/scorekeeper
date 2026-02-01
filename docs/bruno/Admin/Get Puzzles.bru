@@ -1,0 +1,51 @@
+meta {
+  name: Get Puzzles
+  type: http
+  seq: 2
+}
+
+get {
+  url: https://{{baseUrl}}/puzzle
+  body: none
+  auth: bearer
+}
+
+headers {
+  Origin: http://localhost:3000
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+params:query {
+  ~start_date: 2026-01-01
+  ~end_date: 2026-01-31
+}
+
+docs {
+  Gets puzzle answers for game administrators. This is a game admin-only endpoint.
+
+  ## Authentication
+  Requires a valid Bearer token (inherited from collection).
+  The authenticated user must have `app_metadata.game_admin = true` in their token.
+
+  ## Query Parameters
+  - `start_date` (string, optional): Start date for filtering puzzles (inclusive, YYYY-MM-DD)
+  - `end_date` (string, optional): End date for filtering puzzles (inclusive, YYYY-MM-DD)
+
+  If no parameters are provided, returns all puzzles.
+
+  ## Responses
+  - `200`: Puzzle answers retrieved successfully
+    ```json
+    {
+      "puzzles": [
+        { "date": "2026-01-01", "word": "crane" },
+        { "date": "2026-01-02", "word": "slate" }
+      ]
+    }
+    ```
+  - `401`: Authentication required or invalid token
+  - `403`: User is not a game administrator
+}

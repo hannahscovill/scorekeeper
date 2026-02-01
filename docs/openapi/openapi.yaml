@@ -105,13 +105,60 @@ paths:
           $ref: "#/components/responses/Unauthorized"
 
   /puzzle:
+    get:
+      summary: Get puzzle answers (game admin only)
+      description: |
+        Retrieve puzzle answers for game administrators.
+
+        With no query parameters, returns all puzzles. Use start_date and end_date
+        to filter by date range. Only users with app_metadata.game_admin = true
+        can access this endpoint.
+      operationId: getPuzzles
+      tags:
+        - Admin
+      parameters:
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Start date for filtering puzzles (inclusive, YYYY-MM-DD)
+          example: "2026-01-01"
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: End date for filtering puzzles (inclusive, YYYY-MM-DD)
+          example: "2026-01-31"
+      responses:
+        "200":
+          description: Puzzle answers retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetPuzzlesResponse"
+              examples:
+                default:
+                  value:
+                    puzzles:
+                      - date: "2026-01-01"
+                        word: "crane"
+                      - date: "2026-01-02"
+                        word: "slate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
     put:
-      summary: Set puzzle answer (admin-only)
+      summary: Set puzzle answer (game admin only)
       description: |
         Set the answer for a puzzle on a specific date.
 
-        This endpoint is restricted to administrators. Only users whose Auth0
-        subject is in the ADMIN_USER_IDS environment variable can access this endpoint.
+        Only users with app_metadata.game_admin = true can access this endpoint.
       operationId: setPuzzle
       tags:
         - Admin
@@ -946,6 +993,33 @@ components:
           format: uri
           description: URL to the uploaded avatar image
           example: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
+
+    GetPuzzlesResponse:
+      type: object
+      required:
+        - puzzles
+      properties:
+        puzzles:
+          type: array
+          description: List of puzzle answers
+          items:
+            $ref: "#/components/schemas/PuzzleAnswerResponse"
+
+    PuzzleAnswerResponse:
+      type: object
+      required:
+        - date
+        - word
+      properties:
+        date:
+          type: string
+          format: date
+          description: The date of the puzzle (YYYY-MM-DD)
+          example: "2026-01-15"
+        word:
+          type: string
+          description: The answer word
+          example: "crane"
 
     SetPuzzleRequest:
       type: object
