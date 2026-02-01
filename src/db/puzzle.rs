@@ -32,6 +32,14 @@ pub trait PuzzleDatabase: Send + Sync {
 
     /// Gets the puzzle answer for a specific date.
     async fn get_puzzle_answer(&self, puzzle_date: NaiveDate) -> DatabaseResult<Option<String>>;
+
+    /// Sets the puzzle answer for a specific date.
+    async fn set_puzzle_answer(
+        &self,
+        puzzle_date: NaiveDate,
+        word: &str,
+        team_id: Option<&str>,
+    ) -> DatabaseResult<()>;
 }
 
 /// DynamoDB implementation of puzzle database.
@@ -219,6 +227,44 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
 
         Ok(answer)
     }
+
+    async fn set_puzzle_answer(
+        &self,
+        puzzle_date: NaiveDate,
+        word: &str,
+        team_id: Option<&str>,
+    ) -> DatabaseResult<()> {
+        let pk = PuzzleAnswer::pk(puzzle_date);
+        let sk = PuzzleAnswer::sk();
+
+        let mut item = HashMap::new();
+        item.insert("pk".to_string(), AttributeValue::S(pk));
+        item.insert("sk".to_string(), AttributeValue::S(sk.to_string()));
+        item.insert("word".to_string(), AttributeValue::S(word.to_string()));
+        item.insert(
+            "puzzle_date".to_string(),
+            AttributeValue::S(puzzle_date.to_string()),
+        );
+
+        if let Some(tid) = team_id {
+            item.insert("team_id".to_string(), AttributeValue::S(tid.to_string()));
+        }
+
+        self.client
+            .put_item()
+            .table_name(&self.table_name)
+            .set_item(Some(item))
+            .send()
+            .await
+            .map_err(|e| DatabaseError::Other(format!("DynamoDB put error: {}", e)))?;
+
+        // Invalidate cache for this date
+        if let Ok(mut cache) = ANSWER_CACHE.write() {
+            cache.insert(puzzle_date, word.to_string());
+        }
+
+        Ok(())
+    }
 }
 
 /// In-memory puzzle database for testing.
@@ -281,6 +327,20 @@ impl PuzzleDatabase for InMemoryPuzzleDb {
             .read()
             .map_err(|e| DatabaseError::LockError(e.to_string()))?;
         Ok(answers.get(&puzzle_date).cloned())
+    }
+
+    async fn set_puzzle_answer(
+        &self,
+        puzzle_date: NaiveDate,
+        word: &str,
+        _team_id: Option<&str>,
+    ) -> DatabaseResult<()> {
+        let mut answers = self
+            .puzzle_answers
+            .write()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        answers.insert(puzzle_date, word.to_string());
+        Ok(())
     }
 }
 
@@ -372,5 +432,30 @@ mod tests {
         let retrieved = db.get_game_state("user1", date).await.unwrap().unwrap();
         assert_eq!(retrieved.guesses.len(), 2);
         assert!(retrieved.won);
+    }
+
+    #[tokio::test]
+    async fn test_inmemory_set_puzzle_answer() {
+        let db = InMemoryPuzzleDb::new();
+        let date = NaiveDate::from_ymd_opt(2026, 2, 15).unwrap();
+
+        // No answer initially
+        let answer = db.get_puzzle_answer(date).await.unwrap();
+        assert!(answer.is_none());
+
+        // Set answer
+        db.set_puzzle_answer(date, "crane", None).await.unwrap();
+
+        // Retrieve answer
+        let answer = db.get_puzzle_answer(date).await.unwrap();
+        assert_eq!(answer, Some("crane".to_string()));
+
+        // Update answer
+        db.set_puzzle_answer(date, "slate", Some("team-123"))
+            .await
+            .unwrap();
+
+        let answer = db.get_puzzle_answer(date).await.unwrap();
+        assert_eq!(answer, Some("slate".to_string()));
     }
 }
