@@ -40,6 +40,9 @@ pub struct GetPuzzlesQuery {
     pub start_date: Option<NaiveDate>,
     /// End date for filtering puzzles (inclusive).
     pub end_date: Option<NaiveDate>,
+    /// If true, omit the answer words from the response (only return dates).
+    #[serde(default)]
+    pub omit_answers: bool,
 }
 
 /// Response item for a puzzle answer.
@@ -47,8 +50,9 @@ pub struct GetPuzzlesQuery {
 pub struct PuzzleAnswerResponse {
     /// The date of the puzzle.
     pub date: NaiveDate,
-    /// The answer word.
-    pub word: String,
+    /// The answer word. Omitted when omit_answers=true.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub word: Option<String>,
 }
 
 /// Response for getting puzzle answers.
@@ -62,8 +66,9 @@ pub struct GetPuzzlesResponse {
 ///
 /// This endpoint allows game administrators to retrieve puzzle answers.
 /// With no query parameters, returns all puzzles. Use start_date and end_date
-/// to filter by date range. Only users with app_metadata.game_admin = true
-/// can access this endpoint.
+/// to filter by date range. Use omit_answers=true to only return dates without
+/// the answer words. Only users with app_metadata.game_admin = true can access
+/// this endpoint.
 #[get("/puzzle")]
 pub async fn get_puzzles(
     claims: Claims,
@@ -82,12 +87,13 @@ pub async fn get_puzzles(
         .await
         .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
 
+    let omit_answers = query.omit_answers;
     let response = GetPuzzlesResponse {
         puzzles: puzzles
             .into_iter()
             .map(|p| PuzzleAnswerResponse {
                 date: p.puzzle_date,
-                word: p.word,
+                word: if omit_answers { None } else { Some(p.word) },
             })
             .collect(),
     };
@@ -182,5 +188,28 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("teamId"));
         assert!(json.contains("team-123"));
+    }
+
+    #[test]
+    fn test_puzzle_answer_response_with_word() {
+        let response = PuzzleAnswerResponse {
+            date: NaiveDate::from_ymd_opt(2026, 2, 15).unwrap(),
+            word: Some("crane".to_string()),
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("2026-02-15"));
+        assert!(json.contains("crane"));
+        assert!(json.contains("word"));
+    }
+
+    #[test]
+    fn test_puzzle_answer_response_without_word() {
+        let response = PuzzleAnswerResponse {
+            date: NaiveDate::from_ymd_opt(2026, 2, 15).unwrap(),
+            word: None,
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("2026-02-15"));
+        assert!(!json.contains("word")); // word field should be omitted entirely
     }
 }

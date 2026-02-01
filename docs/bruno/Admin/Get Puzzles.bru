@@ -21,6 +21,7 @@ auth:bearer {
 params:query {
   ~start_date: 2026-01-01
   ~end_date: 2026-01-31
+  ~omit_answers: true
 }
 
 docs {
@@ -33,8 +34,9 @@ docs {
   ## Query Parameters
   - `start_date` (string, optional): Start date for filtering puzzles (inclusive, YYYY-MM-DD)
   - `end_date` (string, optional): End date for filtering puzzles (inclusive, YYYY-MM-DD)
+  - `omit_answers` (boolean, optional): If true, omit the answer words from the response (only return dates)
 
-  If no parameters are provided, returns all puzzles.
+  If no parameters are provided, returns all puzzles with their answers.
 
   ## Responses
   - `200`: Puzzle answers retrieved successfully
@@ -43,6 +45,15 @@ docs {
       "puzzles": [
         { "date": "2026-01-01", "word": "crane" },
         { "date": "2026-01-02", "word": "slate" }
+      ]
+    }
+    ```
+    With `omit_answers=true`:
+    ```json
+    {
+      "puzzles": [
+        { "date": "2026-01-01" },
+        { "date": "2026-01-02" }
       ]
     }
     ```
