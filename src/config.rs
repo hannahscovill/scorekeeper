@@ -33,6 +33,8 @@ pub struct Config {
     pub cors_allowed_origins: Vec<String>,
     /// S3 bucket name for avatar uploads.
     pub s3_avatar_bucket: Option<String>,
+    /// Comma-separated list of admin user IDs (Auth0 subjects).
+    pub admin_user_ids: Vec<String>,
 }
 
 impl Default for Config {
@@ -57,6 +59,7 @@ impl Default for Config {
                 "https://wordles.dev".to_string(),
             ],
             s3_avatar_bucket: None,
+            admin_user_ids: Vec::new(),
         }
     }
 }
@@ -95,6 +98,14 @@ impl Config {
                 .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
                 .unwrap_or(default_origins),
             s3_avatar_bucket: std::env::var("S3_AVATAR_BUCKET").ok(),
+            admin_user_ids: std::env::var("ADMIN_USER_IDS")
+                .map(|s| {
+                    s.split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default(),
         }
     }
 
@@ -157,6 +168,16 @@ impl Config {
     pub fn s3_avatar_bucket(&self) -> Option<&str> {
         self.s3_avatar_bucket.as_deref()
     }
+
+    /// Returns the list of admin user IDs.
+    pub fn admin_user_ids(&self) -> &[String] {
+        &self.admin_user_ids
+    }
+
+    /// Checks if a user ID is an admin.
+    pub fn is_admin(&self, user_id: &str) -> bool {
+        self.admin_user_ids.iter().any(|id| id == user_id)
+    }
 }
 
 #[cfg(test)]
@@ -192,5 +213,17 @@ mod tests {
             .cors_allowed_origins
             .contains(&"https://wordles.dev".to_string()));
         assert!(config.s3_avatar_bucket.is_none());
+        assert!(config.admin_user_ids.is_empty());
+    }
+
+    #[test]
+    fn test_is_admin() {
+        let mut config = Config::default();
+        config.admin_user_ids = vec!["auth0|admin1".to_string(), "auth0|admin2".to_string()];
+
+        assert!(config.is_admin("auth0|admin1"));
+        assert!(config.is_admin("auth0|admin2"));
+        assert!(!config.is_admin("auth0|user1"));
+        assert!(!config.is_admin(""));
     }
 }

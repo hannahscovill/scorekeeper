@@ -15,6 +15,8 @@ security:
   - cookieAuth: []
 
 tags:
+  - name: Admin
+    description: Administrative operations (requires admin privileges)
   - name: Gameplay
     description: Game submission and grading
   - name: Users
@@ -59,6 +61,57 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /puzzle:
+    put:
+      summary: Set puzzle answer (admin-only)
+      description: |
+        Set the answer for a puzzle on a specific date.
+
+        This endpoint is restricted to administrators. Only users whose Auth0
+        subject is in the ADMIN_USER_IDS environment variable can access this endpoint.
+      operationId: setPuzzle
+      tags:
+        - Admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPuzzleRequest"
+            examples:
+              default:
+                value:
+                  date: "2026-02-15"
+                  word: "crane"
+              withTeam:
+                value:
+                  date: "2026-02-15"
+                  word: "crane"
+                  teamId: "team-123"
+      responses:
+        "200":
+          description: Puzzle answer set successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetPuzzleResponse"
+              examples:
+                default:
+                  value:
+                    date: "2026-02-15"
+                    word: "crane"
+                withTeam:
+                  value:
+                    date: "2026-02-15"
+                    word: "crane"
+                    teamId: "team-123"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /profile:
     get:
@@ -851,6 +904,47 @@ components:
           format: uri
           description: URL to the uploaded avatar image
           example: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
+
+    SetPuzzleRequest:
+      type: object
+      required:
+        - date
+        - word
+      properties:
+        date:
+          type: string
+          format: date
+          description: The date of the puzzle in ISO format (YYYY-MM-DD)
+          example: "2026-02-15"
+        word:
+          type: string
+          pattern: "^[a-zA-Z]{5}$"
+          description: The 5-letter answer word
+          example: "crane"
+        teamId:
+          type: string
+          description: Optional team ID for team-specific puzzles
+          example: "team-123"
+
+    SetPuzzleResponse:
+      type: object
+      required:
+        - date
+        - word
+      properties:
+        date:
+          type: string
+          format: date
+          description: The date of the puzzle
+          example: "2026-02-15"
+        word:
+          type: string
+          description: The answer word (lowercase)
+          example: "crane"
+        teamId:
+          type: string
+          description: Team ID if set
+          example: "team-123"
 
     ErrorResponse:
       type: object
