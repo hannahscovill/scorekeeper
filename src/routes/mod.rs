@@ -14,4 +14,4 @@ pub use guess::submit_guess;
 pub use health::*;
 pub use history::get_history;
 pub use profile::{get_profile, update_profile, upload_avatar};
-pub use puzzle::{get_puzzle_by_date, get_puzzles, set_puzzle};
+pub use puzzle::{clear_puzzle_cache, get_puzzle_by_date, get_puzzles, set_puzzle};

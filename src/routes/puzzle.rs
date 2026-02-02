@@ -1,18 +1,18 @@
 //! Route handler for puzzle management.
 //!
 //! GET endpoints are accessible to all authenticated users, but answers are only
-//! visible to game administrators. PUT endpoint remains admin-only.
+//! visible to game administrators. PUT and cache clear endpoints are admin-only.
 
-use actix_web::{get, put, web, HttpResponse};
+use actix_web::{get, post, put, web, HttpResponse};
 use chrono::NaiveDate;
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use crate::db::PuzzleDatabase;
-use crate::dictionary::is_valid_word;
+use crate::db::{clear_answer_cache, PuzzleDatabase};
 use crate::dictionary;
+use crate::dictionary::is_valid_word;
 use crate::middleware::auth::Claims;
 use crate::middleware::validation::{deserialize_optional_date, validate_date_range};
 use crate::models::error::AppError;
@@ -241,6 +241,30 @@ pub async fn set_puzzle(
         word,
         team_id: body.team_id.clone(),
     }))
+}
+
+/// POST /puzzles/cache/clear - Clear the puzzle answer cache (game admin only).
+///
+/// This endpoint allows game administrators to clear the in-memory cache of puzzle
+/// answers. This is useful when puzzle answers have been modified directly in the
+/// database (e.g., via AWS console) and the server needs to pick up the changes.
+///
+/// Note: Each server instance has its own cache, so in a load-balanced environment
+/// this endpoint should be called on each instance, or all instances should be restarted.
+#[post("/puzzles/cache/clear")]
+pub async fn clear_puzzle_cache(claims: Claims) -> Result<HttpResponse, AppError> {
+    // Check if user is a game admin
+    if !claims.is_game_admin() {
+        return Err(AppError::Forbidden(
+            "Only game administrators can clear the cache".to_string(),
+        ));
+    }
+
+    clear_answer_cache();
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "message": "Puzzle answer cache cleared"
+    })))
 }
 
 #[cfg(test)]
