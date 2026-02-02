@@ -74,6 +74,8 @@ services:
       - ./src:/app/src
       - ./Cargo.toml:/app/Cargo.toml
       - ./Cargo.lock:/app/Cargo.lock
+      - ./build.rs:/app/build.rs
+      - ./data:/app/data
       - ./certs:/app/certs:ro
     networks:
       - scorekeeper-network-dev
