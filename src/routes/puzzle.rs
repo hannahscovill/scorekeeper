@@ -1,4 +1,7 @@
-//! Route handler for puzzle management (admin-only).
+//! Route handler for puzzle management.
+//!
+//! GET endpoints are accessible to all authenticated users, but answers are only
+//! visible to game administrators. PUT endpoint remains admin-only.
 
 use actix_web::{get, put, web, HttpResponse};
 use chrono::NaiveDate;
@@ -73,25 +76,20 @@ pub struct GetPuzzlesResponse {
     pub puzzles: Vec<PuzzleAnswerResponse>,
 }
 
-/// GET /puzzles/{date} - Get a single puzzle answer by date (game admin only).
+/// GET /puzzles/{date} - Get a single puzzle by date.
 ///
-/// This endpoint allows game administrators to retrieve a single puzzle answer
-/// for a specific date. Only users with app_metadata.game_admin = true can access
-/// this endpoint.
+/// This endpoint allows authenticated users to check if a puzzle exists for a
+/// specific date. Only game administrators (app_metadata.game_admin = true)
+/// will see the answer word; non-admin users only see the date.
 #[get("/puzzles/{date}")]
 pub async fn get_puzzle_by_date(
     claims: Claims,
     path: web::Path<NaiveDate>,
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
 ) -> Result<HttpResponse, AppError> {
-    // Check if user is a game admin
-    if !claims.is_game_admin() {
-        return Err(AppError::Forbidden(
-            "Only game administrators can view puzzle answers".to_string(),
-        ));
-    }
-
+    let is_admin = claims.is_game_admin();
     let date = path.into_inner();
+
     let answer = puzzle_db
         .get_puzzle_answer(date)
         .await
@@ -100,7 +98,8 @@ pub async fn get_puzzle_by_date(
     match answer {
         Some(word) => Ok(HttpResponse::Ok().json(PuzzleAnswerResponse {
             date,
-            word: Some(word),
+            // Only include the answer if user is an admin
+            word: if is_admin { Some(word) } else { None },
         })),
         None => Err(AppError::not_found(format!(
             "No puzzle found for date {}",
@@ -109,25 +108,20 @@ pub async fn get_puzzle_by_date(
     }
 }
 
-/// GET /puzzles - Get puzzle answers (game admin only).
+/// GET /puzzles - Get puzzles.
 ///
-/// This endpoint allows game administrators to retrieve puzzle answers.
+/// This endpoint allows authenticated users to retrieve puzzles.
 /// With no query parameters, returns all puzzles. Use start_date and end_date
-/// to filter by date range. Use omit_answers=true to only return dates without
-/// the answer words. Only users with app_metadata.game_admin = true can access
-/// this endpoint.
+/// to filter by date range. Only game administrators (app_metadata.game_admin = true)
+/// will see the answer words; non-admin users only see dates.
+/// Admins can use omit_answers=true to only return dates without the answer words.
 #[get("/puzzles")]
 pub async fn get_puzzles(
     claims: Claims,
     query: web::Query<GetPuzzlesQuery>,
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
 ) -> Result<HttpResponse, AppError> {
-    // Check if user is a game admin
-    if !claims.is_game_admin() {
-        return Err(AppError::Forbidden(
-            "Only game administrators can view puzzle answers".to_string(),
-        ));
-    }
+    let is_admin = claims.is_game_admin();
 
     // Validate that both dates are provided if either is specified
     if let Err(msg) = query.validate() {
@@ -139,7 +133,8 @@ pub async fn get_puzzles(
         .await
         .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
 
-    let omit_answers = query.omit_answers;
+    // Non-admin users never see answers; admins see answers unless omit_answers=true
+    let omit_answers = !is_admin || query.omit_answers;
     let response = GetPuzzlesResponse {
         puzzles: puzzles
             .into_iter()
@@ -317,15 +312,13 @@ mod tests {
 
     #[test]
     fn test_validate_only_start_date() {
-        let query: GetPuzzlesQuery =
-            serde_urlencoded::from_str("start_date=2026-01-01").unwrap();
+        let query: GetPuzzlesQuery = serde_urlencoded::from_str("start_date=2026-01-01").unwrap();
         assert!(query.validate().is_err());
     }
 
     #[test]
     fn test_validate_only_end_date() {
-        let query: GetPuzzlesQuery =
-            serde_urlencoded::from_str("end_date=2026-01-31").unwrap();
+        let query: GetPuzzlesQuery = serde_urlencoded::from_str("end_date=2026-01-31").unwrap();
         assert!(query.validate().is_err());
     }
 }
