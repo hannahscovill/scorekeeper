@@ -1,49 +1,119 @@
+# =============================================================================
+# OpenAPI Examples
+# =============================================================================
+# This file defines reusable examples for the Scorekeeper API.
+# Examples are organized by domain: Gameplay, Admin, Users, Teams, Scores
+#
+# Each example includes a summary for display in API docs and references
+# the actual data from JSON files.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Gameplay Examples
+# -----------------------------------------------------------------------------
+
 Game:
-  summary: A word guess submission with puzzle date
+  summary: Word guess submission
   value:
     $ref: "./Game.json"
 
 GameGraded:
-  summary: A graded game response with letter-by-letter results
+  summary: Graded game response with letter-by-letter results
   value:
     $ref: "./GameGraded.json"
 
-UserProfile:
-  summary: A full user profile
+HistoryResponse:
+  summary: User's game history with stats
   value:
-    $ref: "./UserProfile-JesseDoe.json"
+    $ref: "./HistoryResponse.json"
+
+# -----------------------------------------------------------------------------
+# Admin (Puzzle) Examples
+# -----------------------------------------------------------------------------
+
+GetPuzzlesWithAnswers:
+  summary: Puzzles response with answers (default)
+  value:
+    $ref: "./GetPuzzlesWithAnswers.json"
+
+GetPuzzlesOmitAnswers:
+  summary: Puzzles response with omit_answers=true
+  value:
+    $ref: "./GetPuzzlesOmitAnswers.json"
+
+SetPuzzleRequest:
+  summary: Set puzzle request
+  value:
+    $ref: "./SetPuzzleRequest.json"
+
+SetPuzzleRequestWithTeam:
+  summary: Set puzzle request with team
+  value:
+    $ref: "./SetPuzzleRequestWithTeam.json"
+
+SetPuzzleResponse:
+  summary: Set puzzle response
+  value:
+    $ref: "./SetPuzzleResponse.json"
+
+SetPuzzleResponseWithTeam:
+  summary: Set puzzle response with team
+  value:
+    $ref: "./SetPuzzleResponseWithTeam.json"
+
+# -----------------------------------------------------------------------------
+# User Profile Examples
+# -----------------------------------------------------------------------------
+
+ProfileResponse:
+  summary: User profile response
+  value:
+    $ref: "./ProfileResponse.json"
+
+ProfileResponseUpdated:
+  summary: Updated user profile response
+  value:
+    $ref: "./ProfileResponseUpdated.json"
+
+UpdateProfileRequest:
+  summary: Update profile request
+  value:
+    $ref: "./UpdateProfileRequest.json"
+
+AvatarUploadResponse:
+  summary: Avatar upload response
+  value:
+    $ref: "./AvatarUploadResponse.json"
+
+# -----------------------------------------------------------------------------
+# Team Examples
+# -----------------------------------------------------------------------------
 
 Team:
-  summary: A team with members
+  summary: Team with members
   value:
     $ref: "./Team.json"
 
 CreateTeamRequest:
-  summary: Request to create a new team
+  summary: Create team request
   value:
     $ref: "./CreateTeamRequest.json"
 
 TeamMembership:
-  summary: A team membership assignment
+  summary: Team membership assignment
   value:
     $ref: "./TeamMembership.json"
 
 Teammate:
-  summary: A teammate with profile and role
+  summary: Teammate with profile and role
   value:
     $ref: "./Teammate.json"
 
-Score:
-  summary: A single score with emoji representation
-  value:
-    $ref: "./Score.json"
-
-ScoreArray:
-  summary: An array of scores for a user
-  value:
-    $ref: "./ScoreArray.json"
+# -----------------------------------------------------------------------------
+# Score Examples
+# -----------------------------------------------------------------------------
 
 Scoreboard:
-  summary: A team scoreboard with participant scores
+  summary: Team scoreboard with participant scores
   value:
     $ref: "./Scoreboard.json"

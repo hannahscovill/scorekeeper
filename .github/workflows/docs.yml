@@ -30,11 +30,51 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Redocly CLI
-        run: npm install -g @redocly/cli
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install -g @redocly/cli
 
-      - name: Bundle OpenAPI spec
-        run: redocly bundle docs/openapi/openapi.yaml -o docs/openapi/openapi-bundled.yaml
+      - name: Inline JSON examples
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const yaml = require('js-yaml');
+
+            const examplesDir = 'docs/openapi/data-examples';
+            const examples = yaml.load(fs.readFileSync(path.join(examplesDir, 'examples.yaml'), 'utf8'));
+
+            for (const [name, example] of Object.entries(examples)) {
+              if (example && example.value && example.value['\$ref']) {
+                const jsonPath = example.value['\$ref'].replace('./', '');
+                const jsonContent = JSON.parse(fs.readFileSync(path.join(examplesDir, jsonPath), 'utf8'));
+                example.value = jsonContent;
+              }
+            }
+
+            fs.writeFileSync(path.join(examplesDir, 'examples.yaml'), yaml.dump(examples, { lineWidth: -1, noRefs: true }));
+            console.log('Inlined JSON examples into examples.yaml');
+          "
+
+      - name: Validate OpenAPI specs
+        run: |
+          redocly lint docs/openapi/openapi.yaml
+          redocly lint docs/openapi/openapi-planned.yaml
+
+      - name: Build docs site
+        run: |
+          mkdir -p docs-site/planned
+
+          # Build current API docs
+          redocly build-docs docs/openapi/openapi.yaml -o docs-site/index.html
+
+          # Build planned API docs
+          redocly build-docs docs/openapi/openapi-planned.yaml -o docs-site/planned/index.html
+
+          # Bundle specs for download
+          redocly bundle docs/openapi/openapi.yaml -o docs-site/openapi-bundled.yaml
+          redocly bundle docs/openapi/openapi-planned.yaml -o docs-site/planned/openapi-planned-bundled.yaml
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -42,7 +82,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/openapi
+          path: docs-site
 
   deploy:
     environment:

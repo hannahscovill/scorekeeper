@@ -5,10 +5,10 @@ info:
   version: 2.0.0
 
 servers:
+  - url: https://api.wordles.dev
+    description: Remote
   - url: https://localhost:8080
     description: Local
-  - url: https://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com
-    description: Remote
 
 security:
   - bearerAuth: []
@@ -21,12 +21,6 @@ tags:
     description: Game submission and grading
   - name: Users
     description: User profile management
-  - name: Teams
-    description: Team management and membership
-  - name: Score
-    description: Individual user score retrieval
-  - name: Scoreboard
-    description: Team scoreboard retrieval and display
 
 paths:
   /guess:
@@ -41,7 +35,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Game"
+              $ref: "schemas.yaml#/Game"
             examples:
               default:
                 $ref: "data-examples/examples.yaml#/Game"
@@ -51,7 +45,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GameGraded"
+                $ref: "schemas.yaml#/GameGraded"
               examples:
                 default:
                   $ref: "data-examples/examples.yaml#/GameGraded"
@@ -79,28 +73,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HistoryResponse"
+                $ref: "schemas.yaml#/HistoryResponse"
               examples:
                 default:
-                  value:
-                    user_id: "auth0|123456789"
-                    total_games: 5
-                    games_won: 3
-                    games:
-                      - game_id: "550e8400-e29b-41d4-a716-446655440000"
-                        puzzle_date: "2026-01-15"
-                        guesses_count: 4
-                        won: true
-                        in_progress: false
-                        created_at: "2026-01-15T10:00:00Z"
-                        updated_at: "2026-01-15T10:05:00Z"
-                      - game_id: "550e8400-e29b-41d4-a716-446655440001"
-                        puzzle_date: "2026-01-14"
-                        guesses_count: 6
-                        won: false
-                        in_progress: false
-                        created_at: "2026-01-14T09:00:00Z"
-                        updated_at: "2026-01-14T09:10:00Z"
+                  $ref: "data-examples/examples.yaml#/HistoryResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -147,22 +123,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetPuzzlesResponse"
+                $ref: "schemas.yaml#/GetPuzzlesResponse"
               examples:
                 withAnswers:
-                  summary: Response with answers (default)
-                  value:
-                    puzzles:
-                      - date: "2026-01-01"
-                        word: "crane"
-                      - date: "2026-01-02"
-                        word: "slate"
+                  $ref: "data-examples/examples.yaml#/GetPuzzlesWithAnswers"
                 omitAnswers:
-                  summary: Response with omit_answers=true
-                  value:
-                    puzzles:
-                      - date: "2026-01-01"
-                      - date: "2026-01-02"
+                  $ref: "data-examples/examples.yaml#/GetPuzzlesOmitAnswers"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -182,34 +148,24 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SetPuzzleRequest"
+              $ref: "schemas.yaml#/SetPuzzleRequest"
             examples:
               default:
-                value:
-                  date: "2026-02-15"
-                  word: "crane"
+                $ref: "data-examples/examples.yaml#/SetPuzzleRequest"
               withTeam:
-                value:
-                  date: "2026-02-15"
-                  word: "crane"
-                  teamId: "team-123"
+                $ref: "data-examples/examples.yaml#/SetPuzzleRequestWithTeam"
       responses:
         "200":
           description: Puzzle answer set successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SetPuzzleResponse"
+                $ref: "schemas.yaml#/SetPuzzleResponse"
               examples:
                 default:
-                  value:
-                    date: "2026-02-15"
-                    word: "crane"
+                  $ref: "data-examples/examples.yaml#/SetPuzzleResponse"
                 withTeam:
-                  value:
-                    date: "2026-02-15"
-                    word: "crane"
-                    teamId: "team-123"
+                  $ref: "data-examples/examples.yaml#/SetPuzzleResponseWithTeam"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -233,12 +189,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProfileResponse"
+                $ref: "schemas.yaml#/ProfileResponse"
               examples:
                 default:
-                  value:
-                    userId: "auth0|123456789"
-                    displayName: "wordmaster42"
+                  $ref: "data-examples/examples.yaml#/ProfileResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -259,23 +213,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateProfileRequest"
+              $ref: "schemas.yaml#/UpdateProfileRequest"
             examples:
               default:
-                value:
-                  displayName: "New Display Name"
+                $ref: "data-examples/examples.yaml#/UpdateProfileRequest"
       responses:
         "200":
           description: Profile updated successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProfileResponse"
+                $ref: "schemas.yaml#/ProfileResponse"
               examples:
                 default:
-                  value:
-                    userId: "auth0|123456789"
-                    displayName: "New Display Name"
+                  $ref: "data-examples/examples.yaml#/ProfileResponseUpdated"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -313,11 +264,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AvatarUploadResponse"
+                $ref: "schemas.yaml#/AvatarUploadResponse"
               examples:
                 default:
-                  value:
-                    avatarUrl: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
+                  $ref: "data-examples/examples.yaml#/AvatarUploadResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -327,288 +277,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "schemas.yaml#/ErrorResponse"
               example:
                 message: "Failed to upload avatar"
-
-  /team:
-    get:
-      summary: Get a team
-      description: Retrieve a team by ID
-      operationId: getTeam
-      tags:
-        - Teams
-      parameters:
-        - name: team_id
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Unique identifier for the team
-      responses:
-        "200":
-          description: Team retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Team"
-              examples:
-                default:
-                  $ref: "data-examples/examples.yaml#/Team"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-    post:
-      summary: Create a team
-      description: Create a new team. The authenticated user becomes the team admin.
-      operationId: createTeam
-      tags:
-        - Teams
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateTeamRequest"
-            examples:
-              default:
-                $ref: "data-examples/examples.yaml#/CreateTeamRequest"
-      responses:
-        "201":
-          description: Team created successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Team"
-              examples:
-                default:
-                  $ref: "data-examples/examples.yaml#/Team"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-    delete:
-      summary: Delete a team
-      description: Delete an existing team. Only team admins can delete a team.
-      operationId: deleteTeam
-      tags:
-        - Teams
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DeleteTeamRequest"
-      responses:
-        "200":
-          description: Team deleted successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Team"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /team/teammate:
-    put:
-      summary: Add a teammate
-      description: Add a user to a team with a specified role
-      operationId: addTeammate
-      tags:
-        - Teams
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TeamMembership"
-            examples:
-              default:
-                $ref: "data-examples/examples.yaml#/TeamMembership"
-      responses:
-        "200":
-          description: Teammate added successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Teammate"
-              examples:
-                default:
-                  $ref: "data-examples/examples.yaml#/Teammate"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-    delete:
-      summary: Remove a teammate
-      description: Remove a user from a team
-      operationId: removeTeammate
-      tags:
-        - Teams
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TeamMembership"
-      responses:
-        "200":
-          description: Teammate removed successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Teammate"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /score:
-    get:
-      summary: Get user scores
-      description: Retrieve scores for a user. If user_id is not provided, returns scores for the authenticated user.
-      operationId: getScore
-      tags:
-        - Score
-      parameters:
-        - name: user_id
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Unique identifier for the user. If not provided, inferred from auth.
-        - name: puzzle_date_iso_day
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-          example: '2026-01-01'
-          description: Filter by puzzle date (YYYY-MM-DD)
-        - name: start_dt_millis
-          in: query
-          required: false
-          schema:
-            type: integer
-            format: int64
-          description: Start date filter in milliseconds
-        - name: end_dt_millis
-          in: query
-          required: false
-          schema:
-            type: integer
-            format: int64
-          description: End date filter in milliseconds
-      responses:
-        "200":
-          description: Scores retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Score"
-              examples:
-                default:
-                  $ref: "data-examples/examples.yaml#/ScoreArray"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /scoreboard:
-    get:
-      summary: Get scoreboard
-      description: Retrieve scoreboards for a team. Use preview=true for a lightweight response without scores. If start_dt_millis or end_dt_millis is provided, only preview mode is returned.
-      operationId: getScoreboard
-      tags:
-        - Scoreboard
-      parameters:
-        - name: team_id
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Unique identifier for the team
-        - name: puzzle_date_iso_day
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-          description: The puzzle date (YYYY-MM-DD)
-        - name: preview
-          in: query
-          required: false
-          schema:
-            type: boolean
-            default: false
-          description: If true, returns ScoreboardPreview without scores
-        - name: start_dt_millis
-          in: query
-          required: false
-          schema:
-            type: integer
-            format: int64
-          description: Start date filter in milliseconds. If provided, only preview mode is returned.
-        - name: end_dt_millis
-          in: query
-          required: false
-          schema:
-            type: integer
-            format: int64
-          description: End date filter in milliseconds. If provided, only preview mode is returned.
-        - name: page_size
-          in: header
-          required: false
-          schema:
-            type: integer
-          description: Number of items per page. If not provided, returns max response.
-      responses:
-        "200":
-          description: Scoreboard retrieved successfully
-          headers:
-            page_qty:
-              schema:
-                type: string
-              description: Total number of pages
-            pg_query_forward:
-              schema:
-                type: string
-              description: Query string to get the next page
-            pg_query_backward:
-              schema:
-                type: string
-              description: Query string to get the previous page
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: "#/components/schemas/Scoreboard"
-                  - $ref: "#/components/schemas/ScoreboardPreview"
-              examples:
-                scoreboard:
-                  $ref: "data-examples/examples.yaml#/Scoreboard"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
 
 components:
   securitySchemes:
@@ -629,7 +300,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ErrorResponse"
+            $ref: "schemas.yaml#/ErrorResponse"
           example:
             message: "not modified"
     BadRequest:
@@ -637,7 +308,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ErrorResponse"
+            $ref: "schemas.yaml#/ErrorResponse"
           example:
             message: "bad request"
     Unauthorized:
@@ -645,7 +316,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ErrorResponse"
+            $ref: "schemas.yaml#/ErrorResponse"
           example:
             message: "unauthorized"
     Forbidden:
@@ -653,7 +324,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ErrorResponse"
+            $ref: "schemas.yaml#/ErrorResponse"
           example:
             message: "forbidden"
     NotFound:
@@ -661,488 +332,9 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ErrorResponse"
+            $ref: "schemas.yaml#/ErrorResponse"
           example:
             message: "not found"
 
   schemas:
-    Game:
-      type: object
-      required:
-        - puzzle_date_iso_day
-        - word_guessed
-      properties:
-        puzzle_date_iso_day:
-          type: string
-          format: date
-          description: The date of the puzzle in ISO format (YYYY-MM-DD)
-          example: "2024-01-15"
-        word_guessed:
-          type: string
-          pattern: "^[a-zA-Z]{5}$"
-          description: The 5-letter word guessed by the player
-          example: "crane"
-
-    LetterGrade:
-      type: string
-      enum:
-        - correct
-        - contained
-        - wrong
-      description: The grade for a single letter in a guess
-
-    GuessLetterGraded:
-      type: object
-      required:
-        - letter
-        - grade
-      properties:
-        letter:
-          type: string
-          minLength: 1
-          maxLength: 1
-          description: Single character from the guess
-          example: "c"
-        grade:
-          $ref: "#/components/schemas/LetterGrade"
-
-    GuessGraded:
-      type: array
-      description: A graded guess consisting of exactly 5 graded letters
-      minItems: 5
-      maxItems: 5
-      items:
-        $ref: "#/components/schemas/GuessLetterGraded"
-
-    GameMetadata:
-      type: object
-      required:
-        - game_id
-        - user_id
-        - moves_qty
-        - won
-      properties:
-        game_id:
-          type: string
-          description: Unique identifier for this game
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        user_id:
-          type: string
-          description: Unique identifier for the user who played
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        moves_qty:
-          type: integer
-          minimum: 1
-          maximum: 6
-          description: Number of guesses made
-        won:
-          type: boolean
-          description: Whether the player won the game
-
-    GameGraded:
-      allOf:
-        - $ref: "#/components/schemas/GameMetadata"
-        - type: object
-          required:
-            - moves
-          properties:
-            moves:
-              type: array
-              description: List of graded guesses (1-6 items)
-              minItems: 1
-              maxItems: 6
-              items:
-                $ref: "#/components/schemas/GuessGraded"
-
-    Score:
-      allOf:
-        - $ref: "#/components/schemas/GameMetadata"
-        - type: object
-          required:
-            - score
-          properties:
-            score:
-              type: array
-              description: 1-6 5-char strings. The emojis that represent the graded game
-              minItems: 1
-              maxItems: 6
-              items:
-                type: string
-                minLength: 5
-                maxLength: 5
-
-    UserProfilePreview:
-      type: object
-      required:
-        - user_id
-        - display_name
-      properties:
-        user_id:
-          type: string
-          description: Unique identifier for the user
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        display_name:
-          type: string
-          description: User's display name
-          example: "wordmaster42"
-        name_pronunciation_url:
-          type: string
-          format: uri
-          description: URL to audio file for name pronunciation
-        pronouns:
-          type: string
-          description: User's preferred pronouns
-          example: "they/them"
-        avatarUrl:
-          type: string
-          format: uri
-          description: URL to user's avatar image
-
-    UserProfile:
-      allOf:
-        - $ref: "#/components/schemas/UserProfilePreview"
-        - type: object
-          required:
-            - team_ids
-            - email
-          properties:
-            full_name:
-              type: string
-              description: User's full name
-              example: "Jesse Doe"
-            team_ids:
-              type: array
-              items:
-                type: string
-              description: List of team IDs the user belongs to
-            email:
-              type: string
-              format: email
-              description: User's email address
-            city:
-              type: string
-              description: User's city
-            state:
-              type: string
-              description: User's state or province
-            country:
-              type: string
-              description: User's country
-
-    CreateTeamRequest:
-      type: object
-      required:
-        - team_name
-      properties:
-        team_name:
-          type: string
-          description: Name for the new team
-          example: "Word Wizards"
-
-    DeleteTeamRequest:
-      type: object
-      required:
-        - team_id
-      properties:
-        team_id:
-          type: string
-          format: uuid
-          description: Unique identifier of the team to delete
-          example: "550e8400-e29b-41d4-a716-446655440000"
-
-    TeamRole:
-      type: string
-      enum:
-        - admin
-        - member
-      description: Role of a team member
-
-    TeamMembership:
-      type: object
-      required:
-        - team_id
-        - user_id
-        - role
-      properties:
-        team_id:
-          type: string
-          description: Unique identifier for the team
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        user_id:
-          type: string
-          description: Unique identifier for the user
-          example: "660e8400-e29b-41d4-a716-446655440001"
-        role:
-          $ref: "#/components/schemas/TeamRole"
-
-    Teammate:
-      allOf:
-        - $ref: "#/components/schemas/UserProfilePreview"
-        - type: object
-          required:
-            - role
-            - joined_at_millis
-          properties:
-            role:
-              $ref: "#/components/schemas/TeamRole"
-            joined_at_millis:
-              type: integer
-              format: int64
-              description: Unix timestamp in milliseconds when the user joined the team
-
-    Team:
-      type: object
-      required:
-        - team_id
-        - team_name
-        - created_at_millis
-        - members
-      properties:
-        team_id:
-          type: string
-          format: uuid
-          description: Unique identifier for the team
-        team_name:
-          type: string
-          description: Name of the team
-        created_at_millis:
-          type: integer
-          format: int64
-          description: Unix timestamp in milliseconds when the team was created
-        members:
-          type: array
-          items:
-            $ref: "#/components/schemas/Teammate"
-          description: List of team members
-
-    Scoreboard:
-      type: object
-      required:
-        - scoreboard_id
-        - team_id
-        - puzzle_date_iso_day
-        - participants_qty
-        - score
-      properties:
-        scoreboard_id:
-          type: string
-          format: uuid
-          description: Unique identifier for the scoreboard
-        team_id:
-          type: string
-          format: uuid
-          description: Team this scoreboard belongs to
-        puzzle_date_iso_day:
-          type: string
-          format: date
-          description: The puzzle date this scoreboard is for (YYYY-MM-DD)
-        participants_qty:
-          type: integer
-          description: Number of participants on this scoreboard
-        score:
-          type: array
-          description: The scores for this scoreboard
-          items:
-            $ref: "#/components/schemas/Score"
-
-    ScoreboardPreview:
-      type: object
-      required:
-        - scoreboard_id
-        - team_id
-        - puzzle_date_iso_day
-        - participants_qty
-      properties:
-        scoreboard_id:
-          type: string
-          format: uuid
-          description: Unique identifier for the scoreboard
-        team_id:
-          type: string
-          format: uuid
-          description: Team this scoreboard belongs to
-        puzzle_date_iso_day:
-          type: string
-          format: date
-          description: The puzzle date this scoreboard is for (YYYY-MM-DD)
-        participants_qty:
-          type: integer
-          description: Number of participants on this scoreboard
-
-    UpdateProfileRequest:
-      type: object
-      required:
-        - displayName
-      properties:
-        displayName:
-          type: string
-          description: The user's display name
-          example: "wordmaster42"
-
-    ProfileResponse:
-      type: object
-      required:
-        - userId
-      properties:
-        userId:
-          type: string
-          description: The Auth0 user ID
-          example: "auth0|123456789"
-        displayName:
-          type: string
-          description: The user's display name (from Auth0 user_metadata)
-          example: "wordmaster42"
-        avatarUrl:
-          type: string
-          format: uri
-          description: URL to the user's avatar image
-          example: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
-
-    AvatarUploadResponse:
-      type: object
-      required:
-        - avatarUrl
-      properties:
-        avatarUrl:
-          type: string
-          format: uri
-          description: URL to the uploaded avatar image
-          example: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
-
-    GetPuzzlesResponse:
-      type: object
-      required:
-        - puzzles
-      properties:
-        puzzles:
-          type: array
-          description: List of puzzle answers
-          items:
-            $ref: "#/components/schemas/PuzzleAnswerResponse"
-
-    PuzzleAnswerResponse:
-      type: object
-      required:
-        - date
-      properties:
-        date:
-          type: string
-          format: date
-          description: The date of the puzzle (YYYY-MM-DD)
-          example: "2026-01-15"
-        word:
-          type: string
-          description: The answer word. Omitted when omit_answers=true.
-          example: "crane"
-
-    SetPuzzleRequest:
-      type: object
-      required:
-        - date
-        - word
-      properties:
-        date:
-          type: string
-          format: date
-          description: The date of the puzzle in ISO format (YYYY-MM-DD)
-          example: "2026-02-15"
-        word:
-          type: string
-          pattern: "^[a-zA-Z]{5}$"
-          description: The 5-letter answer word
-          example: "crane"
-        teamId:
-          type: string
-          description: Optional team ID for team-specific puzzles
-          example: "team-123"
-
-    SetPuzzleResponse:
-      type: object
-      required:
-        - date
-        - word
-      properties:
-        date:
-          type: string
-          format: date
-          description: The date of the puzzle
-          example: "2026-02-15"
-        word:
-          type: string
-          description: The answer word (lowercase)
-          example: "crane"
-        teamId:
-          type: string
-          description: Team ID if set
-          example: "team-123"
-
-    HistoryGame:
-      type: object
-      required:
-        - game_id
-        - puzzle_date
-        - guesses_count
-        - won
-        - in_progress
-        - created_at
-        - updated_at
-      properties:
-        game_id:
-          type: string
-          format: uuid
-          description: Unique identifier for this game
-        puzzle_date:
-          type: string
-          format: date
-          description: The puzzle date (YYYY-MM-DD)
-        guesses_count:
-          type: integer
-          minimum: 0
-          maximum: 6
-          description: Number of guesses made
-        won:
-          type: boolean
-          description: Whether the player won
-        in_progress:
-          type: boolean
-          description: Whether the game is still in progress
-        created_at:
-          type: string
-          format: date-time
-          description: When the game was started
-        updated_at:
-          type: string
-          format: date-time
-          description: When the game was last updated
-
-    HistoryResponse:
-      type: object
-      required:
-        - user_id
-        - total_games
-        - games_won
-        - games
-      properties:
-        user_id:
-          type: string
-          description: The authenticated user's ID
-        total_games:
-          type: integer
-          description: Total number of games played
-        games_won:
-          type: integer
-          description: Number of games won
-        games:
-          type: array
-          description: List of games sorted by puzzle date (most recent first)
-          items:
-            $ref: "#/components/schemas/HistoryGame"
-
-    ErrorResponse:
-      type: object
-      required:
-        - message
-      properties:
-        message:
-          type: string
-          description: Error message
+    $ref: "schemas.yaml"

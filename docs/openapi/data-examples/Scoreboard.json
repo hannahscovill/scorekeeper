@@ -6,17 +6,68 @@
   "score": [
     {
       "game_id": "550e8400-e29b-41d4-a716-446655440000",
-      "user_id": "550e8400-e29b-41d4-a716-446655440000",
+      "user_id": "auth0|550e8400",
       "moves_qty": 3,
       "won": true,
-      "score": ["⬛🟨⬛🟨⬛", "🟨🟩⬛🟩⬛", "🟩🟩🟩🟩🟩"]
+      "moves": [
+        [
+          { "letter": "s", "grade": "wrong" },
+          { "letter": "l", "grade": "contained" },
+          { "letter": "a", "grade": "wrong" },
+          { "letter": "t", "grade": "contained" },
+          { "letter": "e", "grade": "wrong" }
+        ],
+        [
+          { "letter": "t", "grade": "contained" },
+          { "letter": "o", "grade": "correct" },
+          { "letter": "n", "grade": "wrong" },
+          { "letter": "i", "grade": "correct" },
+          { "letter": "c", "grade": "wrong" }
+        ],
+        [
+          { "letter": "p", "grade": "correct" },
+          { "letter": "o", "grade": "correct" },
+          { "letter": "i", "grade": "correct" },
+          { "letter": "n", "grade": "correct" },
+          { "letter": "t", "grade": "correct" }
+        ]
+      ]
     },
     {
       "game_id": "aa0e8400-e29b-41d4-a716-446655440005",
-      "user_id": "660e8400-e29b-41d4-a716-446655440001",
+      "user_id": "auth0|660e8400",
       "moves_qty": 4,
       "won": true,
-      "score": ["⬛⬛⬛🟨⬛", "⬛⬛⬛🟨⬛", "⬛🟩🟩⬛🟨", "🟩🟩🟩🟩🟩"]
+      "moves": [
+        [
+          { "letter": "c", "grade": "wrong" },
+          { "letter": "r", "grade": "wrong" },
+          { "letter": "a", "grade": "wrong" },
+          { "letter": "n", "grade": "contained" },
+          { "letter": "e", "grade": "wrong" }
+        ],
+        [
+          { "letter": "s", "grade": "wrong" },
+          { "letter": "l", "grade": "wrong" },
+          { "letter": "a", "grade": "wrong" },
+          { "letter": "t", "grade": "contained" },
+          { "letter": "e", "grade": "wrong" }
+        ],
+        [
+          { "letter": "m", "grade": "wrong" },
+          { "letter": "o", "grade": "correct" },
+          { "letter": "i", "grade": "correct" },
+          { "letter": "s", "grade": "wrong" },
+          { "letter": "t", "grade": "contained" }
+        ],
+        [
+          { "letter": "p", "grade": "correct" },
+          { "letter": "o", "grade": "correct" },
+          { "letter": "i", "grade": "correct" },
+          { "letter": "n", "grade": "correct" },
+          { "letter": "t", "grade": "correct" }
+        ]
+      ]
     }
   ]
 }
