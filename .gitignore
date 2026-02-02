@@ -6,3 +6,4 @@ certs/
 *.DS_Store*
 TEST_CREDENTIALS.txt
 .env
+.playwright-mcp/

@@ -81,13 +81,9 @@ env:
   ECR_REPOSITORY: scorekeeper
 
 jobs:
-  # Only run if CI workflow succeeded
-  check-ci:
-    uses: ./.github/workflows/ci.yml
-
-  # Ensure prerequisite infrastructure exists (ECR repository)
   deploy:
-    needs: check-ci
+    # Only run if CI workflow succeeded (workflow_run triggers on 'completed', not 'success')
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write

@@ -5,7 +5,9 @@ info:
     Planned features for the Scorekeeper word puzzle game API.
 
     These endpoints are not yet implemented but are planned for future releases.
-  version: 2.0.0-planned
+
+    See also: [Current API](https://hannahscovill.github.io/scorekeeper/)
+  version: planned
 
 servers:
   - url: https://api.wordles.dev

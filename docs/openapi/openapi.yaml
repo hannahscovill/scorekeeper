@@ -1,8 +1,11 @@
 openapi: 3.1.0
 info:
   title: Scorekeeper API
-  description: API for the Scorekeeper word puzzle game
-  version: 2.0.0
+  description: |
+    API for the Scorekeeper word puzzle game.
+
+    See also: [Planned Features](https://hannahscovill.github.io/scorekeeper/planned)
+  version: 0.1.0
 
 servers:
   - url: https://api.wordles.dev
