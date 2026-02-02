@@ -759,17 +759,15 @@ components:
         - $ref: "#/components/schemas/GameMetadata"
         - type: object
           required:
-            - score
+            - moves
           properties:
-            score:
+            moves:
               type: array
-              description: 1-6 5-char strings. The emojis that represent the graded game
+              description: List of graded guesses (1-6 items)
               minItems: 1
               maxItems: 6
               items:
-                type: string
-                minLength: 5
-                maxLength: 5
+                $ref: "#/components/schemas/GuessGraded"
 
     UserProfilePreview:
       type: object

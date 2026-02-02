@@ -30,8 +30,35 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Redocly CLI
-        run: npm install -g @redocly/cli
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install -g @redocly/cli
+
+      - name: Inline JSON examples
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const yaml = require('js-yaml');
+
+            const examplesDir = 'docs/openapi/data-examples';
+            const examples = yaml.load(fs.readFileSync(path.join(examplesDir, 'examples.yaml'), 'utf8'));
+
+            for (const [name, example] of Object.entries(examples)) {
+              if (example && example.value && example.value['\$ref']) {
+                const jsonPath = example.value['\$ref'].replace('./', '');
+                const jsonContent = JSON.parse(fs.readFileSync(path.join(examplesDir, jsonPath), 'utf8'));
+                example.value = jsonContent;
+              }
+            }
+
+            fs.writeFileSync(path.join(examplesDir, 'examples.yaml'), yaml.dump(examples, { lineWidth: -1, noRefs: true }));
+            console.log('Inlined JSON examples into examples.yaml');
+          "
+
+      - name: Validate OpenAPI spec
+        run: redocly lint docs/openapi/openapi.yaml
 
       - name: Bundle OpenAPI spec
         run: redocly bundle docs/openapi/openapi.yaml -o docs/openapi/openapi-bundled.yaml

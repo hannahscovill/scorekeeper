@@ -1,36 +1,36 @@
 {
   "game_id": "550e8400-e29b-41d4-a716-446655440000",
-  "user_id": "660e8400-e29b-41d4-a716-446655440001",
+  "user_id": "auth0|660e8400",
   "moves_qty": 4,
   "won": true,
   "moves": [
     [
-      { "letter": "c", "letter_contained_in_answer": false, "correct_letter_and_position": false },
-      { "letter": "r", "letter_contained_in_answer": false, "correct_letter_and_position": false },
-      { "letter": "a", "letter_contained_in_answer": false, "correct_letter_and_position": false },
-      { "letter": "n", "letter_contained_in_answer": true, "correct_letter_and_position": false },
-      { "letter": "e", "letter_contained_in_answer": false, "correct_letter_and_position": false }
+      { "letter": "c", "grade": "wrong" },
+      { "letter": "r", "grade": "wrong" },
+      { "letter": "a", "grade": "wrong" },
+      { "letter": "n", "grade": "contained" },
+      { "letter": "e", "grade": "wrong" }
     ],
     [
-      { "letter": "s", "letter_contained_in_answer": false, "correct_letter_and_position": false },
-      { "letter": "l", "letter_contained_in_answer": false, "correct_letter_and_position": false },
-      { "letter": "a", "letter_contained_in_answer": false, "correct_letter_and_position": false },
-      { "letter": "t", "letter_contained_in_answer": true, "correct_letter_and_position": false },
-      { "letter": "e", "letter_contained_in_answer": false, "correct_letter_and_position": false }
+      { "letter": "s", "grade": "wrong" },
+      { "letter": "l", "grade": "wrong" },
+      { "letter": "a", "grade": "wrong" },
+      { "letter": "t", "grade": "contained" },
+      { "letter": "e", "grade": "wrong" }
     ],
     [
-      { "letter": "m", "letter_contained_in_answer": false, "correct_letter_and_position": false },
-      { "letter": "o", "letter_contained_in_answer": true, "correct_letter_and_position": true },
-      { "letter": "i", "letter_contained_in_answer": true, "correct_letter_and_position": true },
-      { "letter": "s", "letter_contained_in_answer": false, "correct_letter_and_position": false },
-      { "letter": "t", "letter_contained_in_answer": true, "correct_letter_and_position": false }
+      { "letter": "m", "grade": "wrong" },
+      { "letter": "o", "grade": "correct" },
+      { "letter": "i", "grade": "correct" },
+      { "letter": "s", "grade": "wrong" },
+      { "letter": "t", "grade": "contained" }
     ],
     [
-      { "letter": "p", "letter_contained_in_answer": true, "correct_letter_and_position": true },
-      { "letter": "o", "letter_contained_in_answer": true, "correct_letter_and_position": true },
-      { "letter": "i", "letter_contained_in_answer": true, "correct_letter_and_position": true },
-      { "letter": "n", "letter_contained_in_answer": true, "correct_letter_and_position": true },
-      { "letter": "t", "letter_contained_in_answer": true, "correct_letter_and_position": true }
+      { "letter": "p", "grade": "correct" },
+      { "letter": "o", "grade": "correct" },
+      { "letter": "i", "grade": "correct" },
+      { "letter": "n", "grade": "correct" },
+      { "letter": "t", "grade": "correct" }
     ]
   ]
 }

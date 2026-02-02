@@ -1,49 +1,66 @@
+# =============================================================================
+# OpenAPI Examples
+# =============================================================================
+# This file defines reusable examples for the Scorekeeper API.
+# Examples are organized by domain: Gameplay, Teams, Scores
+#
+# Each example includes a summary for display in API docs and references
+# the actual data from JSON files.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Gameplay Examples
+# -----------------------------------------------------------------------------
+
 Game:
-  summary: A word guess submission with puzzle date
+  summary: Word guess submission
   value:
     $ref: "./Game.json"
 
 GameGraded:
-  summary: A graded game response with letter-by-letter results
+  summary: Graded game response with letter-by-letter results
   value:
     $ref: "./GameGraded.json"
 
-UserProfile:
-  summary: A full user profile
-  value:
-    $ref: "./UserProfile-JesseDoe.json"
+# -----------------------------------------------------------------------------
+# Team Examples
+# -----------------------------------------------------------------------------
 
 Team:
-  summary: A team with members
+  summary: Team with members
   value:
     $ref: "./Team.json"
 
 CreateTeamRequest:
-  summary: Request to create a new team
+  summary: Create team request
   value:
     $ref: "./CreateTeamRequest.json"
 
 TeamMembership:
-  summary: A team membership assignment
+  summary: Team membership assignment
   value:
     $ref: "./TeamMembership.json"
 
 Teammate:
-  summary: A teammate with profile and role
+  summary: Teammate with profile and role
   value:
     $ref: "./Teammate.json"
 
+# -----------------------------------------------------------------------------
+# Score Examples
+# -----------------------------------------------------------------------------
+
 Score:
-  summary: A single score with emoji representation
+  summary: Single score with graded moves
   value:
     $ref: "./Score.json"
 
 ScoreArray:
-  summary: An array of scores for a user
+  summary: Array of scores for a user
   value:
     $ref: "./ScoreArray.json"
 
 Scoreboard:
-  summary: A team scoreboard with participant scores
+  summary: Team scoreboard with participant scores
   value:
     $ref: "./Scoreboard.json"
