@@ -5,6 +5,8 @@ info:
     Planned features for the Scorekeeper word puzzle game API.
 
     These endpoints are not yet implemented but are planned for future releases.
+
+    See also: [Current API](../)
   version: 2.0.0-planned
 
 servers:
