@@ -151,6 +151,9 @@ paths:
       description: |
         Set the answer for a puzzle on a specific date.
 
+        The word must be exactly 5 letters and must be a valid word in the dictionary.
+        This ensures that players will be able to make valid guesses against the puzzle.
+
         Only users with app_metadata.game_admin = true can access this endpoint.
       operationId: setPuzzle
       tags:
