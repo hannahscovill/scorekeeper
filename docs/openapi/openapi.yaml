@@ -5,10 +5,10 @@ info:
   version: 2.0.0
 
 servers:
+  - url: https://api.wordles.dev
+    description: Remote
   - url: https://localhost:8080
     description: Local
-  - url: https://scorek-score-givbsinrjlo6-310725690.us-west-2.elb.amazonaws.com
-    description: Remote
 
 security:
   - bearerAuth: []
@@ -23,8 +23,6 @@ tags:
     description: User profile management
   - name: Teams
     description: Team management and membership
-  - name: Score
-    description: Individual user score retrieval
   - name: Scoreboard
     description: Team scoreboard retrieval and display
 
@@ -432,59 +430,6 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /score:
-    get:
-      summary: Get user scores
-      description: Retrieve scores for a user. If user_id is not provided, returns scores for the authenticated user.
-      operationId: getScore
-      tags:
-        - Score
-      parameters:
-        - name: user_id
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Unique identifier for the user. If not provided, inferred from auth.
-        - name: puzzle_date_iso_day
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-          example: '2026-01-01'
-          description: Filter by puzzle date (YYYY-MM-DD)
-        - name: start_dt_millis
-          in: query
-          required: false
-          schema:
-            type: integer
-            format: int64
-          description: Start date filter in milliseconds
-        - name: end_dt_millis
-          in: query
-          required: false
-          schema:
-            type: integer
-            format: int64
-          description: End date filter in milliseconds
-      responses:
-        "200":
-          description: Scores retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "schemas.yaml#/Score"
-              examples:
-                default:
-                  $ref: "data-examples/examples.yaml#/ScoreArray"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 

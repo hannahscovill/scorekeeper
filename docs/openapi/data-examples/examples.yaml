@@ -113,16 +113,6 @@ Teammate:
 # Score Examples
 # -----------------------------------------------------------------------------
 
-Score:
-  summary: Single score with graded moves
-  value:
-    $ref: "./Score.json"
-
-ScoreArray:
-  summary: Array of scores for a user
-  value:
-    $ref: "./ScoreArray.json"
-
 Scoreboard:
   summary: Team scoreboard with participant scores
   value:
