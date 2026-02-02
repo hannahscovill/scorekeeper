@@ -194,6 +194,40 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /puzzles/cache/clear:
+    post:
+      summary: Clear puzzle answer cache (game admin only)
+      description: |
+        Clear the in-memory cache of puzzle answers.
+
+        This endpoint is useful when puzzle answers have been modified directly in the
+        database (e.g., via AWS console) and the server needs to pick up the changes
+        immediately instead of serving stale cached values.
+
+        **Note:** In a load-balanced environment with multiple server instances, each
+        instance has its own cache. This endpoint only clears the cache on the instance
+        that handles the request. To ensure all instances are updated, either call this
+        endpoint multiple times or restart all instances.
+
+        Only users with app_metadata.game_admin = true can access this endpoint.
+      operationId: clearPuzzleCache
+      tags:
+        - Admin
+      responses:
+        "200":
+          description: Cache cleared successfully
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/CacheClearResponse"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/CacheClearResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /puzzles/{date}:
     get:
       summary: Get a single puzzle by date
