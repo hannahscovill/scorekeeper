@@ -2,12 +2,28 @@
 
 use actix_web::{get, put, web, HttpResponse};
 use chrono::NaiveDate;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::sync::Arc;
 
 use crate::db::PuzzleDatabase;
 use crate::middleware::auth::Claims;
 use crate::models::error::AppError;
+
+/// Custom deserializer for optional NaiveDate that treats empty strings as None.
+/// This is needed for query parameter parsing where empty values are passed as empty strings.
+fn deserialize_optional_date<'de, D>(deserializer: D) -> Result<Option<NaiveDate>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt: Option<String> = Option::deserialize(deserializer)?;
+    match opt {
+        None => Ok(None),
+        Some(s) if s.is_empty() => Ok(None),
+        Some(s) => NaiveDate::parse_from_str(&s, "%Y-%m-%d")
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+    }
+}
 
 /// Request payload for setting a puzzle answer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,8 +53,10 @@ pub struct SetPuzzleResponse {
 #[derive(Debug, Clone, Deserialize)]
 pub struct GetPuzzlesQuery {
     /// Start date for filtering puzzles (inclusive).
+    #[serde(default, deserialize_with = "deserialize_optional_date")]
     pub start_date: Option<NaiveDate>,
     /// End date for filtering puzzles (inclusive).
+    #[serde(default, deserialize_with = "deserialize_optional_date")]
     pub end_date: Option<NaiveDate>,
     /// If true, omit the answer words from the response (only return dates).
     #[serde(default)]
@@ -247,5 +265,48 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("2026-02-15"));
         assert!(!json.contains("word")); // word field should be omitted entirely
+    }
+
+    #[test]
+    fn test_get_puzzles_query_empty_dates() {
+        // Empty strings for dates should parse as None (this was the bug)
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("start_date=&end_date=&omit_answers=true").unwrap();
+        assert!(query.start_date.is_none());
+        assert!(query.end_date.is_none());
+        assert!(query.omit_answers);
+    }
+
+    #[test]
+    fn test_get_puzzles_query_valid_dates() {
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("start_date=2026-01-01&end_date=2026-01-31").unwrap();
+        assert_eq!(
+            query.start_date,
+            Some(NaiveDate::from_ymd_opt(2026, 1, 1).unwrap())
+        );
+        assert_eq!(
+            query.end_date,
+            Some(NaiveDate::from_ymd_opt(2026, 1, 31).unwrap())
+        );
+        assert!(!query.omit_answers);
+    }
+
+    #[test]
+    fn test_get_puzzles_query_missing_dates() {
+        // Missing parameters should parse as None
+        let query: GetPuzzlesQuery = serde_urlencoded::from_str("omit_answers=false").unwrap();
+        assert!(query.start_date.is_none());
+        assert!(query.end_date.is_none());
+        assert!(!query.omit_answers);
+    }
+
+    #[test]
+    fn test_get_puzzles_query_no_params() {
+        // Empty query string should work
+        let query: GetPuzzlesQuery = serde_urlencoded::from_str("").unwrap();
+        assert!(query.start_date.is_none());
+        assert!(query.end_date.is_none());
+        assert!(!query.omit_answers);
     }
 }
