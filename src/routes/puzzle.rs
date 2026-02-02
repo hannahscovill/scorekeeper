@@ -2,28 +2,13 @@
 
 use actix_web::{get, put, web, HttpResponse};
 use chrono::NaiveDate;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::db::PuzzleDatabase;
 use crate::middleware::auth::Claims;
+use crate::middleware::validation::{deserialize_optional_date, validate_date_range};
 use crate::models::error::AppError;
-
-/// Custom deserializer for optional NaiveDate that treats empty strings as None.
-/// This is needed for query parameter parsing where empty values are passed as empty strings.
-fn deserialize_optional_date<'de, D>(deserializer: D) -> Result<Option<NaiveDate>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let opt: Option<String> = Option::deserialize(deserializer)?;
-    match opt {
-        None => Ok(None),
-        Some(s) if s.is_empty() => Ok(None),
-        Some(s) => NaiveDate::parse_from_str(&s, "%Y-%m-%d")
-            .map(Some)
-            .map_err(serde::de::Error::custom),
-    }
-}
 
 /// Request payload for setting a puzzle answer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,12 +51,8 @@ pub struct GetPuzzlesQuery {
 impl GetPuzzlesQuery {
     /// Validates that date range parameters are consistent.
     /// Both start_date and end_date must be provided together, or neither.
-    pub fn validate_date_range(&self) -> Result<(), &'static str> {
-        match (self.start_date, self.end_date) {
-            (Some(_), None) => Err("end_date is required when start_date is provided"),
-            (None, Some(_)) => Err("start_date is required when end_date is provided"),
-            _ => Ok(()),
-        }
+    pub fn validate(&self) -> Result<(), &'static str> {
+        validate_date_range(self.start_date, self.end_date)
     }
 }
 
@@ -149,7 +130,7 @@ pub async fn get_puzzles(
     }
 
     // Validate that both dates are provided if either is specified
-    if let Err(msg) = query.validate_date_range() {
+    if let Err(msg) = query.validate() {
         return Err(AppError::bad_request(msg));
     }
 
@@ -328,39 +309,23 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_date_range_both_provided() {
+    fn test_validate_both_dates() {
         let query: GetPuzzlesQuery =
             serde_urlencoded::from_str("start_date=2026-01-01&end_date=2026-01-31").unwrap();
-        assert!(query.validate_date_range().is_ok());
+        assert!(query.validate().is_ok());
     }
 
     #[test]
-    fn test_validate_date_range_neither_provided() {
-        let query: GetPuzzlesQuery = serde_urlencoded::from_str("").unwrap();
-        assert!(query.validate_date_range().is_ok());
-    }
-
-    #[test]
-    fn test_validate_date_range_only_start_date() {
+    fn test_validate_only_start_date() {
         let query: GetPuzzlesQuery =
             serde_urlencoded::from_str("start_date=2026-01-01").unwrap();
-        let result = query.validate_date_range();
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "end_date is required when start_date is provided"
-        );
+        assert!(query.validate().is_err());
     }
 
     #[test]
-    fn test_validate_date_range_only_end_date() {
+    fn test_validate_only_end_date() {
         let query: GetPuzzlesQuery =
             serde_urlencoded::from_str("end_date=2026-01-31").unwrap();
-        let result = query.validate_date_range();
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "start_date is required when end_date is provided"
-        );
+        assert!(query.validate().is_err());
     }
 }

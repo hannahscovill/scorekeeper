@@ -1,11 +1,58 @@
 //! Request validation middleware.
 
 use actix_web::HttpRequest;
+use chrono::NaiveDate;
+use serde::{Deserialize, Deserializer};
 use uuid::Uuid;
 
 use crate::models::error::ValidationDetail;
 use crate::models::game::GameCreateList;
 use crate::models::AppError;
+
+/// Custom deserializer for optional NaiveDate that treats empty strings as None.
+/// This is needed for query parameter parsing where empty values are passed as empty strings.
+///
+/// # Example
+/// ```ignore
+/// #[derive(Deserialize)]
+/// struct QueryParams {
+///     #[serde(default, deserialize_with = "deserialize_optional_date")]
+///     start_date: Option<NaiveDate>,
+/// }
+/// ```
+pub fn deserialize_optional_date<'de, D>(deserializer: D) -> Result<Option<NaiveDate>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt: Option<String> = Option::deserialize(deserializer)?;
+    match opt {
+        None => Ok(None),
+        Some(s) if s.is_empty() => Ok(None),
+        Some(s) => NaiveDate::parse_from_str(&s, "%Y-%m-%d")
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+    }
+}
+
+/// Validates that a date range has both start and end dates, or neither.
+/// Returns an error message if only one date is provided.
+///
+/// # Example
+/// ```ignore
+/// if let Err(msg) = validate_date_range(query.start_date, query.end_date) {
+///     return Err(AppError::bad_request(msg));
+/// }
+/// ```
+pub fn validate_date_range(
+    start_date: Option<NaiveDate>,
+    end_date: Option<NaiveDate>,
+) -> Result<(), &'static str> {
+    match (start_date, end_date) {
+        (Some(_), None) => Err("end_date is required when start_date is provided"),
+        (None, Some(_)) => Err("start_date is required when end_date is provided"),
+        _ => Ok(()),
+    }
+}
 
 /// Extracts and validates the optional team-id header from a request.
 pub fn extract_team_id_header(req: &HttpRequest) -> Result<Option<Uuid>, AppError> {
@@ -145,5 +192,39 @@ mod tests {
     fn test_validate_game_create_list_many_items() {
         let games: GameCreateList = (0..100).map(|i| GameCreate::new(i)).collect();
         assert!(validate_game_create_list(&games).is_ok());
+    }
+
+    #[test]
+    fn test_validate_date_range_both_provided() {
+        let start = NaiveDate::from_ymd_opt(2026, 1, 1);
+        let end = NaiveDate::from_ymd_opt(2026, 1, 31);
+        assert!(validate_date_range(start, end).is_ok());
+    }
+
+    #[test]
+    fn test_validate_date_range_neither_provided() {
+        assert!(validate_date_range(None, None).is_ok());
+    }
+
+    #[test]
+    fn test_validate_date_range_only_start() {
+        let start = NaiveDate::from_ymd_opt(2026, 1, 1);
+        let result = validate_date_range(start, None);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "end_date is required when start_date is provided"
+        );
+    }
+
+    #[test]
+    fn test_validate_date_range_only_end() {
+        let end = NaiveDate::from_ymd_opt(2026, 1, 31);
+        let result = validate_date_range(None, end);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "start_date is required when end_date is provided"
+        );
     }
 }
