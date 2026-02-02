@@ -62,14 +62,50 @@ pub struct GetPuzzlesResponse {
     pub puzzles: Vec<PuzzleAnswerResponse>,
 }
 
-/// GET /puzzle - Get puzzle answers (game admin only).
+/// GET /puzzles/{date} - Get a single puzzle answer by date (game admin only).
+///
+/// This endpoint allows game administrators to retrieve a single puzzle answer
+/// for a specific date. Only users with app_metadata.game_admin = true can access
+/// this endpoint.
+#[get("/puzzles/{date}")]
+pub async fn get_puzzle_by_date(
+    claims: Claims,
+    path: web::Path<NaiveDate>,
+    puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
+) -> Result<HttpResponse, AppError> {
+    // Check if user is a game admin
+    if !claims.is_game_admin() {
+        return Err(AppError::Forbidden(
+            "Only game administrators can view puzzle answers".to_string(),
+        ));
+    }
+
+    let date = path.into_inner();
+    let answer = puzzle_db
+        .get_puzzle_answer(date)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
+
+    match answer {
+        Some(word) => Ok(HttpResponse::Ok().json(PuzzleAnswerResponse {
+            date,
+            word: Some(word),
+        })),
+        None => Err(AppError::not_found(format!(
+            "No puzzle found for date {}",
+            date
+        ))),
+    }
+}
+
+/// GET /puzzles - Get puzzle answers (game admin only).
 ///
 /// This endpoint allows game administrators to retrieve puzzle answers.
 /// With no query parameters, returns all puzzles. Use start_date and end_date
 /// to filter by date range. Use omit_answers=true to only return dates without
 /// the answer words. Only users with app_metadata.game_admin = true can access
 /// this endpoint.
-#[get("/puzzle")]
+#[get("/puzzles")]
 pub async fn get_puzzles(
     claims: Claims,
     query: web::Query<GetPuzzlesQuery>,
@@ -101,12 +137,12 @@ pub async fn get_puzzles(
     Ok(HttpResponse::Ok().json(response))
 }
 
-/// PUT /puzzle - Set the answer for a puzzle (game admin only).
+/// PUT /puzzles - Set the answer for a puzzle (game admin only).
 ///
 /// This endpoint allows game administrators to set or update the puzzle answer
 /// for a specific date. Only users with app_metadata.game_admin = true
 /// can access this endpoint.
-#[put("/puzzle")]
+#[put("/puzzles")]
 pub async fn set_puzzle(
     claims: Claims,
     body: web::Json<SetPuzzleRequest>,

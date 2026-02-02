@@ -80,7 +80,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /puzzle:
+  /puzzles:
     get:
       summary: Get puzzle answers (game admin only)
       description: |
@@ -172,6 +172,42 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  /puzzles/{date}:
+    get:
+      summary: Get a single puzzle answer by date (game admin only)
+      description: |
+        Retrieve a single puzzle answer for a specific date.
+
+        Only users with app_metadata.game_admin = true can access this endpoint.
+      operationId: getPuzzleByDate
+      tags:
+        - Admin
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+          description: The puzzle date (YYYY-MM-DD)
+          example: "2026-01-15"
+      responses:
+        "200":
+          description: Puzzle answer retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/PuzzleAnswerResponse"
+              example:
+                date: "2026-01-15"
+                word: "crane"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /profile:
     get:
