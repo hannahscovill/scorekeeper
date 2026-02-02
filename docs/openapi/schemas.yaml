@@ -1,0 +1,509 @@
+# =============================================================================
+# OpenAPI Schemas
+# =============================================================================
+# This file contains all schema definitions for the Scorekeeper API.
+# Schemas are organized by domain: Gameplay, Users, Teams, Scores, Admin
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Gameplay Schemas
+# -----------------------------------------------------------------------------
+
+Game:
+  type: object
+  required:
+    - puzzle_date_iso_day
+    - word_guessed
+  properties:
+    puzzle_date_iso_day:
+      type: string
+      format: date
+      description: The date of the puzzle in ISO format (YYYY-MM-DD)
+      example: "2024-01-15"
+    word_guessed:
+      type: string
+      pattern: "^[a-zA-Z]{5}$"
+      description: The 5-letter word guessed by the player
+      example: "crane"
+
+LetterGrade:
+  type: string
+  enum:
+    - correct
+    - contained
+    - wrong
+  description: The grade for a single letter in a guess
+
+GuessLetterGraded:
+  type: object
+  required:
+    - letter
+    - grade
+  properties:
+    letter:
+      type: string
+      minLength: 1
+      maxLength: 1
+      description: Single character from the guess
+      example: "c"
+    grade:
+      $ref: "#/LetterGrade"
+
+GuessGraded:
+  type: array
+  description: A graded guess consisting of exactly 5 graded letters
+  minItems: 5
+  maxItems: 5
+  items:
+    $ref: "#/GuessLetterGraded"
+
+GameMetadata:
+  type: object
+  required:
+    - game_id
+    - user_id
+    - moves_qty
+    - won
+  properties:
+    game_id:
+      type: string
+      description: Unique identifier for this game
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    user_id:
+      type: string
+      description: Unique identifier for the user who played
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    moves_qty:
+      type: integer
+      minimum: 1
+      maximum: 6
+      description: Number of guesses made
+    won:
+      type: boolean
+      description: Whether the player won the game
+
+GameGraded:
+  allOf:
+    - $ref: "#/GameMetadata"
+    - type: object
+      required:
+        - moves
+      properties:
+        moves:
+          type: array
+          description: List of graded guesses (1-6 items)
+          minItems: 1
+          maxItems: 6
+          items:
+            $ref: "#/GuessGraded"
+
+HistoryGame:
+  type: object
+  required:
+    - game_id
+    - puzzle_date
+    - guesses_count
+    - won
+    - in_progress
+    - created_at
+    - updated_at
+  properties:
+    game_id:
+      type: string
+      format: uuid
+      description: Unique identifier for this game
+    puzzle_date:
+      type: string
+      format: date
+      description: The puzzle date (YYYY-MM-DD)
+    guesses_count:
+      type: integer
+      minimum: 0
+      maximum: 6
+      description: Number of guesses made
+    won:
+      type: boolean
+      description: Whether the player won
+    in_progress:
+      type: boolean
+      description: Whether the game is still in progress
+    created_at:
+      type: string
+      format: date-time
+      description: When the game was started
+    updated_at:
+      type: string
+      format: date-time
+      description: When the game was last updated
+
+HistoryResponse:
+  type: object
+  required:
+    - user_id
+    - total_games
+    - games_won
+    - games
+  properties:
+    user_id:
+      type: string
+      description: The authenticated user's ID
+    total_games:
+      type: integer
+      description: Total number of games played
+    games_won:
+      type: integer
+      description: Number of games won
+    games:
+      type: array
+      description: List of games sorted by puzzle date (most recent first)
+      items:
+        $ref: "#/HistoryGame"
+
+# -----------------------------------------------------------------------------
+# User Profile Schemas
+# -----------------------------------------------------------------------------
+
+UserProfilePreview:
+  type: object
+  required:
+    - user_id
+    - display_name
+  properties:
+    user_id:
+      type: string
+      description: Unique identifier for the user
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    display_name:
+      type: string
+      description: User's display name
+      example: "wordmaster42"
+    name_pronunciation_url:
+      type: string
+      format: uri
+      description: URL to audio file for name pronunciation
+    pronouns:
+      type: string
+      description: User's preferred pronouns
+      example: "they/them"
+    avatarUrl:
+      type: string
+      format: uri
+      description: URL to user's avatar image
+
+UserProfile:
+  allOf:
+    - $ref: "#/UserProfilePreview"
+    - type: object
+      required:
+        - team_ids
+        - email
+      properties:
+        full_name:
+          type: string
+          description: User's full name
+          example: "Jesse Doe"
+        team_ids:
+          type: array
+          items:
+            type: string
+          description: List of team IDs the user belongs to
+        email:
+          type: string
+          format: email
+          description: User's email address
+        city:
+          type: string
+          description: User's city
+        state:
+          type: string
+          description: User's state or province
+        country:
+          type: string
+          description: User's country
+
+UpdateProfileRequest:
+  type: object
+  required:
+    - displayName
+  properties:
+    displayName:
+      type: string
+      description: The user's display name
+      example: "wordmaster42"
+
+ProfileResponse:
+  type: object
+  required:
+    - userId
+  properties:
+    userId:
+      type: string
+      description: The Auth0 user ID
+      example: "auth0|123456789"
+    displayName:
+      type: string
+      description: The user's display name (from Auth0 user_metadata)
+      example: "wordmaster42"
+    avatarUrl:
+      type: string
+      format: uri
+      description: URL to the user's avatar image
+      example: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
+
+AvatarUploadResponse:
+  type: object
+  required:
+    - avatarUrl
+  properties:
+    avatarUrl:
+      type: string
+      format: uri
+      description: URL to the uploaded avatar image
+      example: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
+
+# -----------------------------------------------------------------------------
+# Team Schemas
+# -----------------------------------------------------------------------------
+
+TeamRole:
+  type: string
+  enum:
+    - admin
+    - member
+  description: Role of a team member
+
+CreateTeamRequest:
+  type: object
+  required:
+    - team_name
+  properties:
+    team_name:
+      type: string
+      description: Name for the new team
+      example: "Word Wizards"
+
+DeleteTeamRequest:
+  type: object
+  required:
+    - team_id
+  properties:
+    team_id:
+      type: string
+      format: uuid
+      description: Unique identifier of the team to delete
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+TeamMembership:
+  type: object
+  required:
+    - team_id
+    - user_id
+    - role
+  properties:
+    team_id:
+      type: string
+      description: Unique identifier for the team
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    user_id:
+      type: string
+      description: Unique identifier for the user
+      example: "660e8400-e29b-41d4-a716-446655440001"
+    role:
+      $ref: "#/TeamRole"
+
+Teammate:
+  allOf:
+    - $ref: "#/UserProfilePreview"
+    - type: object
+      required:
+        - role
+        - joined_at_millis
+      properties:
+        role:
+          $ref: "#/TeamRole"
+        joined_at_millis:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds when the user joined the team
+
+Team:
+  type: object
+  required:
+    - team_id
+    - team_name
+    - created_at_millis
+    - members
+  properties:
+    team_id:
+      type: string
+      format: uuid
+      description: Unique identifier for the team
+    team_name:
+      type: string
+      description: Name of the team
+    created_at_millis:
+      type: integer
+      format: int64
+      description: Unix timestamp in milliseconds when the team was created
+    members:
+      type: array
+      items:
+        $ref: "#/Teammate"
+      description: List of team members
+
+# -----------------------------------------------------------------------------
+# Score Schemas
+# -----------------------------------------------------------------------------
+
+Score:
+  allOf:
+    - $ref: "#/GameMetadata"
+    - type: object
+      required:
+        - moves
+      properties:
+        moves:
+          type: array
+          description: List of graded guesses (1-6 items)
+          minItems: 1
+          maxItems: 6
+          items:
+            $ref: "#/GuessGraded"
+
+Scoreboard:
+  type: object
+  required:
+    - scoreboard_id
+    - team_id
+    - puzzle_date_iso_day
+    - participants_qty
+    - score
+  properties:
+    scoreboard_id:
+      type: string
+      format: uuid
+      description: Unique identifier for the scoreboard
+    team_id:
+      type: string
+      format: uuid
+      description: Team this scoreboard belongs to
+    puzzle_date_iso_day:
+      type: string
+      format: date
+      description: The puzzle date this scoreboard is for (YYYY-MM-DD)
+    participants_qty:
+      type: integer
+      description: Number of participants on this scoreboard
+    score:
+      type: array
+      description: The scores for this scoreboard
+      items:
+        $ref: "#/Score"
+
+ScoreboardPreview:
+  type: object
+  required:
+    - scoreboard_id
+    - team_id
+    - puzzle_date_iso_day
+    - participants_qty
+  properties:
+    scoreboard_id:
+      type: string
+      format: uuid
+      description: Unique identifier for the scoreboard
+    team_id:
+      type: string
+      format: uuid
+      description: Team this scoreboard belongs to
+    puzzle_date_iso_day:
+      type: string
+      format: date
+      description: The puzzle date this scoreboard is for (YYYY-MM-DD)
+    participants_qty:
+      type: integer
+      description: Number of participants on this scoreboard
+
+# -----------------------------------------------------------------------------
+# Admin (Puzzle) Schemas
+# -----------------------------------------------------------------------------
+
+GetPuzzlesResponse:
+  type: object
+  required:
+    - puzzles
+  properties:
+    puzzles:
+      type: array
+      description: List of puzzle answers
+      items:
+        $ref: "#/PuzzleAnswerResponse"
+
+PuzzleAnswerResponse:
+  type: object
+  required:
+    - date
+  properties:
+    date:
+      type: string
+      format: date
+      description: The date of the puzzle (YYYY-MM-DD)
+      example: "2026-01-15"
+    word:
+      type: string
+      description: The answer word. Omitted when omit_answers=true.
+      example: "crane"
+
+SetPuzzleRequest:
+  type: object
+  required:
+    - date
+    - word
+  properties:
+    date:
+      type: string
+      format: date
+      description: The date of the puzzle in ISO format (YYYY-MM-DD)
+      example: "2026-02-15"
+    word:
+      type: string
+      pattern: "^[a-zA-Z]{5}$"
+      description: The 5-letter answer word
+      example: "crane"
+    teamId:
+      type: string
+      description: Optional team ID for team-specific puzzles
+      example: "team-123"
+
+SetPuzzleResponse:
+  type: object
+  required:
+    - date
+    - word
+  properties:
+    date:
+      type: string
+      format: date
+      description: The date of the puzzle
+      example: "2026-02-15"
+    word:
+      type: string
+      description: The answer word (lowercase)
+      example: "crane"
+    teamId:
+      type: string
+      description: Team ID if set
+      example: "team-123"
+
+# -----------------------------------------------------------------------------
+# Common Schemas
+# -----------------------------------------------------------------------------
+
+ErrorResponse:
+  type: object
+  required:
+    - message
+  properties:
+    message:
+      type: string
+      description: Error message
