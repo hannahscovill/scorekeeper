@@ -2,7 +2,7 @@
 # OpenAPI Examples
 # =============================================================================
 # This file defines reusable examples for the Scorekeeper API.
-# Examples are organized by domain: Gameplay, Teams, Scores
+# Examples are organized by domain: Gameplay, Admin, Users, Teams, Scores
 #
 # Each example includes a summary for display in API docs and references
 # the actual data from JSON files.
@@ -26,6 +26,64 @@ HistoryResponse:
   summary: User's game history with stats
   value:
     $ref: "./HistoryResponse.json"
+
+# -----------------------------------------------------------------------------
+# Admin (Puzzle) Examples
+# -----------------------------------------------------------------------------
+
+GetPuzzlesWithAnswers:
+  summary: Puzzles response with answers (default)
+  value:
+    $ref: "./GetPuzzlesWithAnswers.json"
+
+GetPuzzlesOmitAnswers:
+  summary: Puzzles response with omit_answers=true
+  value:
+    $ref: "./GetPuzzlesOmitAnswers.json"
+
+SetPuzzleRequest:
+  summary: Set puzzle request
+  value:
+    $ref: "./SetPuzzleRequest.json"
+
+SetPuzzleRequestWithTeam:
+  summary: Set puzzle request with team
+  value:
+    $ref: "./SetPuzzleRequestWithTeam.json"
+
+SetPuzzleResponse:
+  summary: Set puzzle response
+  value:
+    $ref: "./SetPuzzleResponse.json"
+
+SetPuzzleResponseWithTeam:
+  summary: Set puzzle response with team
+  value:
+    $ref: "./SetPuzzleResponseWithTeam.json"
+
+# -----------------------------------------------------------------------------
+# User Profile Examples
+# -----------------------------------------------------------------------------
+
+ProfileResponse:
+  summary: User profile response
+  value:
+    $ref: "./ProfileResponse.json"
+
+ProfileResponseUpdated:
+  summary: Updated user profile response
+  value:
+    $ref: "./ProfileResponseUpdated.json"
+
+UpdateProfileRequest:
+  summary: Update profile request
+  value:
+    $ref: "./UpdateProfileRequest.json"
+
+AvatarUploadResponse:
+  summary: Avatar upload response
+  value:
+    $ref: "./AvatarUploadResponse.json"
 
 # -----------------------------------------------------------------------------
 # Team Examples

@@ -132,19 +132,9 @@ paths:
                 $ref: "#/components/schemas/GetPuzzlesResponse"
               examples:
                 withAnswers:
-                  summary: Response with answers (default)
-                  value:
-                    puzzles:
-                      - date: "2026-01-01"
-                        word: "crane"
-                      - date: "2026-01-02"
-                        word: "slate"
+                  $ref: "data-examples/examples.yaml#/GetPuzzlesWithAnswers"
                 omitAnswers:
-                  summary: Response with omit_answers=true
-                  value:
-                    puzzles:
-                      - date: "2026-01-01"
-                      - date: "2026-01-02"
+                  $ref: "data-examples/examples.yaml#/GetPuzzlesOmitAnswers"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -167,14 +157,9 @@ paths:
               $ref: "#/components/schemas/SetPuzzleRequest"
             examples:
               default:
-                value:
-                  date: "2026-02-15"
-                  word: "crane"
+                $ref: "data-examples/examples.yaml#/SetPuzzleRequest"
               withTeam:
-                value:
-                  date: "2026-02-15"
-                  word: "crane"
-                  teamId: "team-123"
+                $ref: "data-examples/examples.yaml#/SetPuzzleRequestWithTeam"
       responses:
         "200":
           description: Puzzle answer set successfully
@@ -184,14 +169,9 @@ paths:
                 $ref: "#/components/schemas/SetPuzzleResponse"
               examples:
                 default:
-                  value:
-                    date: "2026-02-15"
-                    word: "crane"
+                  $ref: "data-examples/examples.yaml#/SetPuzzleResponse"
                 withTeam:
-                  value:
-                    date: "2026-02-15"
-                    word: "crane"
-                    teamId: "team-123"
+                  $ref: "data-examples/examples.yaml#/SetPuzzleResponseWithTeam"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -218,9 +198,7 @@ paths:
                 $ref: "#/components/schemas/ProfileResponse"
               examples:
                 default:
-                  value:
-                    userId: "auth0|123456789"
-                    displayName: "wordmaster42"
+                  $ref: "data-examples/examples.yaml#/ProfileResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -244,8 +222,7 @@ paths:
               $ref: "#/components/schemas/UpdateProfileRequest"
             examples:
               default:
-                value:
-                  displayName: "New Display Name"
+                $ref: "data-examples/examples.yaml#/UpdateProfileRequest"
       responses:
         "200":
           description: Profile updated successfully
@@ -255,9 +232,7 @@ paths:
                 $ref: "#/components/schemas/ProfileResponse"
               examples:
                 default:
-                  value:
-                    userId: "auth0|123456789"
-                    displayName: "New Display Name"
+                  $ref: "data-examples/examples.yaml#/ProfileResponseUpdated"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -298,8 +273,7 @@ paths:
                 $ref: "#/components/schemas/AvatarUploadResponse"
               examples:
                 default:
-                  value:
-                    avatarUrl: "https://bucket.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg"
+                  $ref: "data-examples/examples.yaml#/AvatarUploadResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
