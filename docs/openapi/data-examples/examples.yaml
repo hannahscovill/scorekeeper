@@ -22,6 +22,11 @@ GameGraded:
   value:
     $ref: "./GameGraded.json"
 
+HistoryResponse:
+  summary: User's game history with stats
+  value:
+    $ref: "./HistoryResponse.json"
+
 # -----------------------------------------------------------------------------
 # Team Examples
 # -----------------------------------------------------------------------------
