@@ -500,6 +500,16 @@ SetPuzzleResponse:
       description: Team ID if set
       example: "team-123"
 
+CacheClearResponse:
+  type: object
+  required:
+    - message
+  properties:
+    message:
+      type: string
+      description: Confirmation message
+      example: "Puzzle answer cache cleared"
+
 # -----------------------------------------------------------------------------
 # Common Schemas
 # -----------------------------------------------------------------------------

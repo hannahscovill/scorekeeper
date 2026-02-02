@@ -66,6 +66,11 @@ SetPuzzleResponseWithTeam:
   value:
     $ref: "./SetPuzzleResponseWithTeam.json"
 
+CacheClearResponse:
+  summary: Cache clear confirmation
+  value:
+    $ref: "./CacheClearResponse.json"
+
 # -----------------------------------------------------------------------------
 # User Profile Examples
 # -----------------------------------------------------------------------------
