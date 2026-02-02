@@ -63,6 +63,18 @@ pub struct GetPuzzlesQuery {
     pub omit_answers: bool,
 }
 
+impl GetPuzzlesQuery {
+    /// Validates that date range parameters are consistent.
+    /// Both start_date and end_date must be provided together, or neither.
+    pub fn validate_date_range(&self) -> Result<(), &'static str> {
+        match (self.start_date, self.end_date) {
+            (Some(_), None) => Err("end_date is required when start_date is provided"),
+            (None, Some(_)) => Err("start_date is required when end_date is provided"),
+            _ => Ok(()),
+        }
+    }
+}
+
 /// Response item for a puzzle answer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PuzzleAnswerResponse {
@@ -134,6 +146,11 @@ pub async fn get_puzzles(
         return Err(AppError::Forbidden(
             "Only game administrators can view puzzle answers".to_string(),
         ));
+    }
+
+    // Validate that both dates are provided if either is specified
+    if let Err(msg) = query.validate_date_range() {
+        return Err(AppError::bad_request(msg));
     }
 
     let puzzles = puzzle_db
@@ -308,5 +325,42 @@ mod tests {
         assert!(query.start_date.is_none());
         assert!(query.end_date.is_none());
         assert!(!query.omit_answers);
+    }
+
+    #[test]
+    fn test_validate_date_range_both_provided() {
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("start_date=2026-01-01&end_date=2026-01-31").unwrap();
+        assert!(query.validate_date_range().is_ok());
+    }
+
+    #[test]
+    fn test_validate_date_range_neither_provided() {
+        let query: GetPuzzlesQuery = serde_urlencoded::from_str("").unwrap();
+        assert!(query.validate_date_range().is_ok());
+    }
+
+    #[test]
+    fn test_validate_date_range_only_start_date() {
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("start_date=2026-01-01").unwrap();
+        let result = query.validate_date_range();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "end_date is required when start_date is provided"
+        );
+    }
+
+    #[test]
+    fn test_validate_date_range_only_end_date() {
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("end_date=2026-01-31").unwrap();
+        let result = query.validate_date_range();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "start_date is required when end_date is provided"
+        );
     }
 }

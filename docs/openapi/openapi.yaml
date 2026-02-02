@@ -90,8 +90,9 @@ paths:
         Retrieve puzzle answers for game administrators.
 
         With no query parameters, returns all puzzles. Use start_date and end_date
-        to filter by date range. Only users with app_metadata.game_admin = true
-        can access this endpoint.
+        to filter by date range. Both dates must be provided together - specifying
+        only one will return a 400 Bad Request error. Only users with
+        app_metadata.game_admin = true can access this endpoint.
       operationId: getPuzzles
       tags:
         - Admin
