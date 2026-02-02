@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::db::PuzzleDatabase;
+use crate::dictionary::is_valid_word;
 use crate::dictionary;
 use crate::middleware::auth::Claims;
 use crate::middleware::validation::{deserialize_optional_date, validate_date_range};
@@ -222,6 +223,11 @@ pub async fn set_puzzle(
         return Err(AppError::bad_request(
             "Word must contain only letters (a-z)",
         ));
+    }
+
+    // Validate word is in dictionary
+    if !is_valid_word(&word) {
+        return Err(AppError::bad_request("Word not in dictionary"));
     }
 
     // Set the puzzle answer
