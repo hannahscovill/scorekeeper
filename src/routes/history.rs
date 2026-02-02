@@ -9,6 +9,8 @@ use uuid::Uuid;
 use crate::db::PuzzleDatabase;
 use crate::middleware::auth::Claims;
 use crate::models::error::AppError;
+use crate::models::guess::LetterGrade;
+use crate::services::grading::grade_guess;
 
 /// Response for a single game in history.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +25,9 @@ pub struct HistoryGame {
     pub won: bool,
     /// Whether the game is still in progress.
     pub in_progress: bool,
+    /// Graded guesses (grades only, no letters) for rendering mini game boards.
+    /// Each inner Vec contains 5 LetterGrade values representing the result of each guess.
+    pub graded_guesses: Vec<Vec<LetterGrade>>,
     /// When the game was started (ISO 8601).
     pub created_at: String,
     /// When the game was last updated (ISO 8601).
@@ -45,6 +50,7 @@ pub struct HistoryResponse {
 /// GET /history - Get the authenticated user's game history.
 ///
 /// Returns all games played by the user, sorted by puzzle date (most recent first).
+/// Includes graded guesses (grades only, no letters) for rendering mini game boards.
 #[get("/history")]
 pub async fn get_history(
     claims: Claims,
@@ -57,26 +63,48 @@ pub async fn get_history(
         .await
         .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
 
-    let games: Vec<HistoryGame> = game_states
-        .iter()
-        .map(|state| {
-            // Generate deterministic game_id based on user_id and puzzle_date
-            let game_id = Uuid::new_v5(
-                &Uuid::NAMESPACE_OID,
-                format!("{}#{}", state.user_id, state.puzzle_date).as_bytes(),
-            );
+    let mut games = Vec::with_capacity(game_states.len());
 
-            HistoryGame {
-                game_id,
-                puzzle_date: state.puzzle_date,
-                guesses_count: state.guesses.len(),
-                won: state.won,
-                in_progress: state.is_in_progress(),
-                created_at: state.created_at.to_rfc3339(),
-                updated_at: state.updated_at.to_rfc3339(),
-            }
-        })
-        .collect();
+    for state in &game_states {
+        // Generate deterministic game_id based on user_id and puzzle_date
+        let game_id = Uuid::new_v5(
+            &Uuid::NAMESPACE_OID,
+            format!("{}#{}", state.user_id, state.puzzle_date).as_bytes(),
+        );
+
+        // Fetch the puzzle answer to grade the guesses
+        let graded_guesses = if let Some(answer) = puzzle_db
+            .get_puzzle_answer(state.puzzle_date)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?
+        {
+            // Grade each guess and extract only the grades (no letters)
+            state
+                .guesses
+                .iter()
+                .map(|guess| {
+                    grade_guess(guess, &answer)
+                        .iter()
+                        .map(|gl| gl.grade)
+                        .collect()
+                })
+                .collect()
+        } else {
+            // No answer found - return empty grades
+            Vec::new()
+        };
+
+        games.push(HistoryGame {
+            game_id,
+            puzzle_date: state.puzzle_date,
+            guesses_count: state.guesses.len(),
+            won: state.won,
+            in_progress: state.is_in_progress(),
+            graded_guesses,
+            created_at: state.created_at.to_rfc3339(),
+            updated_at: state.updated_at.to_rfc3339(),
+        });
+    }
 
     let games_won = games.iter().filter(|g| g.won).count();
 
@@ -102,6 +130,22 @@ mod tests {
             guesses_count: 3,
             won: true,
             in_progress: false,
+            graded_guesses: vec![
+                vec![
+                    LetterGrade::Correct,
+                    LetterGrade::Wrong,
+                    LetterGrade::Contained,
+                    LetterGrade::Wrong,
+                    LetterGrade::Correct,
+                ],
+                vec![
+                    LetterGrade::Correct,
+                    LetterGrade::Correct,
+                    LetterGrade::Correct,
+                    LetterGrade::Correct,
+                    LetterGrade::Correct,
+                ],
+            ],
             created_at: "2026-01-15T10:00:00Z".to_string(),
             updated_at: "2026-01-15T10:05:00Z".to_string(),
         };
@@ -112,6 +156,10 @@ mod tests {
         assert!(json.contains("guesses_count"));
         assert!(json.contains("won"));
         assert!(json.contains("in_progress"));
+        assert!(json.contains("graded_guesses"));
+        assert!(json.contains("correct"));
+        assert!(json.contains("wrong"));
+        assert!(json.contains("contained"));
     }
 
     #[test]
@@ -126,6 +174,13 @@ mod tests {
                 guesses_count: 3,
                 won: true,
                 in_progress: false,
+                graded_guesses: vec![vec![
+                    LetterGrade::Correct,
+                    LetterGrade::Correct,
+                    LetterGrade::Correct,
+                    LetterGrade::Correct,
+                    LetterGrade::Correct,
+                ]],
                 created_at: "2026-01-15T10:00:00Z".to_string(),
                 updated_at: "2026-01-15T10:05:00Z".to_string(),
             }],
@@ -136,5 +191,6 @@ mod tests {
         assert!(json.contains("total_games"));
         assert!(json.contains("games_won"));
         assert!(json.contains("games"));
+        assert!(json.contains("graded_guesses"));
     }
 }
