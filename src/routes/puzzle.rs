@@ -5,10 +5,13 @@
 
 use actix_web::{get, put, web, HttpResponse};
 use chrono::NaiveDate;
+use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::db::PuzzleDatabase;
+use crate::dictionary;
 use crate::middleware::auth::Claims;
 use crate::middleware::validation::{deserialize_optional_date, validate_date_range};
 use crate::models::error::AppError;
@@ -18,11 +21,14 @@ use crate::models::error::AppError;
 pub struct SetPuzzleRequest {
     /// The date of the puzzle in ISO format (YYYY-MM-DD).
     pub date: NaiveDate,
-    /// The 5-letter answer word.
-    pub word: String,
+    /// The 5-letter answer word. Required unless set_random_unused_word is true.
+    pub word: Option<String>,
     /// Optional team ID for team-specific puzzles.
     #[serde(rename = "teamId")]
     pub team_id: Option<String>,
+    /// If true, automatically select a random word that hasn't been used yet.
+    #[serde(default)]
+    pub set_random_unused_word: bool,
 }
 
 /// Response for setting a puzzle answer.
@@ -153,6 +159,9 @@ pub async fn get_puzzles(
 /// This endpoint allows game administrators to set or update the puzzle answer
 /// for a specific date. Only users with app_metadata.game_admin = true
 /// can access this endpoint.
+///
+/// You can either provide a specific word, or set `setRandomUnusedWord: true`
+/// to automatically select a random word that hasn't been used in any puzzle yet.
 #[put("/puzzles")]
 pub async fn set_puzzle(
     claims: Claims,
@@ -166,7 +175,43 @@ pub async fn set_puzzle(
         ));
     }
 
-    let word = body.word.to_lowercase();
+    let word = if body.set_random_unused_word {
+        // Get all existing puzzle answers to find used words
+        let existing_puzzles = puzzle_db
+            .get_puzzle_answers(None, None)
+            .await
+            .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
+
+        let used_words: HashSet<String> = existing_puzzles
+            .into_iter()
+            .map(|p| p.word.to_lowercase())
+            .collect();
+
+        // Find a random unused word from the dictionary
+        let mut rng = rand::thread_rng();
+        let unused_word = dictionary::all_words()
+            .filter(|word| !used_words.contains(*word))
+            .choose(&mut rng);
+
+        match unused_word {
+            Some(word) => word.to_string(),
+            None => {
+                return Err(AppError::bad_request(
+                    "No unused words available in the dictionary",
+                ))
+            }
+        }
+    } else {
+        // Use the provided word
+        match &body.word {
+            Some(w) => w.to_lowercase(),
+            None => {
+                return Err(AppError::bad_request(
+                    "Either provide a word or set set_random_unused_word to true",
+                ))
+            }
+        }
+    };
 
     // Validate word is exactly 5 lowercase letters
     if word.len() != 5 {
@@ -201,8 +246,9 @@ mod tests {
         let json = r#"{"date": "2026-02-15", "word": "crane"}"#;
         let req: SetPuzzleRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.date, NaiveDate::from_ymd_opt(2026, 2, 15).unwrap());
-        assert_eq!(req.word, "crane");
+        assert_eq!(req.word, Some("crane".to_string()));
         assert!(req.team_id.is_none());
+        assert!(!req.set_random_unused_word);
     }
 
     #[test]
@@ -210,6 +256,15 @@ mod tests {
         let json = r#"{"date": "2026-02-15", "word": "crane", "teamId": "team-123"}"#;
         let req: SetPuzzleRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.team_id, Some("team-123".to_string()));
+    }
+
+    #[test]
+    fn test_set_puzzle_request_with_random_word() {
+        let json = r#"{"date": "2026-02-15", "set_random_unused_word": true}"#;
+        let req: SetPuzzleRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.date, NaiveDate::from_ymd_opt(2026, 2, 15).unwrap());
+        assert!(req.word.is_none());
+        assert!(req.set_random_unused_word);
     }
 
     #[test]

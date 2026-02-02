@@ -2636,6 +2636,7 @@ dependencies = [
  "once_cell",
  "phf",
  "phf_codegen",
+ "rand 0.8.5",
  "reqwest",
  "rustls 0.23.36",
  "rustls-pemfile",

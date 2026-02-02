@@ -152,6 +152,10 @@ paths:
         Set the answer for a puzzle on a specific date.
 
         Only users with app_metadata.game_admin = true can access this endpoint.
+
+        You can either provide a specific word, or set `set_random_unused_word: true`
+        to automatically select a random word from the dictionary that hasn't been
+        used in any puzzle yet.
       operationId: setPuzzle
       tags:
         - Admin
@@ -166,6 +170,8 @@ paths:
                 $ref: "data-examples/examples.yaml#/SetPuzzleRequest"
               withTeam:
                 $ref: "data-examples/examples.yaml#/SetPuzzleRequestWithTeam"
+              randomWord:
+                $ref: "data-examples/examples.yaml#/SetPuzzleRequestRandomWord"
       responses:
         "200":
           description: Puzzle answer set successfully

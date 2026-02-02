@@ -458,7 +458,6 @@ SetPuzzleRequest:
   type: object
   required:
     - date
-    - word
   properties:
     date:
       type: string
@@ -468,12 +467,18 @@ SetPuzzleRequest:
     word:
       type: string
       pattern: "^[a-zA-Z]{5}$"
-      description: The 5-letter answer word
+      description: The 5-letter answer word. Required unless setRandomUnusedWord is true.
       example: "crane"
     teamId:
       type: string
       description: Optional team ID for team-specific puzzles
       example: "team-123"
+    set_random_unused_word:
+      type: boolean
+      default: false
+      description: |
+        If true, automatically select a random word from the dictionary that hasn't
+        been used in any puzzle yet. When this is true, the word field is not required.
 
 SetPuzzleResponse:
   type: object
