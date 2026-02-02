@@ -5,8 +5,31 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+    <style>
+      .nav-links {
+        padding: 10px 20px;
+        background: #1b1b1b;
+        font-family: sans-serif;
+      }
+      .nav-links a {
+        color: #61affe;
+        text-decoration: none;
+        margin-right: 20px;
+      }
+      .nav-links a:hover {
+        text-decoration: underline;
+      }
+      .nav-links a.active {
+        color: #fff;
+        font-weight: bold;
+      }
+    </style>
   </head>
   <body>
+    <div class="nav-links">
+      <a href="./" class="active">Current API</a>
+      <a href="./planned/">Planned Features</a>
+    </div>
     <div id="swagger-ui"></div>
     <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
     <script>
