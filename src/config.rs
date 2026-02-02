@@ -57,6 +57,7 @@ impl Default for Config {
                 "https://localhost:3000".to_string(),
                 "https://d3g0psl1n9xo36.cloudfront.net".to_string(),
                 "https://wordles.dev".to_string(),
+                "https://hannahscovill.github.io".to_string(),
             ],
             s3_avatar_bucket: None,
             admin_user_ids: Vec::new(),
@@ -72,6 +73,7 @@ impl Config {
             "https://localhost:3000".to_string(),
             "https://d3g0psl1n9xo36.cloudfront.net".to_string(),
             "https://wordles.dev".to_string(),
+            "https://hannahscovill.github.io".to_string(),
         ];
 
         Self {
@@ -199,7 +201,7 @@ mod tests {
         assert!(config.tls_key_path.is_none());
         assert!(config.dynamodb_endpoint_url.is_none());
         assert!(config.dynamodb_table_name.is_none());
-        assert_eq!(config.cors_allowed_origins.len(), 4);
+        assert_eq!(config.cors_allowed_origins.len(), 5);
         assert!(config
             .cors_allowed_origins
             .contains(&"http://localhost:3000".to_string()));
@@ -212,6 +214,9 @@ mod tests {
         assert!(config
             .cors_allowed_origins
             .contains(&"https://wordles.dev".to_string()));
+        assert!(config
+            .cors_allowed_origins
+            .contains(&"https://hannahscovill.github.io".to_string()));
         assert!(config.s3_avatar_bucket.is_none());
         assert!(config.admin_user_ids.is_empty());
     }
