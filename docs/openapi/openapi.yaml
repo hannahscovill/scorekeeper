@@ -85,17 +85,20 @@ paths:
 
   /puzzles:
     get:
-      summary: Get puzzle answers (game admin only)
+      summary: Get puzzles
       description: |
-        Retrieve puzzle answers for game administrators.
+        Retrieve puzzles for authenticated users.
 
         With no query parameters, returns all puzzles. Use start_date and end_date
         to filter by date range. Both dates must be provided together - specifying
-        only one will return a 400 Bad Request error. Only users with
-        app_metadata.game_admin = true can access this endpoint.
+        only one will return a 400 Bad Request error.
+
+        **Note:** Only game administrators (app_metadata.game_admin = true) will see
+        the answer words in the response. Non-admin users will only see the dates,
+        allowing them to check which games are available to play.
       operationId: getPuzzles
       tags:
-        - Admin
+        - Gameplay
       parameters:
         - name: start_date
           in: query
@@ -119,24 +122,29 @@ paths:
           schema:
             type: boolean
             default: false
-          description: If true, omit the answer words from the response (only return dates)
+          description: |
+            If true, omit the answer words from the response (only return dates).
+            Only relevant for admin users; non-admin users never see answers regardless of this parameter.
           example: true
       responses:
         "200":
-          description: Puzzle answers retrieved successfully
+          description: Puzzles retrieved successfully
           content:
             application/json:
               schema:
                 $ref: "schemas.yaml#/GetPuzzlesResponse"
               examples:
-                withAnswers:
+                adminWithAnswers:
+                  summary: Admin user (sees answers)
                   $ref: "data-examples/examples.yaml#/GetPuzzlesWithAnswers"
-                omitAnswers:
+                adminOmitAnswers:
+                  summary: Admin user with omit_answers=true
+                  $ref: "data-examples/examples.yaml#/GetPuzzlesOmitAnswers"
+                nonAdmin:
+                  summary: Non-admin user (answers hidden)
                   $ref: "data-examples/examples.yaml#/GetPuzzlesOmitAnswers"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
 
     put:
       summary: Set puzzle answer (game admin only)
@@ -179,14 +187,16 @@ paths:
 
   /puzzles/{date}:
     get:
-      summary: Get a single puzzle answer by date (game admin only)
+      summary: Get a single puzzle by date
       description: |
-        Retrieve a single puzzle answer for a specific date.
+        Retrieve a single puzzle for a specific date.
 
-        Only users with app_metadata.game_admin = true can access this endpoint.
+        **Note:** Only game administrators (app_metadata.game_admin = true) will see
+        the answer word in the response. Non-admin users will only see the date,
+        allowing them to check if a game is available to play.
       operationId: getPuzzleByDate
       tags:
-        - Admin
+        - Gameplay
       parameters:
         - name: date
           in: path
@@ -198,18 +208,23 @@ paths:
           example: "2026-01-15"
       responses:
         "200":
-          description: Puzzle answer retrieved successfully
+          description: Puzzle retrieved successfully
           content:
             application/json:
               schema:
                 $ref: "schemas.yaml#/PuzzleAnswerResponse"
-              example:
-                date: "2026-01-15"
-                word: "crane"
+              examples:
+                admin:
+                  summary: Admin user (sees answer)
+                  value:
+                    date: "2026-01-15"
+                    word: "crane"
+                nonAdmin:
+                  summary: Non-admin user (answer hidden)
+                  value:
+                    date: "2026-01-15"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
