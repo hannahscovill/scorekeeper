@@ -36,6 +36,21 @@ fn main() {
     write!(&mut file, "static VALID_WORDS: phf::Set<&'static str> = ").unwrap();
     writeln!(&mut file, "{};", set_builder.build()).unwrap();
 
+    // Also generate a static array for iteration
+    writeln!(
+        &mut file,
+        "\n/// All valid words as a static array for iteration."
+    )
+    .unwrap();
+    write!(&mut file, "static ALL_WORDS: [&str; {}] = [", words.len()).unwrap();
+    for (i, word) in words.iter().enumerate() {
+        if i > 0 {
+            write!(&mut file, ", ").unwrap();
+        }
+        write!(&mut file, "\"{}\"", word).unwrap();
+    }
+    writeln!(&mut file, "];").unwrap();
+
     // Rerun if words.txt changes
     println!("cargo:rerun-if-changed=data/words.txt");
 }

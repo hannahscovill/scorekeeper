@@ -15,6 +15,11 @@ pub fn word_count() -> usize {
     VALID_WORDS.len()
 }
 
+/// Returns an iterator over all valid words in the dictionary.
+pub fn all_words() -> impl Iterator<Item = &'static str> {
+    ALL_WORDS.iter().copied()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

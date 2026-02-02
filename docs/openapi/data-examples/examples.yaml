@@ -51,6 +51,11 @@ SetPuzzleRequestWithTeam:
   value:
     $ref: "./SetPuzzleRequestWithTeam.json"
 
+SetPuzzleRequestRandomWord:
+  summary: Set puzzle with random unused word
+  value:
+    $ref: "./SetPuzzleRequestRandomWord.json"
+
 SetPuzzleResponse:
   summary: Set puzzle response
   value:
