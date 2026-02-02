@@ -57,11 +57,24 @@ jobs:
             console.log('Inlined JSON examples into examples.yaml');
           "
 
-      - name: Validate OpenAPI spec
-        run: redocly lint docs/openapi/openapi.yaml
+      - name: Validate OpenAPI specs
+        run: |
+          redocly lint docs/openapi/openapi.yaml
+          redocly lint docs/openapi/openapi-planned.yaml
 
-      - name: Bundle OpenAPI spec
-        run: redocly bundle docs/openapi/openapi.yaml -o docs/openapi/openapi-bundled.yaml
+      - name: Build docs site
+        run: |
+          mkdir -p docs-site/planned
+
+          # Build current API docs
+          redocly build-docs docs/openapi/openapi.yaml -o docs-site/index.html
+
+          # Build planned API docs
+          redocly build-docs docs/openapi/openapi-planned.yaml -o docs-site/planned/index.html
+
+          # Bundle specs for download
+          redocly bundle docs/openapi/openapi.yaml -o docs-site/openapi-bundled.yaml
+          redocly bundle docs/openapi/openapi-planned.yaml -o docs-site/planned/openapi-planned-bundled.yaml
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -69,7 +82,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/openapi
+          path: docs-site
 
   deploy:
     environment:

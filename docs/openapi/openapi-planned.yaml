@@ -1,0 +1,301 @@
+openapi: 3.1.0
+info:
+  title: Scorekeeper API (Planned Features)
+  description: |
+    Planned features for the Scorekeeper word puzzle game API.
+
+    These endpoints are not yet implemented but are planned for future releases.
+  version: 2.0.0-planned
+
+servers:
+  - url: https://api.wordles.dev
+    description: Remote
+  - url: https://localhost:8080
+    description: Local
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+tags:
+  - name: Teams
+    description: Team management and membership
+  - name: Scoreboard
+    description: Team scoreboard retrieval and display
+
+paths:
+  /team:
+    get:
+      summary: Get a team
+      description: Retrieve a team by ID
+      operationId: getTeam
+      tags:
+        - Teams
+      parameters:
+        - name: team_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Unique identifier for the team
+      responses:
+        "200":
+          description: Team retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/Team"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/Team"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      summary: Create a team
+      description: Create a new team. The authenticated user becomes the team admin.
+      operationId: createTeam
+      tags:
+        - Teams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "schemas.yaml#/CreateTeamRequest"
+            examples:
+              default:
+                $ref: "data-examples/examples.yaml#/CreateTeamRequest"
+      responses:
+        "201":
+          description: Team created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/Team"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/Team"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    delete:
+      summary: Delete a team
+      description: Delete an existing team. Only team admins can delete a team.
+      operationId: deleteTeam
+      tags:
+        - Teams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "schemas.yaml#/DeleteTeamRequest"
+      responses:
+        "200":
+          description: Team deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/Team"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /team/teammate:
+    put:
+      summary: Add a teammate
+      description: Add a user to a team with a specified role
+      operationId: addTeammate
+      tags:
+        - Teams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "schemas.yaml#/TeamMembership"
+            examples:
+              default:
+                $ref: "data-examples/examples.yaml#/TeamMembership"
+      responses:
+        "200":
+          description: Teammate added successfully
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/Teammate"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/Teammate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Remove a teammate
+      description: Remove a user from a team
+      operationId: removeTeammate
+      tags:
+        - Teams
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "schemas.yaml#/TeamMembership"
+      responses:
+        "200":
+          description: Teammate removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/Teammate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /scoreboard:
+    get:
+      summary: Get scoreboard
+      description: Retrieve scoreboards for a team. Use preview=true for a lightweight response without scores. If start_dt_millis or end_dt_millis is provided, only preview mode is returned.
+      operationId: getScoreboard
+      tags:
+        - Scoreboard
+      parameters:
+        - name: team_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Unique identifier for the team
+        - name: puzzle_date_iso_day
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: The puzzle date (YYYY-MM-DD)
+        - name: preview
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: If true, returns ScoreboardPreview without scores
+        - name: start_dt_millis
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: Start date filter in milliseconds. If provided, only preview mode is returned.
+        - name: end_dt_millis
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: End date filter in milliseconds. If provided, only preview mode is returned.
+        - name: page_size
+          in: header
+          required: false
+          schema:
+            type: integer
+          description: Number of items per page. If not provided, returns max response.
+      responses:
+        "200":
+          description: Scoreboard retrieved successfully
+          headers:
+            page_qty:
+              schema:
+                type: string
+              description: Total number of pages
+            pg_query_forward:
+              schema:
+                type: string
+              description: Query string to get the next page
+            pg_query_backward:
+              schema:
+                type: string
+              description: Query string to get the previous page
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "schemas.yaml#/Scoreboard"
+                  - $ref: "schemas.yaml#/ScoreboardPreview"
+              examples:
+                scoreboard:
+                  $ref: "data-examples/examples.yaml#/Scoreboard"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token in Authorization header
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: JWT token in auth_token cookie
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: "schemas.yaml#/ErrorResponse"
+          example:
+            message: "bad request"
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "schemas.yaml#/ErrorResponse"
+          example:
+            message: "unauthorized"
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: "schemas.yaml#/ErrorResponse"
+          example:
+            message: "forbidden"
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: "schemas.yaml#/ErrorResponse"
+          example:
+            message: "not found"
+
+  schemas:
+    $ref: "schemas.yaml"
