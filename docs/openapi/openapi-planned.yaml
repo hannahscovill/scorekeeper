@@ -6,8 +6,8 @@ info:
 
     These endpoints are not yet implemented but are planned for future releases.
 
-    See also: [Current API](../)
-  version: 2.0.0-planned
+    See also: [Current API](https://hannahscovill.github.io/scorekeeper/)
+  version: planned
 
 servers:
   - url: https://api.wordles.dev

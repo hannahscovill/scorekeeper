@@ -4,8 +4,8 @@ info:
   description: |
     API for the Scorekeeper word puzzle game.
 
-    See also: [Planned Features](./planned/)
-  version: 2.0.0
+    See also: [Planned Features](https://hannahscovill.github.io/scorekeeper/planned)
+  version: 0.1.0
 
 servers:
   - url: https://api.wordles.dev
