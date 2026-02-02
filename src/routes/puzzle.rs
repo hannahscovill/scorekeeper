@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use crate::db::PuzzleDatabase;
 use crate::middleware::auth::Claims;
+use crate::middleware::validation::{deserialize_optional_date, validate_date_range};
 use crate::models::error::AppError;
 
 /// Request payload for setting a puzzle answer.
@@ -37,12 +38,22 @@ pub struct SetPuzzleResponse {
 #[derive(Debug, Clone, Deserialize)]
 pub struct GetPuzzlesQuery {
     /// Start date for filtering puzzles (inclusive).
+    #[serde(default, deserialize_with = "deserialize_optional_date")]
     pub start_date: Option<NaiveDate>,
     /// End date for filtering puzzles (inclusive).
+    #[serde(default, deserialize_with = "deserialize_optional_date")]
     pub end_date: Option<NaiveDate>,
     /// If true, omit the answer words from the response (only return dates).
     #[serde(default)]
     pub omit_answers: bool,
+}
+
+impl GetPuzzlesQuery {
+    /// Validates that date range parameters are consistent.
+    /// Both start_date and end_date must be provided together, or neither.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        validate_date_range(self.start_date, self.end_date)
+    }
 }
 
 /// Response item for a puzzle answer.
@@ -116,6 +127,11 @@ pub async fn get_puzzles(
         return Err(AppError::Forbidden(
             "Only game administrators can view puzzle answers".to_string(),
         ));
+    }
+
+    // Validate that both dates are provided if either is specified
+    if let Err(msg) = query.validate() {
+        return Err(AppError::bad_request(msg));
     }
 
     let puzzles = puzzle_db
@@ -247,5 +263,69 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("2026-02-15"));
         assert!(!json.contains("word")); // word field should be omitted entirely
+    }
+
+    #[test]
+    fn test_get_puzzles_query_empty_dates() {
+        // Empty strings for dates should parse as None (this was the bug)
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("start_date=&end_date=&omit_answers=true").unwrap();
+        assert!(query.start_date.is_none());
+        assert!(query.end_date.is_none());
+        assert!(query.omit_answers);
+    }
+
+    #[test]
+    fn test_get_puzzles_query_valid_dates() {
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("start_date=2026-01-01&end_date=2026-01-31").unwrap();
+        assert_eq!(
+            query.start_date,
+            Some(NaiveDate::from_ymd_opt(2026, 1, 1).unwrap())
+        );
+        assert_eq!(
+            query.end_date,
+            Some(NaiveDate::from_ymd_opt(2026, 1, 31).unwrap())
+        );
+        assert!(!query.omit_answers);
+    }
+
+    #[test]
+    fn test_get_puzzles_query_missing_dates() {
+        // Missing parameters should parse as None
+        let query: GetPuzzlesQuery = serde_urlencoded::from_str("omit_answers=false").unwrap();
+        assert!(query.start_date.is_none());
+        assert!(query.end_date.is_none());
+        assert!(!query.omit_answers);
+    }
+
+    #[test]
+    fn test_get_puzzles_query_no_params() {
+        // Empty query string should work
+        let query: GetPuzzlesQuery = serde_urlencoded::from_str("").unwrap();
+        assert!(query.start_date.is_none());
+        assert!(query.end_date.is_none());
+        assert!(!query.omit_answers);
+    }
+
+    #[test]
+    fn test_validate_both_dates() {
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("start_date=2026-01-01&end_date=2026-01-31").unwrap();
+        assert!(query.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_only_start_date() {
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("start_date=2026-01-01").unwrap();
+        assert!(query.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_only_end_date() {
+        let query: GetPuzzlesQuery =
+            serde_urlencoded::from_str("end_date=2026-01-31").unwrap();
+        assert!(query.validate().is_err());
     }
 }
