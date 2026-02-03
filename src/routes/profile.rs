@@ -5,6 +5,7 @@ use actix_multipart::Multipart;
 use actix_web::{get, post, put, web, HttpResponse};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::middleware::auth::Claims;
 use crate::models::error::AppError;
@@ -41,6 +42,7 @@ pub struct AvatarUploadResponse {
 
 /// GET /profile - Get the current user's profile from Auth0.
 #[get("/profile")]
+#[instrument(name = "get_profile", skip(auth0_service), fields(user_id = %claims.sub))]
 pub async fn get_profile(
     claims: Claims,
     auth0_service: web::Data<Auth0ManagementService>,
@@ -56,6 +58,7 @@ pub async fn get_profile(
 
 /// PUT /profile - Update the current user's profile in Auth0.
 #[put("/profile")]
+#[instrument(name = "update_profile", skip(body, auth0_service), fields(user_id = %claims.sub))]
 pub async fn update_profile(
     claims: Claims,
     body: web::Json<UpdateProfileRequest>,
@@ -85,6 +88,7 @@ pub async fn update_profile(
 
 /// POST /profile/avatar - Upload an avatar image.
 #[post("/profile/avatar")]
+#[instrument(name = "upload_avatar", skip(payload, s3_service, auth0_service), fields(user_id = %claims.sub))]
 pub async fn upload_avatar(
     claims: Claims,
     mut payload: Multipart,

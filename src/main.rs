@@ -7,7 +7,6 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 use tracing::info;
-use tracing_subscriber::EnvFilter;
 
 pub mod config;
 pub mod db;
@@ -16,6 +15,7 @@ pub mod middleware;
 pub mod models;
 pub mod routes;
 pub mod services;
+pub mod telemetry;
 
 use config::Config;
 use db::{
@@ -77,10 +77,8 @@ async fn hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive("info".parse().unwrap()))
-        .init();
+    // Initialize telemetry (OpenTelemetry + tracing)
+    telemetry::init_telemetry();
 
     let config = Config::from_env();
     let bind_addr = config.bind_address();
@@ -261,7 +259,7 @@ async fn main() -> std::io::Result<()> {
     });
 
     // Bind with TLS if enabled, otherwise plain HTTP
-    if config_for_tls.tls_enabled() {
+    let result = if config_for_tls.tls_enabled() {
         let cert_path = config_for_tls.tls_cert_path().ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -281,7 +279,12 @@ async fn main() -> std::io::Result<()> {
     } else {
         info!("Starting server at http://{}:{}", bind_addr.0, bind_addr.1);
         server.bind(bind_addr)?.run().await
-    }
+    };
+
+    // Graceful shutdown - flush pending spans
+    telemetry::shutdown_telemetry();
+
+    result
 }
 
 #[cfg(test)]
