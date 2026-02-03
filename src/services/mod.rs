@@ -9,7 +9,7 @@ use crate::models::{Game, GameCreate};
 use uuid::Uuid;
 
 pub use auth0::Auth0ManagementService;
-pub use common_words::CommonWordsService;
+pub use common_words::{CommonWordsService, CommonWordsSource};
 pub use grading::{grade_guess, is_winning_guess};
 pub use s3_avatar::S3AvatarService;
 

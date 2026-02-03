@@ -28,7 +28,7 @@ use routes::{
     get_puzzle_by_date, get_puzzles, health_check, list_games, set_puzzle, submit_guess,
     update_profile, upload_avatar,
 };
-use services::{Auth0ManagementService, CommonWordsService, S3AvatarService};
+use services::{Auth0ManagementService, CommonWordsService, CommonWordsSource, S3AvatarService};
 
 /// Load TLS configuration from certificate and key files.
 fn load_tls_config(cert_path: &str, key_path: &str) -> std::io::Result<ServerConfig> {
@@ -160,14 +160,28 @@ async fn main() -> std::io::Result<()> {
     };
 
     // Initialize Common Words service for puzzle word selection
-    let common_words_service = if let Some(bucket) = config.s3_common_words_bucket() {
+    // Prefer local file path (for development), fall back to S3 (for production)
+    let common_words_service = if let Some(file_path) = config.common_words_file_path() {
+        info!("Common Words service using local file: {}", file_path);
+        let service = CommonWordsService::new(CommonWordsSource::File(file_path.to_string()));
+
+        if let Err(e) = service.load().await {
+            tracing::error!("Failed to load common words from file: {}", e);
+            tracing::warn!("Puzzle random word selection will fall back to full dictionary");
+        }
+
+        Some(web::Data::new(service))
+    } else if let Some(bucket) = config.s3_common_words_bucket() {
         let key = config.s3_common_words_key().to_string();
-        info!("Common Words service enabled: s3://{}/{}", bucket, key);
+        info!("Common Words service using S3: s3://{}/{}", bucket, key);
         let sdk_config = aws_config::load_from_env().await;
         let s3_client = aws_sdk_s3::Client::new(&sdk_config);
-        let service = CommonWordsService::new(s3_client, bucket.to_string(), key);
+        let service = CommonWordsService::new(CommonWordsSource::S3 {
+            client: s3_client,
+            bucket: bucket.to_string(),
+            key,
+        });
 
-        // Load words at startup
         if let Err(e) = service.load().await {
             tracing::error!("Failed to load common words from S3: {}", e);
             tracing::warn!("Puzzle random word selection will fall back to full dictionary");
@@ -175,7 +189,7 @@ async fn main() -> std::io::Result<()> {
 
         Some(web::Data::new(service))
     } else {
-        info!("Common Words service disabled (S3_COMMON_WORDS_BUCKET not configured)");
+        info!("Common Words service disabled (no file path or S3 bucket configured)");
         info!("Puzzle random word selection will use full dictionary");
         None
     };

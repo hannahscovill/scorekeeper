@@ -37,6 +37,8 @@ pub struct Config {
     pub s3_common_words_bucket: Option<String>,
     /// S3 key for common words file (defaults to "common_words.txt").
     pub s3_common_words_key: Option<String>,
+    /// Local file path for common words (takes precedence over S3).
+    pub common_words_file_path: Option<String>,
     /// Comma-separated list of admin user IDs (Auth0 subjects).
     pub admin_user_ids: Vec<String>,
 }
@@ -66,6 +68,7 @@ impl Default for Config {
             s3_avatar_bucket: None,
             s3_common_words_bucket: None,
             s3_common_words_key: None,
+            common_words_file_path: None,
             admin_user_ids: Vec::new(),
         }
     }
@@ -108,6 +111,7 @@ impl Config {
             s3_avatar_bucket: std::env::var("S3_AVATAR_BUCKET").ok(),
             s3_common_words_bucket: std::env::var("S3_COMMON_WORDS_BUCKET").ok(),
             s3_common_words_key: std::env::var("S3_COMMON_WORDS_KEY").ok(),
+            common_words_file_path: std::env::var("COMMON_WORDS_FILE_PATH").ok(),
             admin_user_ids: std::env::var("ADMIN_USER_IDS")
                 .map(|s| {
                     s.split(',')
@@ -191,6 +195,11 @@ impl Config {
             .unwrap_or("common_words.txt")
     }
 
+    /// Returns the local file path for common words.
+    pub fn common_words_file_path(&self) -> Option<&str> {
+        self.common_words_file_path.as_deref()
+    }
+
     /// Returns the list of admin user IDs.
     pub fn admin_user_ids(&self) -> &[String] {
         &self.admin_user_ids
@@ -240,6 +249,7 @@ mod tests {
         assert!(config.s3_avatar_bucket.is_none());
         assert!(config.s3_common_words_bucket.is_none());
         assert!(config.s3_common_words_key.is_none());
+        assert!(config.common_words_file_path.is_none());
         assert!(config.admin_user_ids.is_empty());
     }
 
