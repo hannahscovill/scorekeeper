@@ -9,6 +9,9 @@
 # AWS_REGION: AWS region to deploy to (e.g., us-west-2)
 # AWS_OIDC_ROLE_ARN: The ARN of the IAM role for GitHub OIDC authentication
 #                    (e.g., arn:aws:iam::123456789012:role/GitHubActions-scorekeeper)
+#
+# Required GitHub Secrets (Settings → Secrets and variables → Actions → Secrets):
+# ---------------------------------------------------------------------------------
 # AUTH0_M2M_SECRET_ARN: The ARN of the Secrets Manager secret containing Auth0 M2M credentials
 #                       (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:scorekeeper/auth0-m2m-xxxxx)
 #                       The secret should contain JSON: {"clientId": "...", "clientSecret": "..."}
@@ -217,7 +220,7 @@ jobs:
 
       - name: Deploy CDK stack
         working-directory: infra
-        run: npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} --require-approval never -c env=prod -c auth0M2mSecretArn=${{ vars.AUTH0_M2M_SECRET_ARN }}
+        run: npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} --require-approval never -c env=prod -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }}
         env:
           CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
