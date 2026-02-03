@@ -37,7 +37,7 @@ pub struct Config {
     pub s3_common_words_bucket: Option<String>,
     /// S3 key for common words file (defaults to "common_words.txt").
     pub s3_common_words_key: Option<String>,
-    /// Local file path for common words (takes precedence over S3).
+    /// Local file path for common words (checked first, use for local dev).
     pub common_words_file_path: Option<String>,
     /// Comma-separated list of admin user IDs (Auth0 subjects).
     pub admin_user_ids: Vec<String>,
@@ -195,7 +195,7 @@ impl Config {
             .unwrap_or("common_words.txt")
     }
 
-    /// Returns the local file path for common words.
+    /// Returns the local file path for common words (for local dev).
     pub fn common_words_file_path(&self) -> Option<&str> {
         self.common_words_file_path.as_deref()
     }
