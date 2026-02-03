@@ -33,6 +33,10 @@ pub struct Config {
     pub cors_allowed_origins: Vec<String>,
     /// S3 bucket name for avatar uploads.
     pub s3_avatar_bucket: Option<String>,
+    /// S3 bucket name for common words file (puzzle word selection).
+    pub s3_common_words_bucket: Option<String>,
+    /// S3 key for common words file (defaults to "common_words.txt").
+    pub s3_common_words_key: Option<String>,
     /// Comma-separated list of admin user IDs (Auth0 subjects).
     pub admin_user_ids: Vec<String>,
 }
@@ -60,6 +64,8 @@ impl Default for Config {
                 "https://hannahscovill.github.io".to_string(),
             ],
             s3_avatar_bucket: None,
+            s3_common_words_bucket: None,
+            s3_common_words_key: None,
             admin_user_ids: Vec::new(),
         }
     }
@@ -100,6 +106,8 @@ impl Config {
                 .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
                 .unwrap_or(default_origins),
             s3_avatar_bucket: std::env::var("S3_AVATAR_BUCKET").ok(),
+            s3_common_words_bucket: std::env::var("S3_COMMON_WORDS_BUCKET").ok(),
+            s3_common_words_key: std::env::var("S3_COMMON_WORDS_KEY").ok(),
             admin_user_ids: std::env::var("ADMIN_USER_IDS")
                 .map(|s| {
                     s.split(',')
@@ -171,6 +179,18 @@ impl Config {
         self.s3_avatar_bucket.as_deref()
     }
 
+    /// Returns the S3 bucket name for common words.
+    pub fn s3_common_words_bucket(&self) -> Option<&str> {
+        self.s3_common_words_bucket.as_deref()
+    }
+
+    /// Returns the S3 key for common words (defaults to "common_words.txt").
+    pub fn s3_common_words_key(&self) -> &str {
+        self.s3_common_words_key
+            .as_deref()
+            .unwrap_or("common_words.txt")
+    }
+
     /// Returns the list of admin user IDs.
     pub fn admin_user_ids(&self) -> &[String] {
         &self.admin_user_ids
@@ -218,6 +238,8 @@ mod tests {
             .cors_allowed_origins
             .contains(&"https://hannahscovill.github.io".to_string()));
         assert!(config.s3_avatar_bucket.is_none());
+        assert!(config.s3_common_words_bucket.is_none());
+        assert!(config.s3_common_words_key.is_none());
         assert!(config.admin_user_ids.is_empty());
     }
 

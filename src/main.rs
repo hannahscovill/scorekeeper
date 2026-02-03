@@ -28,7 +28,7 @@ use routes::{
     get_puzzle_by_date, get_puzzles, health_check, list_games, set_puzzle, submit_guess,
     update_profile, upload_avatar,
 };
-use services::{Auth0ManagementService, S3AvatarService};
+use services::{Auth0ManagementService, CommonWordsService, S3AvatarService};
 
 /// Load TLS configuration from certificate and key files.
 fn load_tls_config(cert_path: &str, key_path: &str) -> std::io::Result<ServerConfig> {
@@ -159,6 +159,27 @@ async fn main() -> std::io::Result<()> {
         None
     };
 
+    // Initialize Common Words service for puzzle word selection
+    let common_words_service = if let Some(bucket) = config.s3_common_words_bucket() {
+        let key = config.s3_common_words_key().to_string();
+        info!("Common Words service enabled: s3://{}/{}", bucket, key);
+        let sdk_config = aws_config::load_from_env().await;
+        let s3_client = aws_sdk_s3::Client::new(&sdk_config);
+        let service = CommonWordsService::new(s3_client, bucket.to_string(), key);
+
+        // Load words at startup
+        if let Err(e) = service.load().await {
+            tracing::error!("Failed to load common words from S3: {}", e);
+            tracing::warn!("Puzzle random word selection will fall back to full dictionary");
+        }
+
+        Some(web::Data::new(service))
+    } else {
+        info!("Common Words service disabled (S3_COMMON_WORDS_BUCKET not configured)");
+        info!("Puzzle random word selection will use full dictionary");
+        None
+    };
+
     let config_for_tls = config.clone();
     let config = web::Data::new(config);
 
@@ -203,6 +224,11 @@ async fn main() -> std::io::Result<()> {
             .service(set_puzzle)
             .service(clear_puzzle_cache)
             .service(get_history);
+
+        // Add common words service if configured
+        if let Some(ref cws) = common_words_service {
+            app = app.app_data(cws.clone());
+        }
 
         // Only register profile endpoints if Auth0 M2M is configured
         if let Some(ref auth0) = auth0_service {

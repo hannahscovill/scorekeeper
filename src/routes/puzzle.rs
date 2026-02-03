@@ -16,6 +16,7 @@ use crate::dictionary::is_valid_word;
 use crate::middleware::auth::Claims;
 use crate::middleware::validation::{deserialize_optional_date, validate_date_range};
 use crate::models::error::AppError;
+use crate::services::CommonWordsService;
 
 /// Request payload for setting a puzzle answer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,11 +164,14 @@ pub async fn get_puzzles(
 ///
 /// You can either provide a specific word, or set `setRandomUnusedWord: true`
 /// to automatically select a random word that hasn't been used in any puzzle yet.
+/// When a common words list is configured (via S3), random selection will choose
+/// from that curated list. Otherwise, it falls back to the full dictionary.
 #[put("/puzzles")]
 pub async fn set_puzzle(
     claims: Claims,
     body: web::Json<SetPuzzleRequest>,
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
+    common_words: Option<web::Data<CommonWordsService>>,
 ) -> Result<HttpResponse, AppError> {
     // Check if user is a game admin
     if !claims.is_game_admin() {
@@ -188,14 +192,31 @@ pub async fn set_puzzle(
             .map(|p| p.word.to_lowercase())
             .collect();
 
-        // Find a random unused word from the dictionary
+        // Try to find a random unused word from common words first (if configured)
         let mut rng = rand::thread_rng();
-        let unused_word = dictionary::all_words()
-            .filter(|word| !used_words.contains(*word))
-            .choose(&mut rng);
+        let unused_word = if let Some(ref cws) = common_words {
+            // Use common words list from S3
+            if let Some(words) = cws.get_words().await {
+                let unused: Vec<_> = words.iter().filter(|w| !used_words.contains(*w)).collect();
+                unused.into_iter().choose(&mut rng).map(|s| s.to_string())
+            } else {
+                // Common words not loaded, fall back to full dictionary
+                tracing::warn!("Common words not loaded, falling back to full dictionary");
+                dictionary::all_words()
+                    .filter(|word| !used_words.contains(*word))
+                    .choose(&mut rng)
+                    .map(|s| s.to_string())
+            }
+        } else {
+            // No common words service configured, use full dictionary
+            dictionary::all_words()
+                .filter(|word| !used_words.contains(*word))
+                .choose(&mut rng)
+                .map(|s| s.to_string())
+        };
 
         match unused_word {
-            Some(word) => word.to_string(),
+            Some(word) => word,
             None => {
                 return Err(AppError::bad_request(
                     "No unused words available in the dictionary",
