@@ -1,6 +1,7 @@
 //! Business logic services for the scorekeeper API.
 
 pub mod auth0;
+pub mod common_words;
 pub mod grading;
 pub mod s3_avatar;
 
@@ -8,6 +9,7 @@ use crate::models::{Game, GameCreate};
 use uuid::Uuid;
 
 pub use auth0::Auth0ManagementService;
+pub use common_words::{CommonWordsService, CommonWordsSource};
 pub use grading::{grade_guess, is_winning_guess};
 pub use s3_avatar::S3AvatarService;
 

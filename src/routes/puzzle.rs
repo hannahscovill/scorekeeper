@@ -11,11 +11,11 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::db::{clear_answer_cache, PuzzleDatabase};
-use crate::dictionary;
 use crate::dictionary::is_valid_word;
 use crate::middleware::auth::Claims;
 use crate::middleware::validation::{deserialize_optional_date, validate_date_range};
 use crate::models::error::AppError;
+use crate::services::CommonWordsService;
 
 /// Request payload for setting a puzzle answer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,11 +163,13 @@ pub async fn get_puzzles(
 ///
 /// You can either provide a specific word, or set `setRandomUnusedWord: true`
 /// to automatically select a random word that hasn't been used in any puzzle yet.
+/// Random selection requires a common words list to be configured (via file or S3).
 #[put("/puzzles")]
 pub async fn set_puzzle(
     claims: Claims,
     body: web::Json<SetPuzzleRequest>,
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
+    common_words: Option<web::Data<CommonWordsService>>,
 ) -> Result<HttpResponse, AppError> {
     // Check if user is a game admin
     if !claims.is_game_admin() {
@@ -188,20 +190,27 @@ pub async fn set_puzzle(
             .map(|p| p.word.to_lowercase())
             .collect();
 
-        // Find a random unused word from the dictionary
-        let mut rng = rand::thread_rng();
-        let unused_word = dictionary::all_words()
-            .filter(|word| !used_words.contains(*word))
-            .choose(&mut rng);
+        // Require common words service for random word selection
+        let cws = common_words.ok_or_else(|| {
+            AppError::bad_request(
+                "Random word selection requires common words list to be configured",
+            )
+        })?;
 
-        match unused_word {
-            Some(word) => word.to_string(),
-            None => {
-                return Err(AppError::bad_request(
-                    "No unused words available in the dictionary",
-                ))
-            }
-        }
+        let words = cws.get_words().await.ok_or_else(|| {
+            AppError::InternalError("Common words list failed to load".to_string())
+        })?;
+
+        let mut rng = rand::thread_rng();
+        let unused: Vec<_> = words.iter().filter(|w| !used_words.contains(*w)).collect();
+
+        unused
+            .into_iter()
+            .choose(&mut rng)
+            .map(|s| s.to_string())
+            .ok_or_else(|| {
+                AppError::bad_request("No unused words available in the common words list")
+            })?
     } else {
         // Use the provided word
         match &body.word {

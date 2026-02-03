@@ -40,6 +40,18 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
   readonly importExistingAvatarBucket?: boolean;
 
   /**
+   * The name of the S3 bucket for common words (puzzle word selection)
+   * @default 'scorekeeper-common-words'
+   */
+  readonly commonWordsBucketName?: string;
+
+  /**
+   * The S3 key for the common words file
+   * @default 'common_words.txt'
+   */
+  readonly commonWordsKey?: string;
+
+  /**
    * ARN of the Secrets Manager secret containing Auth0 M2M credentials.
    * The secret should be a JSON object with 'clientId' and 'clientSecret' fields.
    * If not provided, profile endpoints will not be available.
@@ -174,6 +186,18 @@ export class ScorekeeperStack extends cdk.Stack {
       );
     }
 
+    // S3 bucket for common words (private - used for puzzle word selection)
+    const commonWordsBucketName = props?.commonWordsBucketName ?? 'scorekeeper-common-words';
+    const commonWordsKey = props?.commonWordsKey ?? 'common_words.txt';
+
+    const commonWordsBucket = new s3.Bucket(this, 'CommonWordsBucket', {
+      bucketName: commonWordsBucketName,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     // Route 53 Hosted Zone for the API subdomain (NS records configured in Namecheap)
     const domainName = this.node.tryGetContext('domainName') ?? 'wordles.dev';
     const apiSubdomain = this.node.tryGetContext('apiSubdomain') ?? 'api';
@@ -274,6 +298,8 @@ export class ScorekeeperStack extends cdk.Stack {
             ENVIRONMENT: environmentName,
             RUST_LOG: isProd ? 'info' : 'debug',
             S3_AVATAR_BUCKET: avatarBucket.bucketName,
+            S3_COMMON_WORDS_BUCKET: commonWordsBucket.bucketName,
+            S3_COMMON_WORDS_KEY: commonWordsKey,
             DYNAMODB_TABLE: table.tableName,
             AWS_REGION: this.region,
           },
@@ -332,6 +358,9 @@ export class ScorekeeperStack extends cdk.Stack {
     // Grant the task role permission to upload avatars to S3
     avatarBucket.grantPut(fargateService.taskDefinition.taskRole);
 
+    // Grant the task role permission to read common words from S3
+    commonWordsBucket.grantRead(fargateService.taskDefinition.taskRole);
+
     // Grant the task role permission to read/write DynamoDB
     table.grantReadWriteData(fargateService.taskDefinition.taskRole);
 
@@ -371,6 +400,11 @@ export class ScorekeeperStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiDomainName', {
       value: apiDomainName,
       description: 'The API domain name',
+    });
+
+    new cdk.CfnOutput(this, 'CommonWordsBucketName', {
+      value: commonWordsBucket.bucketName,
+      description: 'The S3 bucket for common words (puzzle selection)',
     });
   }
 }

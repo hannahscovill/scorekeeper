@@ -28,7 +28,7 @@ use routes::{
     get_puzzle_by_date, get_puzzles, health_check, list_games, set_puzzle, submit_guess,
     update_profile, upload_avatar,
 };
-use services::{Auth0ManagementService, S3AvatarService};
+use services::{Auth0ManagementService, CommonWordsService, CommonWordsSource, S3AvatarService};
 
 /// Load TLS configuration from certificate and key files.
 fn load_tls_config(cert_path: &str, key_path: &str) -> std::io::Result<ServerConfig> {
@@ -159,6 +159,41 @@ async fn main() -> std::io::Result<()> {
         None
     };
 
+    // Initialize Common Words service for puzzle word selection
+    // Prefer local file path (for development), fall back to S3 (for production)
+    let common_words_service = if let Some(file_path) = config.common_words_file_path() {
+        info!("Common Words service using local file: {}", file_path);
+        let service = CommonWordsService::new(CommonWordsSource::File(file_path.to_string()));
+
+        if let Err(e) = service.load().await {
+            tracing::error!("Failed to load common words from file: {}", e);
+            tracing::error!("Random puzzle word selection will not work!");
+        }
+
+        Some(web::Data::new(service))
+    } else if let Some(bucket) = config.s3_common_words_bucket() {
+        let key = config.s3_common_words_key().to_string();
+        info!("Common Words service using S3: s3://{}/{}", bucket, key);
+        let sdk_config = aws_config::load_from_env().await;
+        let s3_client = aws_sdk_s3::Client::new(&sdk_config);
+        let service = CommonWordsService::new(CommonWordsSource::S3 {
+            client: s3_client,
+            bucket: bucket.to_string(),
+            key,
+        });
+
+        if let Err(e) = service.load().await {
+            tracing::error!("Failed to load common words from S3: {}", e);
+            tracing::error!("Random puzzle word selection will not work!");
+        }
+
+        Some(web::Data::new(service))
+    } else {
+        info!("Common Words service disabled (no file path or S3 bucket configured)");
+        info!("Random puzzle word selection will not be available");
+        None
+    };
+
     let config_for_tls = config.clone();
     let config = web::Data::new(config);
 
@@ -203,6 +238,11 @@ async fn main() -> std::io::Result<()> {
             .service(set_puzzle)
             .service(clear_puzzle_cache)
             .service(get_history);
+
+        // Add common words service if configured
+        if let Some(ref cws) = common_words_service {
+            app = app.app_data(cws.clone());
+        }
 
         // Only register profile endpoints if Auth0 M2M is configured
         if let Some(ref auth0) = auth0_service {
