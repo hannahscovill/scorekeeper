@@ -3,21 +3,15 @@
 # This workflow deploys the scorekeeper service to AWS ECS Fargate using CDK.
 # It triggers after the CI workflow passes on the main branch.
 #
-# Required GitHub Variables (Settings → Secrets and variables → Actions → Variables):
-# -----------------------------------------------------------------------------------
+# Required GitHub Secrets (Settings → Secrets and variables → Actions → Secrets):
+# ---------------------------------------------------------------------------------
 # AWS_ACCOUNT_ID: Your AWS account ID (e.g., 123456789012)
 # AWS_REGION: AWS region to deploy to (e.g., us-west-2)
 # AWS_OIDC_ROLE_ARN: The ARN of the IAM role for GitHub OIDC authentication
 #                    (e.g., arn:aws:iam::123456789012:role/GitHubActions-scorekeeper)
-#
-# Required GitHub Secrets (Settings → Secrets and variables → Actions → Secrets):
-# ---------------------------------------------------------------------------------
 # AUTH0_M2M_SECRET_ARN: The ARN of the Secrets Manager secret containing Auth0 M2M credentials
 #                       (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:scorekeeper/auth0-m2m-xxxxx)
 #                       The secret should contain JSON: {"clientId": "...", "clientSecret": "..."}
-#
-# Note: These don't need to be secrets - the role ARN is not sensitive since
-# the OIDC trust policy restricts who can assume it.
 #
 # AWS OIDC Setup:
 # ---------------
@@ -80,7 +74,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: scorekeeper
 
 jobs:
@@ -103,7 +97,7 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Node.js
@@ -121,7 +115,7 @@ jobs:
         working-directory: infra
         run: npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && '--force' || '' }} PrerequisiteInfraStack --require-approval never -c prerequisite=true
         env:
-          CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
 
       - name: Get stack outputs
@@ -154,7 +148,7 @@ jobs:
       #     - name: Configure AWS credentials via OIDC
       #       uses: aws-actions/configure-aws-credentials@v4
       #       with:
-      #         role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+      #         role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
       #         aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -204,7 +198,7 @@ jobs:
       # - name: Configure AWS credentials via OIDC
       #   uses: aws-actions/configure-aws-credentials@v4
       #   with:
-      #     role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+      #     role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
       #     aws-region: ${{ env.AWS_REGION }}
 
       # - name: Setup Node.js
@@ -222,7 +216,7 @@ jobs:
         working-directory: infra
         run: npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} --require-approval never -c env=prod -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }}
         env:
-          CDK_DEFAULT_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
 
       - name: Force new ECS deployment
