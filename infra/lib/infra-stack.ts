@@ -5,14 +5,17 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as ecrAssets from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
+import * as path from 'path';
 
 export interface ScorekeeperStackProps extends cdk.StackProps {
   /**
@@ -57,6 +60,13 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
    * If not provided, profile endpoints will not be available.
    */
   readonly auth0M2mSecretArn?: string;
+
+  /**
+   * ARN of the Secrets Manager secret containing OTel collector secrets.
+   * The secret should be a JSON object with 'SENTRY_DSN' field.
+   * If not provided, the collector will use debug exporter only.
+   */
+  readonly otelSecretsArn?: string;
 }
 
 export class ScorekeeperStack extends cdk.Stack {
@@ -269,6 +279,12 @@ export class ScorekeeperStack extends cdk.Stack {
       ? secretsmanager.Secret.fromSecretCompleteArn(this, 'Auth0M2mSecret', auth0M2mSecretArn)
       : undefined;
 
+    // Look up OTel secrets if ARN is provided (for Sentry DSN)
+    const otelSecretsArn = props?.otelSecretsArn ?? this.node.tryGetContext('otelSecretsArn');
+    const otelSecrets = otelSecretsArn
+      ? secretsmanager.Secret.fromSecretCompleteArn(this, 'OtelSecrets', otelSecretsArn)
+      : undefined;
+
     // Create Fargate Service with Application Load Balancer
     const fargateService = new ecsPatterns.ApplicationLoadBalancedFargateService(
       this,
@@ -302,6 +318,9 @@ export class ScorekeeperStack extends cdk.Stack {
             S3_COMMON_WORDS_KEY: commonWordsKey,
             DYNAMODB_TABLE: table.tableName,
             AWS_REGION: this.region,
+            // OTel configuration - collector sidecar on localhost
+            OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4317',
+            APP_VERSION: 'latest',
           },
           // Auth0 M2M credentials for profile endpoints (from Secrets Manager)
           ...(auth0M2mSecret
@@ -330,6 +349,67 @@ export class ScorekeeperStack extends cdk.Stack {
       unhealthyThresholdCount: 3,
       timeout: cdk.Duration.seconds(5),
       interval: cdk.Duration.seconds(30),
+    });
+
+    // Build OTel collector image from local Dockerfile
+    const collectorImage = new ecrAssets.DockerImageAsset(this, 'CollectorImage', {
+      directory: path.join(__dirname, '../../collector'),
+    });
+
+    // Add OTel collector sidecar container to the task definition
+    const collectorContainer = fargateService.taskDefinition.addContainer('otel-collector', {
+      image: ecs.ContainerImage.fromDockerImageAsset(collectorImage),
+      memoryLimitMiB: 128,
+      cpu: 64,
+      essential: false, // Don't kill task if collector crashes
+      logging: ecs.LogDrivers.awsLogs({
+        streamPrefix: 'otel-collector',
+        logRetention: logs.RetentionDays.ONE_WEEK,
+      }),
+      environment: {
+        ENVIRONMENT: environmentName,
+      },
+      // Sentry DSN from Secrets Manager (if configured)
+      ...(otelSecrets
+        ? {
+            secrets: {
+              SENTRY_DSN: ecs.Secret.fromSecretsManager(otelSecrets, 'SENTRY_DSN'),
+            },
+          }
+        : {}),
+    });
+
+    // Add port mappings for the collector
+    collectorContainer.addPortMappings(
+      { containerPort: 4317, protocol: ecs.Protocol.TCP }, // OTLP gRPC (backend)
+      { containerPort: 4318, protocol: ecs.Protocol.TCP }, // OTLP HTTP (frontend)
+      { containerPort: 13133, protocol: ecs.Protocol.TCP } // health check
+    );
+
+    // Add target group for OTLP HTTP (frontend traces) - /v1/traces path
+    const otelTargetGroup = new elbv2.ApplicationTargetGroup(this, 'OtelHttpTarget', {
+      vpc,
+      port: 4318,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      targetGroupName: `otel-collector-${environmentName}`,
+      targetType: elbv2.TargetType.IP,
+      healthCheck: {
+        path: '/',
+        port: '13133',
+        healthyHttpCodes: '200',
+      },
+    });
+
+    // Register the service with the OTel target group
+    fargateService.service.registerLoadBalancerTargets({
+      containerName: 'otel-collector',
+      containerPort: 4318,
+      newTargetGroupId: 'otel-collector',
+      listener: ecs.ListenerConfig.applicationListener(fargateService.listener, {
+        protocol: elbv2.ApplicationProtocol.HTTPS,
+        conditions: [elbv2.ListenerCondition.pathPatterns(['/v1/traces'])],
+        priority: 10,
+      }),
     });
 
     // Auto-scaling configuration for production

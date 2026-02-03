@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib/core';
 import { ScorekeeperStack } from '../lib/infra-stack';
 import { GitHubOidcStack } from '../lib/github-oidc-stack';
 import { PrerequisiteInfraStack } from '../lib/prerequisite-infra-stack';
+import { GitHubActionsRoleStack } from '../lib/github-actions-role-stack';
 
 const app = new cdk.App();
 
@@ -15,10 +16,12 @@ const environmentName =
   'dev';
 
 // Check if we're deploying the bootstrap/prerequisite stacks
-// Usage: cdk deploy -c bootstrap=true GitHubOidcStack
+// Usage: cdk deploy -c bootstrap=true GitHubOidcStack (DEPRECATED - use shared-infrastructure)
 // Usage: cdk deploy -c prerequisite=true PrerequisiteInfraStack
+// Usage: cdk deploy -c role=true ScorekeeperGitHubActionsRoleStack
 const isBootstrap = app.node.tryGetContext('bootstrap') === 'true';
 const isPrerequisite = app.node.tryGetContext('prerequisite') === 'true';
+const isRoleStack = app.node.tryGetContext('role') === 'true';
 
 // GitHub configuration for OIDC stack
 const githubOrg = app.node.tryGetContext('githubOrg') || process.env.GITHUB_ORG;
@@ -75,6 +78,32 @@ if (isPrerequisite) {
       Project: 'scorekeeper',
       ManagedBy: 'cdk',
       Purpose: 'prerequisite-infrastructure',
+    },
+  });
+}
+
+// Create the GitHub Actions Role stack (per-repo role using shared OIDC provider)
+// Prerequisite: Deploy shared-infrastructure/GitHubOidcProviderStack first
+// Deploy with: cdk deploy -c role=true ScorekeeperGitHubActionsRoleStack
+if (isRoleStack) {
+  if (!githubOrg) {
+    throw new Error(
+      'GitHub organization is required for role stack. Provide via -c githubOrg=your-org or GITHUB_ORG env var'
+    );
+  }
+
+  new GitHubActionsRoleStack(app, 'ScorekeeperGitHubActionsRoleStack', {
+    githubOrg,
+    githubRepo: 'scorekeeper',
+    allowedBranches: ['main'],
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    },
+    tags: {
+      Project: 'scorekeeper',
+      ManagedBy: 'cdk',
+      Purpose: 'github-actions-role',
     },
   });
 }
