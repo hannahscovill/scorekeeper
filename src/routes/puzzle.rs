@@ -11,7 +11,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::db::{clear_answer_cache, PuzzleDatabase};
-use crate::dictionary;
 use crate::dictionary::is_valid_word;
 use crate::middleware::auth::Claims;
 use crate::middleware::validation::{deserialize_optional_date, validate_date_range};
@@ -164,8 +163,7 @@ pub async fn get_puzzles(
 ///
 /// You can either provide a specific word, or set `setRandomUnusedWord: true`
 /// to automatically select a random word that hasn't been used in any puzzle yet.
-/// When a common words list is configured (via S3), random selection will choose
-/// from that curated list. Otherwise, it falls back to the full dictionary.
+/// Random selection requires a common words list to be configured (via file or S3).
 #[put("/puzzles")]
 pub async fn set_puzzle(
     claims: Claims,
@@ -192,37 +190,27 @@ pub async fn set_puzzle(
             .map(|p| p.word.to_lowercase())
             .collect();
 
-        // Try to find a random unused word from common words first (if configured)
-        let mut rng = rand::thread_rng();
-        let unused_word = if let Some(ref cws) = common_words {
-            // Use common words list from S3
-            if let Some(words) = cws.get_words().await {
-                let unused: Vec<_> = words.iter().filter(|w| !used_words.contains(*w)).collect();
-                unused.into_iter().choose(&mut rng).map(|s| s.to_string())
-            } else {
-                // Common words not loaded, fall back to full dictionary
-                tracing::warn!("Common words not loaded, falling back to full dictionary");
-                dictionary::all_words()
-                    .filter(|word| !used_words.contains(*word))
-                    .choose(&mut rng)
-                    .map(|s| s.to_string())
-            }
-        } else {
-            // No common words service configured, use full dictionary
-            dictionary::all_words()
-                .filter(|word| !used_words.contains(*word))
-                .choose(&mut rng)
-                .map(|s| s.to_string())
-        };
+        // Require common words service for random word selection
+        let cws = common_words.ok_or_else(|| {
+            AppError::bad_request(
+                "Random word selection requires common words list to be configured",
+            )
+        })?;
 
-        match unused_word {
-            Some(word) => word,
-            None => {
-                return Err(AppError::bad_request(
-                    "No unused words available in the dictionary",
-                ))
-            }
-        }
+        let words = cws.get_words().await.ok_or_else(|| {
+            AppError::InternalError("Common words list failed to load".to_string())
+        })?;
+
+        let mut rng = rand::thread_rng();
+        let unused: Vec<_> = words.iter().filter(|w| !used_words.contains(*w)).collect();
+
+        unused
+            .into_iter()
+            .choose(&mut rng)
+            .map(|s| s.to_string())
+            .ok_or_else(|| {
+                AppError::bad_request("No unused words available in the common words list")
+            })?
     } else {
         // Use the provided word
         match &body.word {

@@ -167,7 +167,7 @@ async fn main() -> std::io::Result<()> {
 
         if let Err(e) = service.load().await {
             tracing::error!("Failed to load common words from file: {}", e);
-            tracing::warn!("Puzzle random word selection will fall back to full dictionary");
+            tracing::error!("Random puzzle word selection will not work!");
         }
 
         Some(web::Data::new(service))
@@ -184,13 +184,13 @@ async fn main() -> std::io::Result<()> {
 
         if let Err(e) = service.load().await {
             tracing::error!("Failed to load common words from S3: {}", e);
-            tracing::warn!("Puzzle random word selection will fall back to full dictionary");
+            tracing::error!("Random puzzle word selection will not work!");
         }
 
         Some(web::Data::new(service))
     } else {
         info!("Common Words service disabled (no file path or S3 bucket configured)");
-        info!("Puzzle random word selection will use full dictionary");
+        info!("Random puzzle word selection will not be available");
         None
     };
 
