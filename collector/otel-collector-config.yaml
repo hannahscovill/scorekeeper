@@ -30,8 +30,10 @@ processors:
     spike_limit_mib: 50
 
 exporters:
-  sentry:
-    dsn: ${SENTRY_DSN}
+  otlphttp/grafana:
+    endpoint: ${GRAFANA_OTLP_ENDPOINT}
+    auth:
+      authenticator: basicauth/grafana
 
   debug:
     verbosity: basic
@@ -40,10 +42,15 @@ extensions:
   health_check:
     endpoint: 0.0.0.0:13133
 
+  basicauth/grafana:
+    client_auth:
+      username: ${GRAFANA_INSTANCE_ID}
+      password: ${GRAFANA_API_KEY}
+
 service:
-  extensions: [health_check]
+  extensions: [health_check, basicauth/grafana]
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [sentry]
+      exporters: [otlphttp/grafana]

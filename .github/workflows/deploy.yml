@@ -16,9 +16,14 @@
 #                       (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:scorekeeper/auth0-m2m-xxxxx)
 #                       The secret should contain JSON: {"clientId": "...", "clientSecret": "..."}
 #
-# OTEL_SECRETS_ARN: The ARN of the Secrets Manager secret containing OTel collector secrets
-#                   (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:otel-collector/secrets-xxxxx)
-#                   The secret should contain JSON: {"SENTRY_DSN": "https://xxx@xxx.ingest.sentry.io/xxx"}
+# OTEL_SECRETS_ARN: The ARN of the Secrets Manager secret containing Grafana Cloud credentials
+#                   (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:otel-collector/grafana-xxxxx)
+#                   The secret should contain JSON:
+#                   {
+#                     "GRAFANA_OTLP_ENDPOINT": "https://otlp-gateway-prod-us-east-0.grafana.net/otlp",
+#                     "GRAFANA_INSTANCE_ID": "123456",
+#                     "GRAFANA_API_KEY": "glc_..."
+#                   }
 #                   Optional - if not provided, collector will use debug exporter only
 #
 # Note: These don't need to be secrets - the role ARN is not sensitive since

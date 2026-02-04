@@ -279,7 +279,7 @@ export class ScorekeeperStack extends cdk.Stack {
       ? secretsmanager.Secret.fromSecretCompleteArn(this, 'Auth0M2mSecret', auth0M2mSecretArn)
       : undefined;
 
-    // Look up OTel secrets if ARN is provided (for Sentry DSN)
+    // Look up OTel secrets if ARN is provided (for Grafana Cloud credentials)
     const otelSecretsArn = props?.otelSecretsArn ?? this.node.tryGetContext('otelSecretsArn');
     const otelSecrets = otelSecretsArn
       ? secretsmanager.Secret.fromSecretCompleteArn(this, 'OtelSecrets', otelSecretsArn)
@@ -369,11 +369,13 @@ export class ScorekeeperStack extends cdk.Stack {
       environment: {
         ENVIRONMENT: environmentName,
       },
-      // Sentry DSN from Secrets Manager (if configured)
+      // Grafana Cloud credentials from Secrets Manager (if configured)
       ...(otelSecrets
         ? {
             secrets: {
-              SENTRY_DSN: ecs.Secret.fromSecretsManager(otelSecrets, 'SENTRY_DSN'),
+              GRAFANA_OTLP_ENDPOINT: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_OTLP_ENDPOINT'),
+              GRAFANA_INSTANCE_ID: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_INSTANCE_ID'),
+              GRAFANA_API_KEY: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_API_KEY'),
             },
           }
         : {}),
