@@ -8,12 +8,13 @@ terraform {
     }
   }
 
-  # Store state in S3 - update bucket/key for your environment
-  # backend "s3" {
-  #   bucket = "your-terraform-state-bucket"
-  #   key    = "grafana/terraform.tfstate"
-  #   region = "us-west-2"
-  # }
+  backend "s3" {
+    bucket         = "orchestra-tfstate-587838441384"
+    key            = "grafana/scorekeeper/terraform.tfstate"
+    region         = "us-west-2"
+    dynamodb_table = "orchestra-terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "grafana" {
