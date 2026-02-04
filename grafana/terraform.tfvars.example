@@ -1,0 +1,3 @@
+grafana_url          = "https://your-org.grafana.net"
+grafana_api_key      = "glsa_..."
+tempo_datasource_uid = "grafanacloud-traces"

@@ -1,0 +1,132 @@
+{
+  "title": "Scorekeeper - Frontend Traces",
+  "description": "Browser-side traces: page loads, API calls from the frontend",
+  "tags": ["scorekeeper", "frontend"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "type": "custom",
+        "current": { "text": "production", "value": "production" },
+        "options": [
+          { "text": "production", "value": "production", "selected": true },
+          { "text": "development", "value": "development", "selected": false }
+        ],
+        "query": "production,development"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Frontend Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"wordles-frontend\" && resource.deployment.environment = \"$environment\" } | rate()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          }
+        }
+      }
+    },
+    {
+      "title": "Frontend API Call Latency (p50 / p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"wordles-frontend\" && resource.deployment.environment = \"$environment\" } | quantile_over_time(duration, 0.5)",
+          "refId": "p50"
+        },
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"wordles-frontend\" && resource.deployment.environment = \"$environment\" } | quantile_over_time(duration, 0.95)",
+          "refId": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          }
+        }
+      }
+    },
+    {
+      "title": "Frontend Errors",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"wordles-frontend\" && resource.deployment.environment = \"$environment\" && status = error } | rate()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          },
+          "color": { "mode": "fixed", "fixedColor": "red" }
+        }
+      }
+    },
+    {
+      "title": "Frontend → Backend: End-to-End Traces",
+      "description": "Traces that span from the browser to the backend, showing full request lifecycle",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"wordles-frontend\" && resource.deployment.environment = \"$environment\" } >> { resource.service.name = \"scorekeeper\" }",
+          "limit": 20,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Slow Frontend Requests (> 1s)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"wordles-frontend\" && resource.deployment.environment = \"$environment\" && duration > 1s }",
+          "limit": 20,
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39
+}
