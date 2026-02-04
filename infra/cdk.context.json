@@ -9,5 +9,9 @@
     "us-west-2d"
   ],
   "domainName": "wordles.dev",
-  "apiSubdomain": "api"
+  "apiSubdomain": "api",
+  "hosted-zone:account=587838441384:domainName=api.wordles.dev:region=us-west-2": {
+    "Id": "/hostedzone/Z07786182A2PDFCIUBB8V",
+    "Name": "api.wordles.dev."
+  }
 }
