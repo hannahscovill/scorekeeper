@@ -7,6 +7,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::RwLock;
+use tracing::instrument;
 
 use crate::models::guess::{GameState, PuzzleAnswer};
 
@@ -161,6 +162,7 @@ impl DynamoDbPuzzleRepository {
 
 #[async_trait]
 impl PuzzleDatabase for DynamoDbPuzzleRepository {
+    #[instrument(name = "db.get_game_state", skip(self))]
     async fn get_game_state(
         &self,
         user_id: &str,
@@ -185,6 +187,7 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
         }
     }
 
+    #[instrument(name = "db.get_user_game_states", skip(self))]
     async fn get_user_game_states(&self, user_id: &str) -> DatabaseResult<Vec<GameState>> {
         // Query using a begins_with on pk to find all USER#{user_id}#PUZZLE# entries
         // Since DynamoDB partition key is the full pk, we need to use a scan with filter
@@ -215,6 +218,7 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
         Ok(game_states)
     }
 
+    #[instrument(name = "db.upsert_game_state", skip(self, game_state))]
     async fn upsert_game_state(&self, game_state: &GameState) -> DatabaseResult<GameState> {
         let item = Self::game_state_to_item(game_state);
 
@@ -229,6 +233,7 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
         Ok(game_state.clone())
     }
 
+    #[instrument(name = "db.get_puzzle_answer", skip(self))]
     async fn get_puzzle_answer(&self, puzzle_date: NaiveDate) -> DatabaseResult<Option<String>> {
         // Check cache first
         {
@@ -268,6 +273,7 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
         Ok(answer)
     }
 
+    #[instrument(name = "db.get_puzzle_answers", skip(self))]
     async fn get_puzzle_answers(
         &self,
         start_date: Option<NaiveDate>,
@@ -331,6 +337,7 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
         Ok(puzzles)
     }
 
+    #[instrument(name = "db.set_puzzle_answer", skip(self, word))]
     async fn set_puzzle_answer(
         &self,
         puzzle_date: NaiveDate,

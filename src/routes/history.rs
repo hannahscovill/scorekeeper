@@ -4,6 +4,7 @@ use actix_web::{get, web, HttpResponse};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::db::PuzzleDatabase;
@@ -52,6 +53,7 @@ pub struct HistoryResponse {
 /// Returns all games played by the user, sorted by puzzle date (most recent first).
 /// Includes graded guesses (grades only, no letters) for rendering mini game boards.
 #[get("/history")]
+#[instrument(name = "get_history", skip(puzzle_db), fields(user_id = %claims.sub))]
 pub async fn get_history(
     claims: Claims,
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,

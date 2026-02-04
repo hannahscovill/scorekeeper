@@ -2,6 +2,7 @@
 
 use actix_web::{post, web, HttpRequest, HttpResponse};
 use std::sync::Arc;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::db::PuzzleDatabase;
@@ -17,6 +18,16 @@ use crate::services::{grade_guess, is_winning_guess};
 /// - Authorization header: Bearer <token> (validated as JWT)
 /// - Cookie: wordle_session=<user_id> (used directly, for embedded games)
 #[post("/guess")]
+#[instrument(
+    name = "submit_guess",
+    skip(req, body, puzzle_db, jwt_auth),
+    fields(
+        puzzle_date = %body.puzzle_date_iso_day,
+        user_id = tracing::field::Empty,
+        attempt_number = tracing::field::Empty,
+        is_correct = tracing::field::Empty,
+    )
+)]
 pub async fn submit_guess(
     req: HttpRequest,
     body: web::Json<GuessRequest>,
@@ -34,6 +45,9 @@ pub async fn submit_guess(
     } else {
         return Err(AppError::Unauthorized("Missing authentication".to_string()));
     };
+
+    // Record user_id in span
+    tracing::Span::current().record("user_id", &user_id);
 
     let puzzle_date = body.puzzle_date_iso_day;
     let guess = body.word_guessed.to_lowercase();
@@ -76,6 +90,10 @@ pub async fn submit_guess(
     if won {
         game_state.mark_won();
     }
+
+    // Record outcome in span
+    tracing::Span::current().record("attempt_number", game_state.guesses.len());
+    tracing::Span::current().record("is_correct", won);
 
     // Persist updated state
     puzzle_db

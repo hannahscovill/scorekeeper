@@ -9,6 +9,7 @@ use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
+use tracing::instrument;
 
 use crate::db::{clear_answer_cache, PuzzleDatabase};
 use crate::dictionary::is_valid_word;
@@ -89,6 +90,7 @@ pub struct GetPuzzlesResponse {
 /// specific date. Only game administrators (app_metadata.game_admin = true)
 /// will see the answer word; non-admin users only see the date.
 #[get("/puzzles/{date}")]
+#[instrument(name = "get_puzzle_by_date", skip(puzzle_db), fields(user_id = %claims.sub, puzzle_date = %path))]
 pub async fn get_puzzle_by_date(
     claims: Claims,
     path: web::Path<NaiveDate>,
@@ -123,6 +125,7 @@ pub async fn get_puzzle_by_date(
 /// will see the answer words; non-admin users only see dates.
 /// Admins can use omit_answers=true to only return dates without the answer words.
 #[get("/puzzles")]
+#[instrument(name = "get_puzzles", skip(puzzle_db), fields(user_id = %claims.sub))]
 pub async fn get_puzzles(
     claims: Claims,
     query: web::Query<GetPuzzlesQuery>,
@@ -165,6 +168,7 @@ pub async fn get_puzzles(
 /// to automatically select a random word that hasn't been used in any puzzle yet.
 /// Random selection requires a common words list to be configured (via file or S3).
 #[put("/puzzles")]
+#[instrument(name = "set_puzzle", skip(body, puzzle_db, common_words), fields(user_id = %claims.sub, puzzle_date = %body.date))]
 pub async fn set_puzzle(
     claims: Claims,
     body: web::Json<SetPuzzleRequest>,
@@ -261,6 +265,7 @@ pub async fn set_puzzle(
 /// Note: Each server instance has its own cache, so in a load-balanced environment
 /// this endpoint should be called on each instance, or all instances should be restarted.
 #[post("/puzzles/cache/clear")]
+#[instrument(name = "clear_puzzle_cache", fields(user_id = %claims.sub))]
 pub async fn clear_puzzle_cache(claims: Claims) -> Result<HttpResponse, AppError> {
     // Check if user is a game admin
     if !claims.is_game_admin() {

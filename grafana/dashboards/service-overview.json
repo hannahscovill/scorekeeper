@@ -1,0 +1,166 @@
+{
+  "title": "Scorekeeper - Service Overview",
+  "description": "Request rates, latency, and errors for the scorekeeper backend",
+  "tags": ["scorekeeper", "overview"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "type": "custom",
+        "current": { "text": "prod", "value": "prod" },
+        "options": [
+          { "text": "prod", "value": "prod", "selected": true },
+          { "text": "dev", "value": "dev", "selected": false }
+        ],
+        "query": "prod,dev"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"scorekeeper\" && resource.deployment.environment = \"$environment\" && kind = server } | rate()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          }
+        }
+      }
+    },
+    {
+      "title": "Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"scorekeeper\" && resource.deployment.environment = \"$environment\" && kind = server } | quantile_over_time(duration, 0.5) by (span.http.route)",
+          "refId": "p50"
+        },
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"scorekeeper\" && resource.deployment.environment = \"$environment\" && kind = server } | quantile_over_time(duration, 0.95) by (span.http.route)",
+          "refId": "p95"
+        },
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"scorekeeper\" && resource.deployment.environment = \"$environment\" && kind = server } | quantile_over_time(duration, 0.99) by (span.http.route)",
+          "refId": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          }
+        }
+      }
+    },
+    {
+      "title": "Error Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"scorekeeper\" && resource.deployment.environment = \"$environment\" && kind = server && status = error } | rate()",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          },
+          "color": { "mode": "fixed", "fixedColor": "red" }
+        }
+      }
+    },
+    {
+      "title": "Request Rate by Endpoint",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"scorekeeper\" && resource.deployment.environment = \"$environment\" && kind = server } | rate() by (span.http.route)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          }
+        }
+      }
+    },
+    {
+      "title": "Slowest Endpoints (p95)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceqlmetrics",
+          "query": "{ resource.service.name = \"scorekeeper\" && resource.deployment.environment = \"$environment\" && kind = server } | quantile_over_time(duration, 0.95) by (span.http.route)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      },
+      "options": {
+        "sortBy": [{ "displayName": "Value", "desc": true }]
+      }
+    },
+    {
+      "title": "Recent Error Traces",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "tempo", "uid": "${tempo_datasource_uid}" },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"scorekeeper\" && resource.deployment.environment = \"$environment\" && status = error }",
+          "limit": 20,
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39
+}
