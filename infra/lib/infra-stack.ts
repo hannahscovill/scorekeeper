@@ -63,7 +63,10 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
 
   /**
    * ARN of the Secrets Manager secret containing OTel collector secrets.
-   * The secret should be a JSON object with 'SENTRY_DSN' field.
+   * The secret should be a JSON object with:
+   *   - GRAFANA_OTLP_ENDPOINT: Grafana Cloud OTLP gateway URL
+   *   - GRAFANA_INSTANCE_ID: Grafana Cloud instance ID (basicauth username)
+   *   - GRAFANA_API_KEY: Grafana Cloud API key (basicauth password)
    * If not provided, the collector will use debug exporter only.
    */
   readonly otelSecretsArn?: string;
