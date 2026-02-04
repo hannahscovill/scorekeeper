@@ -214,7 +214,7 @@ jobs:
 
       - name: Deploy CDK stack
         working-directory: infra
-        run: npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} --require-approval never -c env=prod -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }}
+        run: npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} ScorekeeperStack --require-approval never -c env=prod -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }}
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
