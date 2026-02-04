@@ -142,7 +142,6 @@ export class GitHubActionsRoleStack extends cdk.Stack {
         resources: [
           `arn:aws:cloudformation:*:${this.account}:stack/ScorekeeperStack-*/*`,
           `arn:aws:cloudformation:*:${this.account}:stack/PrerequisiteInfraStack/*`,
-          `arn:aws:cloudformation:*:${this.account}:stack/ScorekeeperGitHubActionsRoleStack/*`,
           `arn:aws:cloudformation:*:${this.account}:stack/CDKToolkit/*`,
         ],
       })
@@ -304,7 +303,6 @@ export class GitHubActionsRoleStack extends cdk.Stack {
         ],
         resources: [
           `arn:aws:iam::${this.account}:role/ScorekeeperStack-*`,
-          `arn:aws:iam::${this.account}:role/ScorekeeperGitHubActionsRoleStack-*`,
           `arn:aws:iam::${this.account}:role/cdk-*`,
         ],
       })
