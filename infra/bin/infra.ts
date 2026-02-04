@@ -37,7 +37,7 @@ if (!validEnvironments.includes(environmentName)) {
 
 // Create the GitHub OIDC stack (prerequisite/bootstrap infrastructure)
 // This stack creates the IAM role that GitHub Actions uses for OIDC authentication
-// Deploy with: cdk deploy -c bootstrap=true -c githubOrg=your-org GitHubOidcStack
+// Deploy with: cdk deploy -c bootstrap=true GitHubOidcStack
 if (isBootstrap || githubOrg) {
   if (!githubOrg) {
     throw new Error(
