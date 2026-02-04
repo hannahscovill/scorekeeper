@@ -4,11 +4,11 @@ CDK stacks for the scorekeeper backend service.
 
 ## Stacks
 
-| Stack | Command | Purpose |
-|-------|---------|---------|
-| `PrerequisiteInfraStack` | `-c prerequisite=true` | ECR repository for Docker images |
-| `ScorekeeperStack-{env}` | `-c env=prod` | Main app: ECS Fargate, DynamoDB, ALB, VPC |
-| `ScorekeeperGitHubActionsRoleStack` | `-c role=true` | IAM role for GitHub Actions CI/CD |
+| Stack | Purpose |
+|-------|---------|
+| `PrerequisiteInfraStack` | ECR repository for Docker images |
+| `ScorekeeperStack-{env}` | Main app: ECS Fargate, DynamoDB, ALB, VPC |
+| `ScorekeeperGitHubActionsRoleStack` | IAM role for GitHub Actions CI/CD |
 
 ### GitHub Actions Role
 
@@ -26,7 +26,7 @@ npm install
 npx cdk deploy -c prerequisite=true PrerequisiteInfraStack
 
 # GitHub Actions role (once, or when permissions change)
-npx cdk deploy -c role=true ScorekeeperGitHubActionsRoleStack
+npx cdk deploy ScorekeeperGitHubActionsRoleStack
 
 # Main application
 npx cdk deploy -c env=prod \
