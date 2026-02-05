@@ -228,68 +228,51 @@ export class ScorekeeperStack extends cdk.Stack {
       interval: cdk.Duration.seconds(30),
     });
 
-    // Build OTel collector image from local Dockerfile
-    const collectorImage = new ecrAssets.DockerImageAsset(this, 'CollectorImage', {
-      directory: path.join(__dirname, '../../collector'),
-    });
+    // OTel collector sidecar — only deploy when Grafana secrets are configured.
+    // Without secrets the collector crashes, its ALB target group fails health
+    // checks, and ECS circuit breaker rolls back the entire deployment.
+    // The scorekeeper app's OTel SDK handles connection-refused gracefully (drops spans).
+    if (otelSecrets) {
+      const collectorImage = new ecrAssets.DockerImageAsset(this, 'CollectorImage', {
+        directory: path.join(__dirname, '../../collector'),
+      });
 
-    // Add OTel collector sidecar container to the task definition
-    const collectorContainer = fargateService.taskDefinition.addContainer('otel-collector', {
-      image: ecs.ContainerImage.fromDockerImageAsset(collectorImage),
-      memoryLimitMiB: 128,
-      cpu: 64,
-      essential: false, // Don't kill task if collector crashes
-      logging: ecs.LogDrivers.awsLogs({
-        streamPrefix: 'otel-collector',
-        logRetention: logs.RetentionDays.ONE_WEEK,
-      }),
-      environment: {
-        ENVIRONMENT: environmentName,
-      },
-      // Grafana Cloud credentials from Secrets Manager (if configured)
-      ...(otelSecrets
-        ? {
-            secrets: {
-              GRAFANA_OTLP_ENDPOINT: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_OTLP_ENDPOINT'),
-              GRAFANA_INSTANCE_ID: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_INSTANCE_ID'),
-              GRAFANA_API_KEY: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_API_KEY'),
-            },
-          }
-        : {}),
-    });
+      const collectorContainer = fargateService.taskDefinition.addContainer('otel-collector', {
+        image: ecs.ContainerImage.fromDockerImageAsset(collectorImage),
+        memoryLimitMiB: 128,
+        cpu: 64,
+        essential: false,
+        logging: ecs.LogDrivers.awsLogs({
+          streamPrefix: 'otel-collector',
+          logRetention: logs.RetentionDays.ONE_WEEK,
+        }),
+        environment: {
+          ENVIRONMENT: environmentName,
+        },
+        secrets: {
+          GRAFANA_OTLP_ENDPOINT: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_OTLP_ENDPOINT'),
+          GRAFANA_INSTANCE_ID: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_INSTANCE_ID'),
+          GRAFANA_API_KEY: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_API_KEY'),
+        },
+      });
 
-    // Add port mappings for the collector
-    collectorContainer.addPortMappings(
-      { containerPort: 4317, protocol: ecs.Protocol.TCP }, // OTLP gRPC (backend)
-      { containerPort: 4318, protocol: ecs.Protocol.TCP }, // OTLP HTTP (frontend)
-      { containerPort: 13133, protocol: ecs.Protocol.TCP } // health check
-    );
+      collectorContainer.addPortMappings(
+        { containerPort: 4317, protocol: ecs.Protocol.TCP },
+        { containerPort: 4318, protocol: ecs.Protocol.TCP },
+        { containerPort: 13133, protocol: ecs.Protocol.TCP },
+      );
 
-    // Add target group for OTLP HTTP (frontend traces) - /v1/traces path
-    const otelTargetGroup = new elbv2.ApplicationTargetGroup(this, 'OtelHttpTarget', {
-      vpc,
-      port: 4318,
-      protocol: elbv2.ApplicationProtocol.HTTP,
-      targetGroupName: `otel-collector-${environmentName}`,
-      targetType: elbv2.TargetType.IP,
-      healthCheck: {
-        path: '/',
-        port: '13133',
-        healthyHttpCodes: '200',
-      },
-    });
-
-    // Register the service with the OTel target group
-    fargateService.service.registerLoadBalancerTargets({
-      containerName: 'otel-collector',
-      containerPort: 4318,
-      newTargetGroupId: 'otel-collector',
-      listener: ecs.ListenerConfig.applicationListener(fargateService.listener, {
-        protocol: elbv2.ApplicationProtocol.HTTPS,
-        conditions: [elbv2.ListenerCondition.pathPatterns(['/v1/traces'])],
-        priority: 10,
-      }),
-    });
+      fargateService.service.registerLoadBalancerTargets({
+        containerName: 'otel-collector',
+        containerPort: 4318,
+        newTargetGroupId: 'otel-collector',
+        listener: ecs.ListenerConfig.applicationListener(fargateService.listener, {
+          protocol: elbv2.ApplicationProtocol.HTTPS,
+          conditions: [elbv2.ListenerCondition.pathPatterns(['/v1/traces'])],
+          priority: 10,
+        }),
+      });
+    }
 
     // Auto-scaling configuration for production
     if (isProd) {

@@ -228,7 +228,6 @@ jobs:
           npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} \
             ScorekeeperStack \
             --require-approval never \
-            -c env=prod \
             -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }} \
             ${{ secrets.OTEL_SECRETS_ARN && format('-c otelSecretsArn={0}', secrets.OTEL_SECRETS_ARN) || '' }}
         env:
