@@ -6,7 +6,6 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
@@ -69,41 +68,15 @@ export class ScorekeeperStack extends cdk.Stack {
       'scorekeeper'
     );
 
-    // S3 bucket for avatar uploads
+    // S3 bucket for avatar uploads (private — accessed via pre-signed URLs)
     const avatarBucketName = props?.avatarBucketName ?? 'scorekeeper-avatars';
-
     const avatarBucket = new s3.Bucket(this, 'AvatarBucket', {
       bucketName: avatarBucketName,
-      blockPublicAccess: new s3.BlockPublicAccess({
-        blockPublicAcls: true,
-        ignorePublicAcls: true,
-        blockPublicPolicy: false,
-        restrictPublicBuckets: false,
-      }),
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      cors: [
-        {
-          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
-          allowedOrigins: ['*'],
-          allowedHeaders: ['*'],
-          maxAge: 3600,
-        },
-      ],
     });
-
-    new s3.BucketPolicy(this, 'AvatarBucketPolicy', {
-      bucket: avatarBucket,
-    }).document.addStatements(
-      new iam.PolicyStatement({
-        sid: 'PublicReadAvatars',
-        effect: iam.Effect.ALLOW,
-        principals: [new iam.AnyPrincipal()],
-        actions: ['s3:GetObject'],
-        resources: [`${avatarBucket.bucketArn}/avatars/*`],
-      })
-    );
 
     // S3 bucket for common words (private - used for puzzle word selection)
     const commonWordsBucketName = props?.commonWordsBucketName ?? 'scorekeeper-common-words';
@@ -256,7 +229,8 @@ export class ScorekeeperStack extends cdk.Stack {
     // Grant the task execution role permission to pull from ECR
     ecrRepository.grantPull(fargateService.taskDefinition.executionRole!);
 
-    // Grant the task role permission to upload avatars to S3
+    // Grant the task role permission to read and upload avatars to S3
+    avatarBucket.grantRead(fargateService.taskDefinition.taskRole);
     avatarBucket.grantPut(fargateService.taskDefinition.taskRole);
 
     // Grant the task role permission to read common words from S3

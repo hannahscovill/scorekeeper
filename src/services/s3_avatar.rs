@@ -1,7 +1,8 @@
 //! S3 Avatar upload service.
 
 use aws_sdk_s3::Client as S3Client;
-use std::time::{SystemTime, UNIX_EPOCH};
+use aws_sdk_s3::presigning::PresigningConfig;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, error};
 
 use crate::models::error::AppError;
@@ -11,6 +12,12 @@ const MAX_FILE_SIZE: usize = 2 * 1024 * 1024;
 
 /// Allowed content types for avatar uploads.
 const ALLOWED_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/png"];
+
+/// Pre-signed URL expiry duration (1 hour).
+const PRESIGNED_URL_EXPIRY: Duration = Duration::from_secs(3600);
+
+/// S3 URL prefix for the scorekeeper-avatars bucket.
+const S3_BUCKET_URL_PREFIX: &str = "https://scorekeeper-avatars.s3.amazonaws.com/";
 
 /// Service for uploading avatars to S3.
 pub struct S3AvatarService {
@@ -48,7 +55,7 @@ impl S3AvatarService {
         }
     }
 
-    /// Uploads an avatar to S3 and returns the URL.
+    /// Uploads an avatar to S3 and returns the S3 key.
     pub async fn upload_avatar(
         &self,
         user_id: &str,
@@ -97,11 +104,67 @@ impl S3AvatarService {
                 AppError::internal("Failed to upload avatar")
             })?;
 
-        // Build and return the URL
-        let url = format!("https://{}.s3.amazonaws.com/{}", self.bucket, key);
+        debug!("Avatar uploaded successfully: key={}", key);
+        Ok(key)
+    }
 
-        debug!("Avatar uploaded successfully: {}", url);
-        Ok(url)
+    /// Generates a pre-signed GET URL for the given S3 key.
+    pub async fn get_presigned_url(&self, key: &str) -> Result<String, AppError> {
+        let presigning_config = PresigningConfig::expires_in(PRESIGNED_URL_EXPIRY).map_err(|e| {
+            error!("Failed to create presigning config: {}", e);
+            AppError::internal("Failed to generate avatar URL")
+        })?;
+
+        let presigned_request = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .presigned(presigning_config)
+            .await
+            .map_err(|e| {
+                error!("Failed to generate pre-signed URL: {}", e);
+                AppError::internal("Failed to generate avatar URL")
+            })?;
+
+        Ok(presigned_request.uri().to_string())
+    }
+
+    /// Extracts the S3 key from an avatar value.
+    ///
+    /// Handles both legacy full URLs (`https://scorekeeper-avatars.s3.amazonaws.com/avatars/...`)
+    /// and new bare keys (`avatars/...`). Returns `None` for non-S3 URLs (Gravatar, Auth0 picture).
+    pub fn extract_s3_key(avatar_value: &str) -> Option<String> {
+        if avatar_value.is_empty() {
+            return None;
+        }
+
+        // Legacy full S3 URL
+        if let Some(key) = avatar_value.strip_prefix(S3_BUCKET_URL_PREFIX) {
+            if !key.is_empty() {
+                return Some(key.to_string());
+            }
+            return None;
+        }
+
+        // Bare S3 key (starts with "avatars/")
+        if avatar_value.starts_with("avatars/") {
+            return Some(avatar_value.to_string());
+        }
+
+        // Non-S3 URL (Gravatar, Auth0 picture, etc.)
+        None
+    }
+
+    /// Resolves an avatar value to a displayable URL.
+    ///
+    /// If the value is an S3 key or legacy S3 URL, generates a pre-signed URL.
+    /// Otherwise returns the original value unchanged (e.g. Gravatar URLs).
+    pub async fn resolve_avatar_url(&self, avatar_value: &str) -> Result<String, AppError> {
+        match Self::extract_s3_key(avatar_value) {
+            Some(key) => self.get_presigned_url(&key).await,
+            None => Ok(avatar_value.to_string()),
+        }
     }
 }
 
@@ -141,5 +204,39 @@ mod tests {
     fn test_validate_file_size_too_large() {
         let result = S3AvatarService::validate_file_size(MAX_FILE_SIZE + 1);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_extract_s3_key_legacy_url() {
+        let url = "https://scorekeeper-avatars.s3.amazonaws.com/avatars/auth0-123/1234567890.jpg";
+        let key = S3AvatarService::extract_s3_key(url);
+        assert_eq!(key, Some("avatars/auth0-123/1234567890.jpg".to_string()));
+    }
+
+    #[test]
+    fn test_extract_s3_key_bare_key() {
+        let key_input = "avatars/auth0-123/1234567890.png";
+        let key = S3AvatarService::extract_s3_key(key_input);
+        assert_eq!(key, Some("avatars/auth0-123/1234567890.png".to_string()));
+    }
+
+    #[test]
+    fn test_extract_s3_key_gravatar() {
+        let url = "https://www.gravatar.com/avatar/abc123?d=mp";
+        let key = S3AvatarService::extract_s3_key(url);
+        assert_eq!(key, None);
+    }
+
+    #[test]
+    fn test_extract_s3_key_auth0_picture() {
+        let url = "https://s.gravatar.com/avatar/abc123?s=480&r=pg&d=https%3A%2F%2Fcdn.auth0.com";
+        let key = S3AvatarService::extract_s3_key(url);
+        assert_eq!(key, None);
+    }
+
+    #[test]
+    fn test_extract_s3_key_empty_string() {
+        let key = S3AvatarService::extract_s3_key("");
+        assert_eq!(key, None);
     }
 }
