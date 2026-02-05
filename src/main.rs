@@ -210,6 +210,11 @@ async fn main() -> std::io::Result<()> {
                 header::CONTENT_TYPE,
                 header::ACCEPT,
                 header::ORIGIN,
+                // W3C Trace Context headers sent by the frontend's OpenTelemetry
+                // FetchInstrumentation. Without these the CORS preflight rejects
+                // credentialed requests that carry trace propagation headers.
+                header::HeaderName::from_static("traceparent"),
+                header::HeaderName::from_static("tracestate"),
             ])
             .expose_headers(vec![header::CONTENT_LENGTH, header::CONTENT_TYPE])
             .supports_credentials()
