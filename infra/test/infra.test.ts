@@ -1,11 +1,23 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Template } from 'aws-cdk-lib/assertions';
-import { ScorekeeperStack } from '../lib/infra-stack';
+import { ScorekeeperStack, ScorekeeperStackProps } from '../lib/infra-stack';
+
+const testEnv = { account: '123456789012', region: 'us-west-2' };
+
+function createStack(props?: Partial<ScorekeeperStackProps>): Template {
+  const app = new cdk.App();
+  const stack = new ScorekeeperStack(app, 'TestStack', {
+    env: testEnv,
+    ...props,
+  });
+  return Template.fromStack(stack);
+}
 
 describe('ScorekeeperStack', () => {
   test('references existing ECR repository', () => {
     const app = new cdk.App();
     const stack = new ScorekeeperStack(app, 'TestStack', {
+      env: testEnv,
       environmentName: 'dev',
     });
     const template = Template.fromStack(stack);
@@ -18,6 +30,7 @@ describe('ScorekeeperStack', () => {
   test('creates VPC with 2 AZs', () => {
     const app = new cdk.App();
     const stack = new ScorekeeperStack(app, 'TestStack', {
+      env: testEnv,
       environmentName: 'dev',
     });
     const template = Template.fromStack(stack);
@@ -32,6 +45,7 @@ describe('ScorekeeperStack', () => {
   test('creates ECS cluster', () => {
     const app = new cdk.App();
     const stack = new ScorekeeperStack(app, 'TestStack', {
+      env: testEnv,
       environmentName: 'dev',
     });
     const template = Template.fromStack(stack);
@@ -44,6 +58,7 @@ describe('ScorekeeperStack', () => {
   test('creates Fargate service with correct configuration', () => {
     const app = new cdk.App();
     const stack = new ScorekeeperStack(app, 'TestStack', {
+      env: testEnv,
       environmentName: 'dev',
     });
     const template = Template.fromStack(stack);
@@ -64,6 +79,7 @@ describe('ScorekeeperStack', () => {
   test('creates Application Load Balancer', () => {
     const app = new cdk.App();
     const stack = new ScorekeeperStack(app, 'TestStack', {
+      env: testEnv,
       environmentName: 'dev',
     });
     const template = Template.fromStack(stack);
@@ -77,6 +93,7 @@ describe('ScorekeeperStack', () => {
   test('configures health check on /health endpoint', () => {
     const app = new cdk.App();
     const stack = new ScorekeeperStack(app, 'TestStack', {
+      env: testEnv,
       environmentName: 'dev',
     });
     const template = Template.fromStack(stack);
@@ -90,6 +107,7 @@ describe('ScorekeeperStack', () => {
   test('prod environment enables auto-scaling', () => {
     const app = new cdk.App();
     const stack = new ScorekeeperStack(app, 'TestStack', {
+      env: testEnv,
       environmentName: 'prod',
     });
     const template = Template.fromStack(stack);
@@ -104,6 +122,7 @@ describe('ScorekeeperStack', () => {
   test('dev environment has 1 NAT gateway, prod has 2', () => {
     const appDev = new cdk.App();
     const stackDev = new ScorekeeperStack(appDev, 'DevStack', {
+      env: testEnv,
       environmentName: 'dev',
     });
     const templateDev = Template.fromStack(stackDev);
@@ -111,6 +130,7 @@ describe('ScorekeeperStack', () => {
 
     const appProd = new cdk.App();
     const stackProd = new ScorekeeperStack(appProd, 'ProdStack', {
+      env: testEnv,
       environmentName: 'prod',
     });
     const templateProd = Template.fromStack(stackProd);

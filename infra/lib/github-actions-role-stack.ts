@@ -140,7 +140,7 @@ export class GitHubActionsRoleStack extends cdk.Stack {
           'cloudformation:GetTemplateSummary',
         ],
         resources: [
-          `arn:aws:cloudformation:*:${this.account}:stack/ScorekeeperStack-*/*`,
+          `arn:aws:cloudformation:*:${this.account}:stack/ScorekeeperStack*/*`,
           `arn:aws:cloudformation:*:${this.account}:stack/PrerequisiteInfraStack/*`,
           `arn:aws:cloudformation:*:${this.account}:stack/CDKToolkit/*`,
         ],

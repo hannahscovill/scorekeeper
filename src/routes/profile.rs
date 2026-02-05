@@ -40,19 +40,40 @@ pub struct AvatarUploadResponse {
     pub avatar_url: String,
 }
 
+/// Resolve an avatar URL through the S3 service if available.
+/// Returns the original value if S3 service is not configured or the value is not an S3 avatar.
+async fn resolve_avatar(
+    s3_service: &Option<web::Data<S3AvatarService>>,
+    avatar_value: Option<String>,
+) -> Option<String> {
+    match (avatar_value, s3_service) {
+        (Some(val), Some(s3)) => match s3.resolve_avatar_url(&val).await {
+            Ok(resolved) => Some(resolved),
+            Err(_) => Some(val),
+        },
+        (Some(val), None) => Some(val),
+        (None, _) => None,
+    }
+}
+
 /// GET /profile - Get the current user's profile from Auth0.
 #[get("/profile")]
 #[instrument(name = "get_profile", skip(auth0_service), fields(user_id = %claims.sub))]
 pub async fn get_profile(
     claims: Claims,
     auth0_service: web::Data<Auth0ManagementService>,
+    s3_service: Option<web::Data<S3AvatarService>>,
 ) -> Result<HttpResponse, AppError> {
     let user = auth0_service.get_user(&claims.sub).await?;
 
+    let display_name = user.user_metadata.as_ref().map(|m| m.display_name.clone());
+    let raw_avatar = user.user_metadata.and_then(|m| m.avatar_url);
+    let avatar_url = resolve_avatar(&s3_service, raw_avatar).await;
+
     Ok(HttpResponse::Ok().json(ProfileResponse {
         user_id: user.user_id,
-        display_name: user.user_metadata.as_ref().map(|m| m.display_name.clone()),
-        avatar_url: user.user_metadata.and_then(|m| m.avatar_url),
+        display_name,
+        avatar_url,
     }))
 }
 
@@ -63,6 +84,7 @@ pub async fn update_profile(
     claims: Claims,
     body: web::Json<UpdateProfileRequest>,
     auth0_service: web::Data<Auth0ManagementService>,
+    s3_service: Option<web::Data<S3AvatarService>>,
 ) -> Result<HttpResponse, AppError> {
     // Must have at least one field to update
     if body.display_name.is_none() && body.avatar_url.is_none() {
@@ -79,10 +101,14 @@ pub async fn update_profile(
         )
         .await?;
 
+    let display_name = user.user_metadata.as_ref().map(|m| m.display_name.clone());
+    let raw_avatar = user.user_metadata.and_then(|m| m.avatar_url);
+    let avatar_url = resolve_avatar(&s3_service, raw_avatar).await;
+
     Ok(HttpResponse::Ok().json(ProfileResponse {
         user_id: user.user_id,
-        display_name: user.user_metadata.as_ref().map(|m| m.display_name.clone()),
-        avatar_url: user.user_metadata.and_then(|m| m.avatar_url),
+        display_name,
+        avatar_url,
     }))
 }
 
@@ -130,15 +156,18 @@ pub async fn upload_avatar(
     let (data, content_type) =
         file_data.ok_or_else(|| AppError::bad_request("Missing 'avatar' field in request"))?;
 
-    // Upload to S3
-    let avatar_url = s3_service
+    // Upload to S3 (returns the S3 key, not a full URL)
+    let avatar_key = s3_service
         .upload_avatar(&claims.sub, data, &content_type)
         .await?;
 
-    // Update Auth0 user metadata with the new avatar URL
+    // Update Auth0 user metadata with the S3 key
     auth0_service
-        .update_user_metadata(&claims.sub, None, Some(&avatar_url))
+        .update_user_metadata(&claims.sub, None, Some(&avatar_key))
         .await?;
+
+    // Generate a pre-signed URL for the response so the frontend can display it immediately
+    let avatar_url = s3_service.get_presigned_url(&avatar_key).await?;
 
     Ok(HttpResponse::Ok().json(AvatarUploadResponse { avatar_url }))
 }

@@ -226,6 +226,7 @@ jobs:
         working-directory: infra
         run: |
           npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} \
+            ScorekeeperStack \
             --require-approval never \
             -c env=prod \
             -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }} \

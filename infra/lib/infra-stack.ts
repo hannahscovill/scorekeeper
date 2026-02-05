@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib/core';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
-import * as cr from 'aws-cdk-lib/custom-resources';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
@@ -8,10 +7,8 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecrAssets from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
@@ -35,12 +32,6 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
    * @default 'scorekeeper-avatars'
    */
   readonly avatarBucketName?: string;
-
-  /**
-   * Whether to import an existing S3 avatar bucket instead of creating a new one
-   * @default false
-   */
-  readonly importExistingAvatarBucket?: boolean;
 
   /**
    * The name of the S3 bucket for common words (puzzle word selection)
@@ -90,114 +81,15 @@ export class ScorekeeperStack extends cdk.Stack {
       'scorekeeper'
     );
 
-    // S3 bucket for avatar uploads
+    // S3 bucket for avatar uploads (private — accessed via pre-signed URLs)
     const avatarBucketName = props?.avatarBucketName ?? 'scorekeeper-avatars';
-
-    // Either import an existing bucket or create a new one
-    const avatarBucket = props?.importExistingAvatarBucket
-      ? s3.Bucket.fromBucketName(this, 'AvatarBucket', avatarBucketName)
-      : new s3.Bucket(this, 'AvatarBucket', {
-          bucketName: avatarBucketName,
-          // Allow public read access for avatar images via bucket policy
-          // Block ACLs to prevent individual object ACL changes
-          blockPublicAccess: new s3.BlockPublicAccess({
-            blockPublicAcls: true,
-            ignorePublicAcls: true,
-            blockPublicPolicy: false,
-            restrictPublicBuckets: false,
-          }),
-          encryption: s3.BucketEncryption.S3_MANAGED,
-          enforceSSL: true,
-          removalPolicy: cdk.RemovalPolicy.RETAIN,
-          cors: [
-            {
-              allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
-              allowedOrigins: ['*'],
-              allowedHeaders: ['*'],
-              maxAge: 3600,
-            },
-          ],
-        });
-
-    // For imported buckets, we need to update the public access block settings
-    // before we can add a public bucket policy
-    if (props?.importExistingAvatarBucket) {
-      const updatePublicAccessBlock = new cr.AwsCustomResource(
-        this,
-        'UpdateAvatarBucketPublicAccessBlock',
-        {
-          onCreate: {
-            service: 'S3',
-            action: 'putPublicAccessBlock',
-            parameters: {
-              Bucket: avatarBucketName,
-              PublicAccessBlockConfiguration: {
-                BlockPublicAcls: true,
-                IgnorePublicAcls: true,
-                BlockPublicPolicy: false,
-                RestrictPublicBuckets: false,
-              },
-            },
-            physicalResourceId: cr.PhysicalResourceId.of(
-              `${avatarBucketName}-public-access-block`
-            ),
-          },
-          onUpdate: {
-            service: 'S3',
-            action: 'putPublicAccessBlock',
-            parameters: {
-              Bucket: avatarBucketName,
-              PublicAccessBlockConfiguration: {
-                BlockPublicAcls: true,
-                IgnorePublicAcls: true,
-                BlockPublicPolicy: false,
-                RestrictPublicBuckets: false,
-              },
-            },
-            physicalResourceId: cr.PhysicalResourceId.of(
-              `${avatarBucketName}-public-access-block`
-            ),
-          },
-          policy: cr.AwsCustomResourcePolicy.fromStatements([
-            new iam.PolicyStatement({
-              actions: [
-                's3:PutBucketPublicAccessBlock',
-                's3:GetBucketPublicAccessBlock',
-              ],
-              resources: [`arn:aws:s3:::${avatarBucketName}`],
-            }),
-          ]),
-        }
-      );
-
-      // Create the bucket policy and ensure it depends on the public access block update
-      const bucketPolicy = new s3.BucketPolicy(this, 'AvatarBucketPolicy', {
-        bucket: avatarBucket,
-      });
-      bucketPolicy.document.addStatements(
-        new iam.PolicyStatement({
-          sid: 'PublicReadAvatars',
-          effect: iam.Effect.ALLOW,
-          principals: [new iam.AnyPrincipal()],
-          actions: ['s3:GetObject'],
-          resources: [`${avatarBucket.bucketArn}/avatars/*`],
-        })
-      );
-      bucketPolicy.node.addDependency(updatePublicAccessBlock);
-    } else {
-      // For new buckets, just add the policy directly (public access is already configured)
-      new s3.BucketPolicy(this, 'AvatarBucketPolicy', {
-        bucket: avatarBucket,
-      }).document.addStatements(
-        new iam.PolicyStatement({
-          sid: 'PublicReadAvatars',
-          effect: iam.Effect.ALLOW,
-          principals: [new iam.AnyPrincipal()],
-          actions: ['s3:GetObject'],
-          resources: [`${avatarBucket.bucketArn}/avatars/*`],
-        })
-      );
-    }
+    const avatarBucket = new s3.Bucket(this, 'AvatarBucket', {
+      bucketName: avatarBucketName,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
 
     // S3 bucket for common words (private - used for puzzle word selection)
     const commonWordsBucketName = props?.commonWordsBucketName ?? 'scorekeeper-common-words';
@@ -207,31 +99,20 @@ export class ScorekeeperStack extends cdk.Stack {
       bucketName: commonWordsBucketName,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
-      enforceSSL: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
-    // Route 53 Hosted Zone for the API subdomain (NS records configured in Namecheap)
-    const domainName = this.node.tryGetContext('domainName') ?? 'wordles.dev';
-    const apiSubdomain = this.node.tryGetContext('apiSubdomain') ?? 'api';
-    const apiDomainName = `${apiSubdomain}.${domainName}`;
-
-    // HTTPS enabled by default. For initial deployment before DNS is configured,
-    // use -c enableHttps=false to deploy without certificate, then redeploy once
-    // NS records are configured in Namecheap.
-    const enableHttps = this.node.tryGetContext('enableHttps') !== 'false';
-
-    const hostedZone = new route53.HostedZone(this, 'HostedZone', {
-      zoneName: apiDomainName,
+    // Look up the hosted zone created by PrerequisiteInfraStack
+    const apiDomainName = 'api.wordles.dev';
+    const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
+      domainName: apiDomainName,
     });
 
-    // ACM Certificate for the API subdomain with DNS validation (only when HTTPS enabled)
-    const certificate = enableHttps
-      ? new acm.Certificate(this, 'ApiCertificate', {
-          domainName: apiDomainName,
-          validation: acm.CertificateValidation.fromDns(hostedZone),
-        })
-      : undefined;
+    // ACM Certificate for the API subdomain with DNS validation
+    const certificate = new acm.Certificate(this, 'ApiCertificate', {
+      domainName: apiDomainName,
+      validation: acm.CertificateValidation.fromDns(hostedZone),
+    });
 
     // DynamoDB table for game data (single-table design)
     const table = new dynamodb.Table(this, 'ScorekeeperTable', {
@@ -240,10 +121,8 @@ export class ScorekeeperStack extends cdk.Stack {
       sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      pointInTimeRecovery: isProd,
     });
 
-    // GSI for querying games by game_id (leaderboard queries)
     table.addGlobalSecondaryIndex({
       indexName: 'GameSessionIndex',
       partitionKey: { name: 'game_id', type: dynamodb.AttributeType.STRING },
@@ -299,16 +178,11 @@ export class ScorekeeperStack extends cdk.Stack {
         memoryLimitMiB: 512,
         desiredCount,
         publicLoadBalancer: true,
-        // Only configure custom domain and HTTPS when certificate is available
-        ...(enableHttps && certificate
-          ? {
-              domainName: apiDomainName,
-              domainZone: hostedZone,
-              certificate,
-              redirectHTTP: true,
-              protocol: elbv2.ApplicationProtocol.HTTPS,
-            }
-          : {}),
+        domainName: apiDomainName,
+        domainZone: hostedZone,
+        certificate,
+        redirectHTTP: true,
+        protocol: elbv2.ApplicationProtocol.HTTPS,
         taskImageOptions: {
           image: ecs.ContainerImage.fromEcrRepository(ecrRepository, 'latest'),
           containerName: 'scorekeeper',
@@ -440,7 +314,8 @@ export class ScorekeeperStack extends cdk.Stack {
     // Grant the task execution role permission to pull from ECR
     ecrRepository.grantPull(fargateService.taskDefinition.executionRole!);
 
-    // Grant the task role permission to upload avatars to S3
+    // Grant the task role permission to read and upload avatars to S3
+    avatarBucket.grantRead(fargateService.taskDefinition.taskRole);
     avatarBucket.grantPut(fargateService.taskDefinition.taskRole);
 
     // Grant the task role permission to read common words from S3
@@ -475,16 +350,6 @@ export class ScorekeeperStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'DynamoDbTableName', {
       value: table.tableName,
       description: 'The name of the DynamoDB table',
-    });
-
-    new cdk.CfnOutput(this, 'HostedZoneNameServers', {
-      value: cdk.Fn.join(',', hostedZone.hostedZoneNameServers!),
-      description: 'Name servers to configure in Namecheap for DNS delegation',
-    });
-
-    new cdk.CfnOutput(this, 'ApiDomainName', {
-      value: apiDomainName,
-      description: 'The API domain name',
     });
 
     new cdk.CfnOutput(this, 'CommonWordsBucketName', {

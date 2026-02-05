@@ -208,6 +208,11 @@ async fn main() -> std::io::Result<()> {
                 header::CONTENT_TYPE,
                 header::ACCEPT,
                 header::ORIGIN,
+                // W3C Trace Context headers sent by the frontend's OpenTelemetry
+                // FetchInstrumentation. Without these the CORS preflight rejects
+                // credentialed requests that carry trace propagation headers.
+                header::HeaderName::from_static("traceparent"),
+                header::HeaderName::from_static("tracestate"),
             ])
             .expose_headers(vec![header::CONTENT_LENGTH, header::CONTENT_TYPE])
             .supports_credentials()
@@ -244,14 +249,15 @@ async fn main() -> std::io::Result<()> {
 
         // Only register profile endpoints if Auth0 M2M is configured
         if let Some(ref auth0) = auth0_service {
+            app = app.app_data(auth0.clone());
+            if let Some(ref s3) = s3_avatar_service {
+                app = app.app_data(s3.clone());
+            }
             app = app
-                .app_data(auth0.clone())
                 .service(get_profile)
                 .service(update_profile);
-
-            // Only register avatar upload if both Auth0 and S3 are configured
-            if let Some(ref s3) = s3_avatar_service {
-                app = app.app_data(s3.clone()).service(upload_avatar);
+            if s3_avatar_service.is_some() {
+                app = app.service(upload_avatar);
             }
         }
 
