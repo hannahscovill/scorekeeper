@@ -1,0 +1,72 @@
+# Deploy Grafana dashboards via Terraform
+#
+# This workflow provisions Grafana Cloud dashboards from the grafana/ directory.
+# It runs when dashboard definitions change on main, or can be triggered manually.
+#
+# Required GitHub Secrets (Settings → Secrets and variables → Actions → Secrets):
+# ---------------------------------------------------------------------------------
+# AWS_REGION: AWS region where Terraform state bucket lives (e.g., us-west-2)
+# GRAFANA_URL: Grafana Cloud instance URL (e.g., https://yourname.grafana.net)
+#              Find at: https://grafana.com → My Account → your stack
+# GRAFANA_API_KEY: Grafana Service Account token with Editor role (starts with glsa_)
+#                  Create at: Grafana → Administration → Service Accounts → Add token
+#
+# Optional GitHub Secrets:
+# ------------------------
+# GRAFANA_TEMPO_DATASOURCE_UID: UID of the Tempo data source (default: grafanacloud-traces)
+#                                Find at: Grafana → Connections → Data sources → Tempo → UID in URL
+
+name: Grafana Dashboards
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "grafana/**"
+  workflow_dispatch:
+
+concurrency:
+  group: grafana-dashboards
+  cancel-in-progress: false
+
+jobs:
+  deploy-dashboards:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.0"
+
+      - name: Terraform Init
+        working-directory: grafana
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: grafana
+        run: terraform plan -out=tfplan
+        env:
+          TF_VAR_grafana_url: ${{ secrets.GRAFANA_URL }}
+          TF_VAR_grafana_api_key: ${{ secrets.GRAFANA_API_KEY }}
+          TF_VAR_tempo_datasource_uid: ${{ secrets.GRAFANA_TEMPO_DATASOURCE_UID || 'grafanacloud-traces' }}
+
+      - name: Terraform Apply
+        working-directory: grafana
+        run: terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_grafana_url: ${{ secrets.GRAFANA_URL }}
+          TF_VAR_grafana_api_key: ${{ secrets.GRAFANA_API_KEY }}
+          TF_VAR_tempo_datasource_uid: ${{ secrets.GRAFANA_TEMPO_DATASOURCE_UID || 'grafanacloud-traces' }}

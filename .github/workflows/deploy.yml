@@ -13,6 +13,16 @@
 #                       (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:scorekeeper/auth0-m2m-xxxxx)
 #                       The secret should contain JSON: {"clientId": "...", "clientSecret": "..."}
 #
+# OTEL_SECRETS_ARN: The ARN of the Secrets Manager secret containing Grafana Cloud credentials
+#                   (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:otel-collector/grafana-xxxxx)
+#                   The secret should contain JSON:
+#                   {
+#                     "GRAFANA_OTLP_ENDPOINT": "https://otlp-gateway-prod-us-east-0.grafana.net/otlp",
+#                     "GRAFANA_INSTANCE_ID": "123456",
+#                     "GRAFANA_API_KEY": "glc_..."
+#                   }
+#                   Optional - if not provided, collector will use debug exporter only
+#
 # AWS OIDC Setup:
 # ---------------
 # 1. Create an OIDC identity provider in AWS IAM:
@@ -214,7 +224,13 @@ jobs:
 
       - name: Deploy CDK stack
         working-directory: infra
-        run: npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} ScorekeeperStack --require-approval never -c env=prod -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }}
+        run: |
+          npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} \
+            ScorekeeperStack \
+            --require-approval never \
+            -c env=prod \
+            -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }} \
+            ${{ secrets.OTEL_SECRETS_ARN && format('-c otelSecretsArn={0}', secrets.OTEL_SECRETS_ARN) || '' }}
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}

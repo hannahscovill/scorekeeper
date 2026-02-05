@@ -5,6 +5,7 @@ use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::models::Game;
@@ -117,6 +118,7 @@ impl DynamoDbRepository {
 
 #[async_trait]
 impl GameDatabase for DynamoDbRepository {
+    #[instrument(name = "db.insert_game", skip(self, game))]
     async fn insert_game(&self, game: Game) -> DatabaseResult<Game> {
         let item = Self::game_to_item(&game);
 
@@ -131,6 +133,7 @@ impl GameDatabase for DynamoDbRepository {
         Ok(game)
     }
 
+    #[instrument(name = "db.get_game", skip(self))]
     async fn get_game(&self, id: &Uuid) -> DatabaseResult<Option<Game>> {
         let pk = format!("GAME#{}", id);
         let sk = format!("GAME#{}", id);
@@ -151,6 +154,7 @@ impl GameDatabase for DynamoDbRepository {
         }
     }
 
+    #[instrument(name = "db.get_all_games", skip(self))]
     async fn get_all_games(&self) -> DatabaseResult<Vec<Game>> {
         let result = self
             .client
@@ -164,6 +168,7 @@ impl GameDatabase for DynamoDbRepository {
         items.iter().map(Self::item_to_game).collect()
     }
 
+    #[instrument(name = "db.delete_game", skip(self))]
     async fn delete_game(&self, id: &Uuid) -> DatabaseResult<Option<Game>> {
         let pk = format!("GAME#{}", id);
         let sk = format!("GAME#{}", id);
@@ -185,6 +190,7 @@ impl GameDatabase for DynamoDbRepository {
         Ok(existing)
     }
 
+    #[instrument(name = "db.get_games_by_game_id", skip(self))]
     async fn get_games_by_game_id(
         &self,
         game_id: Uuid,

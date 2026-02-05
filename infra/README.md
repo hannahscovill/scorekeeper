@@ -7,7 +7,7 @@ CDK stacks for the scorekeeper backend service.
 | Stack | Purpose |
 |-------|---------|
 | `PrerequisiteInfraStack` | ECR repository, Route53 hosted zone |
-| `ScorekeeperStack` | Main app: ECS Fargate, DynamoDB, S3, ALB, VPC |
+| `ScorekeeperStack` | Main app: ECS Fargate, DynamoDB, S3, ALB, VPC, OTel collector sidecar |
 | `ScorekeeperGitHubActionsRoleStack` | IAM role for GitHub Actions CI/CD |
 
 ### GitHub Actions Role
@@ -29,7 +29,9 @@ npx cdk deploy PrerequisiteInfraStack
 npx cdk deploy ScorekeeperGitHubActionsRoleStack
 
 # Main application
-npx cdk deploy ScorekeeperStack -c auth0M2mSecretArn=<ARN>
+npx cdk deploy ScorekeeperStack -c env=prod \
+  -c auth0M2mSecretArn=<ARN> \
+  -c otelSecretsArn=<ARN>
 ```
 
 ## CI/CD
@@ -40,3 +42,6 @@ Deployment is automated via GitHub Actions (`.github/workflows/deploy.yml`). Req
 |--------|-------------|
 | `AWS_REGION` | AWS region (e.g., `us-west-2`) |
 | `AUTH0_M2M_SECRET_ARN` | Secrets Manager ARN for Auth0 M2M credentials |
+| `OTEL_SECRETS_ARN` | Secrets Manager ARN for Grafana Cloud OTLP credentials (optional) |
+
+Grafana dashboards are provisioned separately via `.github/workflows/grafana-dashboards.yml` when `grafana/` files change.

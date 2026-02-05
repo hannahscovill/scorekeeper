@@ -20,6 +20,7 @@ const PRESIGNED_URL_EXPIRY: Duration = Duration::from_secs(3600);
 const S3_BUCKET_URL_PREFIX: &str = "https://scorekeeper-avatars.s3.amazonaws.com/";
 
 /// Service for uploading avatars to S3.
+#[derive(Debug)]
 pub struct S3AvatarService {
     client: S3Client,
     bucket: String,

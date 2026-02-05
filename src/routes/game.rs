@@ -3,6 +3,7 @@
 use actix_web::{get, web, HttpRequest, HttpResponse};
 use chrono::NaiveDate;
 use std::sync::Arc;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::db::PuzzleDatabase;
@@ -26,6 +27,11 @@ use crate::services::grade_guess;
 /// - 401: Unauthorized (missing or invalid authentication)
 /// - 404: No puzzle found for this date
 #[get("/game/{puzzle_date}")]
+#[instrument(
+    name = "get_game",
+    skip(req, puzzle_db, jwt_auth),
+    fields(puzzle_date = tracing::field::Empty, user_id = tracing::field::Empty)
+)]
 pub async fn get_game(
     req: HttpRequest,
     path: web::Path<String>,
@@ -42,10 +48,16 @@ pub async fn get_game(
         return Err(AppError::Unauthorized("Missing authentication".to_string()));
     };
 
+    // Record user_id in span
+    tracing::Span::current().record("user_id", &user_id);
+
     // Parse puzzle date from path
     let puzzle_date_str = path.into_inner();
     let puzzle_date = NaiveDate::parse_from_str(&puzzle_date_str, "%Y-%m-%d")
         .map_err(|_| AppError::bad_request("Invalid date format. Expected YYYY-MM-DD"))?;
+
+    // Record puzzle_date in span
+    tracing::Span::current().record("puzzle_date", puzzle_date.to_string().as_str());
 
     // Verify the puzzle exists for this date
     let answer = puzzle_db
