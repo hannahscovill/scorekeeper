@@ -270,6 +270,11 @@ export class ScorekeeperStack extends cdk.Stack {
           protocol: elbv2.ApplicationProtocol.HTTPS,
           conditions: [elbv2.ListenerCondition.pathPatterns(['/v1/traces'])],
           priority: 10,
+          healthCheck: {
+            path: '/',
+            port: '13133',
+            healthyHttpCodes: '200',
+          },
         }),
       });
     }
