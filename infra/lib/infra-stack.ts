@@ -267,7 +267,7 @@ export class ScorekeeperStack extends cdk.Stack {
         containerPort: 4318,
         newTargetGroupId: 'otel-collector',
         listener: ecs.ListenerConfig.applicationListener(fargateService.listener, {
-          protocol: elbv2.ApplicationProtocol.HTTPS,
+          protocol: elbv2.ApplicationProtocol.HTTP,
           conditions: [elbv2.ListenerCondition.pathPatterns(['/v1/traces'])],
           priority: 10,
           healthCheck: {
@@ -277,6 +277,14 @@ export class ScorekeeperStack extends cdk.Stack {
           },
         }),
       });
+
+      // Allow ALB to reach the collector health check port (13133).
+      // CDK only auto-creates SG rules for the traffic port (4318).
+      fargateService.service.connections.allowFrom(
+        fargateService.loadBalancer,
+        ec2.Port.tcp(13133),
+        'ALB to OTel collector health check',
+      );
     }
 
     // Auto-scaling configuration for production
