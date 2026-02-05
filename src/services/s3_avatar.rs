@@ -1,7 +1,7 @@
 //! S3 Avatar upload service.
 
-use aws_sdk_s3::Client as S3Client;
 use aws_sdk_s3::presigning::PresigningConfig;
+use aws_sdk_s3::Client as S3Client;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, error};
 
@@ -111,10 +111,11 @@ impl S3AvatarService {
 
     /// Generates a pre-signed GET URL for the given S3 key.
     pub async fn get_presigned_url(&self, key: &str) -> Result<String, AppError> {
-        let presigning_config = PresigningConfig::expires_in(PRESIGNED_URL_EXPIRY).map_err(|e| {
-            error!("Failed to create presigning config: {}", e);
-            AppError::internal("Failed to generate avatar URL")
-        })?;
+        let presigning_config =
+            PresigningConfig::expires_in(PRESIGNED_URL_EXPIRY).map_err(|e| {
+                error!("Failed to create presigning config: {}", e);
+                AppError::internal("Failed to generate avatar URL")
+            })?;
 
         let presigned_request = self
             .client
