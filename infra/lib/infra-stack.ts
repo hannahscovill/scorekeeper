@@ -193,7 +193,7 @@ export class ScorekeeperStack extends cdk.Stack {
             S3_AVATAR_BUCKET: avatarBucket.bucketName,
             S3_COMMON_WORDS_BUCKET: commonWordsBucket.bucketName,
             S3_COMMON_WORDS_KEY: commonWordsKey,
-            DYNAMODB_TABLE: table.tableName,
+            DYNAMODB_TABLE_NAME: table.tableName,
             AWS_REGION: this.region,
             // OTel configuration - collector sidecar on localhost
             OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4317',
