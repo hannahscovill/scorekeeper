@@ -62,7 +62,7 @@ WORDS=(
 )
 
 # Generate dates from Jan 1, 2026 to Feb 28, 2026
-START_DATE="2026-01-01"
+START_DATE="2026-02-01"
 END_DATE="2026-02-28"
 
 # Use date command (works on macOS and Linux)
