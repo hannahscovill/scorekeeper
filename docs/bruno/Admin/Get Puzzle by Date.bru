@@ -1,0 +1,38 @@
+meta {
+  name: Get Puzzle by Date
+  type: http
+  seq: 3
+}
+
+get {
+  url: http://{{baseUrl}}/puzzles/2026-02-05
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+docs {
+  Retrieve a single puzzle for a specific date.
+
+  ## Authentication
+  Requires a valid Bearer token.
+
+  ## Path Parameters
+  - `date` (string, required): The puzzle date in YYYY-MM-DD format
+
+  ## Responses
+  - `200`: Puzzle retrieved successfully
+    Admin users see the answer:
+    ```json
+    { "date": "2026-02-05", "word": "apple" }
+    ```
+    Non-admin users only see the date:
+    ```json
+    { "date": "2026-02-05" }
+    ```
+  - `401`: Authentication required
+  - `404`: No puzzle found for this date
+}

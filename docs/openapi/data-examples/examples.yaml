@@ -18,9 +18,14 @@ Game:
     $ref: "./Game.json"
 
 GameGraded:
-  summary: Graded game response with letter-by-letter results
+  summary: Graded game response (win)
   value:
     $ref: "./GameGraded.json"
+
+GameGradedLoss:
+  summary: Graded game response (loss — answer revealed)
+  value:
+    $ref: "./GameGradedLoss.json"
 
 HistoryResponse:
   summary: User's game history with stats

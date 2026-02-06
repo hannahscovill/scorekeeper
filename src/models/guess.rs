@@ -75,6 +75,9 @@ pub struct GradedGame {
     pub metadata: GameMetadata,
     /// List of graded guesses.
     pub moves: Vec<GradedGuess>,
+    /// The puzzle answer, only revealed when the game ends in a loss.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub answer: Option<String>,
 }
 
 impl GradedGame {
@@ -84,6 +87,7 @@ impl GradedGame {
         user_id: impl Into<String>,
         moves: Vec<GradedGuess>,
         won: bool,
+        answer: Option<String>,
     ) -> Self {
         Self {
             metadata: GameMetadata {
@@ -93,6 +97,7 @@ impl GradedGame {
                 won,
             },
             moves,
+            answer,
         }
     }
 }
@@ -248,9 +253,10 @@ mod tests {
             GradedLetter::new('n', LetterGrade::Wrong),
             GradedLetter::new('e', LetterGrade::Correct),
         ]];
-        let game = GradedGame::new(game_id, "auth0|123", moves, false);
+        let game = GradedGame::new(game_id, "auth0|123", moves, false, None);
         assert_eq!(game.metadata.moves_qty, 1);
         assert!(!game.metadata.won);
+        assert!(game.answer.is_none());
     }
 
     #[test]

@@ -1,0 +1,51 @@
+{
+  "game_id": "550e8400-e29b-41d4-a716-446655440002",
+  "user_id": "auth0|660e8400",
+  "moves_qty": 6,
+  "won": false,
+  "moves": [
+    [
+      { "letter": "c", "grade": "wrong" },
+      { "letter": "r", "grade": "wrong" },
+      { "letter": "a", "grade": "wrong" },
+      { "letter": "n", "grade": "contained" },
+      { "letter": "e", "grade": "wrong" }
+    ],
+    [
+      { "letter": "s", "grade": "wrong" },
+      { "letter": "l", "grade": "wrong" },
+      { "letter": "a", "grade": "wrong" },
+      { "letter": "t", "grade": "contained" },
+      { "letter": "e", "grade": "wrong" }
+    ],
+    [
+      { "letter": "m", "grade": "wrong" },
+      { "letter": "o", "grade": "correct" },
+      { "letter": "u", "grade": "wrong" },
+      { "letter": "n", "grade": "correct" },
+      { "letter": "d", "grade": "wrong" }
+    ],
+    [
+      { "letter": "b", "grade": "wrong" },
+      { "letter": "o", "grade": "correct" },
+      { "letter": "u", "grade": "wrong" },
+      { "letter": "n", "grade": "correct" },
+      { "letter": "d", "grade": "wrong" }
+    ],
+    [
+      { "letter": "f", "grade": "wrong" },
+      { "letter": "o", "grade": "correct" },
+      { "letter": "u", "grade": "wrong" },
+      { "letter": "n", "grade": "correct" },
+      { "letter": "d", "grade": "wrong" }
+    ],
+    [
+      { "letter": "w", "grade": "wrong" },
+      { "letter": "o", "grade": "correct" },
+      { "letter": "u", "grade": "wrong" },
+      { "letter": "n", "grade": "correct" },
+      { "letter": "d", "grade": "wrong" }
+    ]
+  ],
+  "answer": "point"
+}

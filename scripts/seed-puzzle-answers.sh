@@ -1,5 +1,5 @@
 #!/bin/bash
-# Seed puzzle answers for Jan 1, 2026 - Feb 28, 2026
+# Seed puzzle answers for a 2-week window (1 week ago to 1 week ahead)
 set -e
 
 # Default to local DynamoDB
@@ -45,37 +45,24 @@ else
   echo "  Target: $ENDPOINT_URL"
 fi
 
-# 59 curated 5-letter words for puzzle answers (Jan 1 - Feb 28, 2026)
+# Curated 5-letter words for puzzle answers
 WORDS=(
   "crane" "slate" "audio" "adieu" "story"
   "arose" "canoe" "about" "above" "acute"
   "actor" "adapt" "admit" "adopt" "adult"
-  "after" "again" "agent" "agree" "ahead"
-  "alarm" "album" "alert" "alike" "align"
-  "alive" "allow" "alone" "along" "alter"
-  "angel" "anger" "angle" "angry" "apart"
-  "apple" "apply" "arena" "argue" "arise"
-  "armor" "array" "arrow" "asset" "avoid"
-  "award" "aware" "awful" "basic" "basis"
-  "beach" "begun" "being" "below" "bench"
-  "berry" "birth" "black" "blade" "blame"
 )
 
-# Generate dates from Jan 1, 2026 to Feb 28, 2026
-START_DATE="2026-01-01"
-END_DATE="2026-02-28"
-
-# Use date command (works on macOS and Linux)
+# Generate dates dynamically: 1 week ago to 1 week ahead
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  # macOS
-  current=$(date -j -f "%Y-%m-%d" "$START_DATE" "+%s")
-  end=$(date -j -f "%Y-%m-%d" "$END_DATE" "+%s")
+  current=$(date -v-7d "+%s")
+  end=$(date -v+7d "+%s")
 else
-  # Linux
-  current=$(date -d "$START_DATE" "+%s")
-  end=$(date -d "$END_DATE" "+%s")
+  current=$(date -d "-7 days" "+%s")
+  end=$(date -d "+7 days" "+%s")
 fi
 
+# Build batch write request (up to 25 items per batch)
+ITEMS=""
 index=0
 while [ $current -le $end ]; do
   if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -86,26 +73,26 @@ while [ $current -le $end ]; do
 
   word="${WORDS[$index]}"
   pk="PUZZLE#${date_str}"
-  sk="ANSWER"
 
   echo "  $date_str -> $word"
 
-  # Put item into DynamoDB
-  aws dynamodb put-item \
-    $ENDPOINT_FLAG \
-    --table-name "$TABLE_NAME" \
-    --item "{
-      \"pk\": {\"S\": \"$pk\"},
-      \"sk\": {\"S\": \"$sk\"},
-      \"word\": {\"S\": \"$word\"},
-      \"puzzle_date\": {\"S\": \"$date_str\"}
-    }" \
-    --condition-expression "attribute_not_exists(pk)" 2>/dev/null || echo "    (already exists, skipping)"
+  # Add comma separator if not first item
+  if [ -n "$ITEMS" ]; then
+    ITEMS="$ITEMS,"
+  fi
 
-  # Increment date by 1 day (86400 seconds)
+  ITEMS="$ITEMS{\"PutRequest\":{\"Item\":{\"pk\":{\"S\":\"$pk\"},\"sk\":{\"S\":\"ANSWER\"},\"word\":{\"S\":\"$word\"},\"puzzle_date\":{\"S\":\"$date_str\"}}}}"
+
   current=$((current + 86400))
   index=$((index + 1))
 done
 
+# Single batch write call
 echo ""
-echo "Seeding complete! Added ${#WORDS[@]} puzzle answers."
+echo "Writing batch..."
+aws dynamodb batch-write-item \
+  $ENDPOINT_FLAG \
+  --request-items "{\"$TABLE_NAME\":[$ITEMS]}"
+
+echo ""
+echo "Seeding complete! Added $index puzzle answers in one batch."

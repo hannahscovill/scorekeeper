@@ -113,7 +113,15 @@ pub async fn submit_guess(
         format!("{}#{}", user_id, puzzle_date).as_bytes(),
     );
 
-    let response = GradedGame::new(game_id, &user_id, moves, game_state.won);
+    // Reveal the answer only when the game ends in a loss
+    let reveal_answer = !game_state.won && !game_state.is_in_progress();
+    let answer = if reveal_answer {
+        Some(answer.clone())
+    } else {
+        None
+    };
+
+    let response = GradedGame::new(game_id, &user_id, moves, game_state.won, answer);
 
     Ok(HttpResponse::Ok().json(response))
 }
@@ -158,12 +166,25 @@ mod tests {
     fn test_graded_game_response() {
         let game_id = Uuid::new_v4();
         let moves = vec![grade_guess("crane", "stale")];
-        let game = GradedGame::new(game_id, "auth0|123", moves, false);
+        let game = GradedGame::new(game_id, "auth0|123", moves, false, None);
 
         let json = serde_json::to_string(&game).unwrap();
         assert!(json.contains("game_id"));
         assert!(json.contains("user_id"));
         assert!(json.contains("moves_qty"));
         assert!(json.contains("moves"));
+        // answer should not appear when None
+        assert!(!json.contains("answer"));
+    }
+
+    #[test]
+    fn test_graded_game_response_with_answer_on_loss() {
+        let game_id = Uuid::new_v4();
+        let moves = vec![grade_guess("crane", "stale")];
+        let game =
+            GradedGame::new(game_id, "auth0|123", moves, false, Some("stale".to_string()));
+
+        let json = serde_json::to_string(&game).unwrap();
+        assert!(json.contains("\"answer\":\"stale\""));
     }
 }

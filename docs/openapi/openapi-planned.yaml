@@ -262,8 +262,8 @@ components:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: auth_token
-      description: JWT token in auth_token cookie
+      name: wordle_session
+      description: JWT token in wordle_session cookie
 
   responses:
     BadRequest:

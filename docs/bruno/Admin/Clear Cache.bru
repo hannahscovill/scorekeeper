@@ -1,0 +1,30 @@
+meta {
+  name: Clear Cache
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://{{baseUrl}}/puzzles/cache/clear
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+docs {
+  Clear the puzzle answer cache (game admin only).
+
+  ## Authentication
+  Requires a valid Bearer token with `app_metadata.game_admin = true`.
+
+  ## Responses
+  - `200`: Cache cleared successfully
+    ```json
+    { "message": "Puzzle answer cache cleared" }
+    ```
+  - `401`: Authentication required
+  - `403`: User is not a game administrator
+}

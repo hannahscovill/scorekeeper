@@ -1,0 +1,55 @@
+meta {
+  name: Get Game
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://{{baseUrl}}/game/2026-02-05
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+docs {
+  Load game progress for a specific puzzle date.
+
+  ## Authentication
+  Requires either:
+  - Bearer token in Authorization header (JWT)
+  - Cookie: wordle_session=<user_id> (for embedded games)
+
+  ## Path Parameters
+  - `puzzle_date` (string, required): The puzzle date in YYYY-MM-DD format
+
+  ## Responses
+  - `200`: Game progress retrieved successfully
+    ```json
+    {
+      "game_id": "550e8400-e29b-41d4-a716-446655440000",
+      "user_id": "auth0|123456",
+      "moves_qty": 2,
+      "won": false,
+      "moves": [
+        [
+          { "letter": "c", "grade": "wrong" },
+          { "letter": "r", "grade": "wrong" },
+          { "letter": "a", "grade": "contained" },
+          { "letter": "n", "grade": "wrong" },
+          { "letter": "e", "grade": "correct" }
+        ],
+        [...]
+      ]
+    }
+    ```
+    If the game ended in a loss, includes the answer:
+    ```json
+    { ..., "answer": "apple" }
+    ```
+  - `400`: Invalid date format
+  - `401`: Authentication required
+  - `404`: No puzzle found for this date
+}
