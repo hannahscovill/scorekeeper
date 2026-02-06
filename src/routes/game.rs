@@ -86,7 +86,15 @@ pub async fn get_game(
         format!("{}#{}", user_id, puzzle_date).as_bytes(),
     );
 
-    let response = GradedGame::new(game_id, &user_id, moves, game_state.won);
+    // Reveal the answer only when the game ended in a loss
+    let reveal_answer = !game_state.won && !game_state.is_in_progress();
+    let answer = if reveal_answer {
+        Some(answer.clone())
+    } else {
+        None
+    };
+
+    let response = GradedGame::new(game_id, &user_id, moves, game_state.won, answer);
 
     Ok(HttpResponse::Ok().json(response))
 }

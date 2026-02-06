@@ -96,6 +96,10 @@ GameGraded:
           maxItems: 6
           items:
             $ref: "#/GuessGraded"
+        answer:
+          type: string
+          description: The puzzle answer. Only present when the game ends in a loss (6 incorrect guesses).
+          example: "point"
 
 HistoryGame:
   type: object
@@ -127,6 +131,15 @@ HistoryGame:
     in_progress:
       type: boolean
       description: Whether the game is still in progress
+    graded_guesses:
+      type: array
+      description: Graded results for each guess (grades only, no letters). Each inner array has 5 LetterGrade values.
+      items:
+        type: array
+        items:
+          $ref: "#/LetterGrade"
+        minItems: 5
+        maxItems: 5
     created_at:
       type: string
       format: date-time

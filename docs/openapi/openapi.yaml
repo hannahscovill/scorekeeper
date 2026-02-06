@@ -50,8 +50,10 @@ paths:
               schema:
                 $ref: "schemas.yaml#/GameGraded"
               examples:
-                default:
+                win:
                   $ref: "data-examples/examples.yaml#/GameGraded"
+                loss:
+                  $ref: "data-examples/examples.yaml#/GameGradedLoss"
         "304":
           $ref: "#/components/responses/NotModified"
         "400":
