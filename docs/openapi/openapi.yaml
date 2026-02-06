@@ -10,7 +10,7 @@ info:
 servers:
   - url: https://api.wordles.dev
     description: Remote
-  - url: https://localhost:8080
+  - url: http://localhost:8080
     description: Local
 
 security:
@@ -29,7 +29,7 @@ paths:
   /guess:
     post:
       summary: Submit a word guess
-      description: Submit a guess for a puzzle. Authentication via Authorization header (Bearer token) or auth_token cookie.
+      description: Submit a guess for a puzzle. Authentication via Authorization header (Bearer token) or wordle_session cookie.
       operationId: submitGuess
       tags:
         - Gameplay
@@ -391,8 +391,8 @@ components:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: auth_token
-      description: JWT token in auth_token cookie
+      name: wordle_session
+      description: JWT token in wordle_session cookie
 
   responses:
     NotModified:

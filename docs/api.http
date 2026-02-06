@@ -1,0 +1,88 @@
+### Scorekeeper API - REST Client requests
+### Install the REST Client extension: humao.rest-client
+
+@baseUrl = http://localhost:8080
+@cookie = wordle_session=test-user
+
+### Health Check
+GET {{baseUrl}}/health
+
+### ============================================================================
+### GAMEPLAY
+### ============================================================================
+
+### Submit Guess (cookie auth)
+POST {{baseUrl}}/guess
+Content-Type: application/json
+Cookie: {{cookie}}
+
+{
+  "puzzle_date_iso_day": "2026-01-15",
+  "word_guessed": "crane"
+}
+
+### Get Game Progress (cookie auth)
+GET {{baseUrl}}/game/2026-01-15
+Cookie: {{cookie}}
+
+### Get History (requires JWT)
+# @name history
+GET {{baseUrl}}/history
+Authorization: Bearer {{$dotenv JWT}}
+
+### ============================================================================
+### PUZZLES
+### ============================================================================
+
+### Get Puzzles (requires JWT)
+GET {{baseUrl}}/puzzles
+Authorization: Bearer {{$dotenv JWT}}
+
+### Get Puzzles with date range
+GET {{baseUrl}}/puzzles?start_date=2026-01-01&end_date=2026-01-31
+Authorization: Bearer {{$dotenv JWT}}
+
+### Get Single Puzzle
+GET {{baseUrl}}/puzzles/2026-01-15
+Authorization: Bearer {{$dotenv JWT}}
+
+### Set Puzzle (admin only)
+PUT {{baseUrl}}/puzzles
+Content-Type: application/json
+Authorization: Bearer {{$dotenv JWT}}
+
+{
+  "date": "2026-02-15",
+  "word": "crane"
+}
+
+### Set Puzzle with random word (admin only)
+PUT {{baseUrl}}/puzzles
+Content-Type: application/json
+Authorization: Bearer {{$dotenv JWT}}
+
+{
+  "date": "2026-02-16",
+  "set_random_unused_word": true
+}
+
+### Clear Puzzle Cache (admin only)
+POST {{baseUrl}}/puzzles/cache/clear
+Authorization: Bearer {{$dotenv JWT}}
+
+### ============================================================================
+### PROFILE
+### ============================================================================
+
+### Get Profile
+GET {{baseUrl}}/profile
+Authorization: Bearer {{$dotenv JWT}}
+
+### Update Profile
+PUT {{baseUrl}}/profile
+Content-Type: application/json
+Authorization: Bearer {{$dotenv JWT}}
+
+{
+  "displayName": "WordMaster42"
+}

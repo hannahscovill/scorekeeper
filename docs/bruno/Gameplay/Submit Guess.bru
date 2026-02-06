@@ -1,0 +1,74 @@
+meta {
+  name: Submit Guess
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://{{baseUrl}}/guess
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Cookie: wordle_session=hi
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "puzzle_date_iso_day": "2026-02-05",
+    "word_guessed": "crane"
+  }
+}
+
+docs {
+  Submit a guess for a word puzzle.
+  
+  ## Authentication
+  Requires either:
+  - Bearer token in Authorization header (JWT)
+  - Cookie: wordle_session=<user_id> (for embedded games)
+  
+  ## Request Body
+  - `puzzle_date_iso_day` (string, required): The puzzle date in YYYY-MM-DD format
+  - `word_guessed` (string, required): A 5-letter word guess
+  
+  ## Responses
+  - `200`: Guess graded successfully
+    ```json
+    {
+      "game_id": "550e8400-e29b-41d4-a716-446655440000",
+      "user_id": "auth0|123456",
+      "moves_qty": 1,
+      "won": false,
+      "moves": [
+        [
+          { "letter": "c", "grade": "wrong" },
+          { "letter": "r", "grade": "wrong" },
+          { "letter": "a", "grade": "contained" },
+          { "letter": "n", "grade": "wrong" },
+          { "letter": "e", "grade": "correct" }
+        ]
+      ]
+    }
+    ```
+    On a loss (6 incorrect guesses), the response includes the answer:
+    ```json
+    {
+      "game_id": "...",
+      "user_id": "...",
+      "moves_qty": 6,
+      "won": false,
+      "moves": [...],
+      "answer": "apple"
+    }
+    ```
+  - `400`: Invalid request (word not 5 letters, not in dictionary, game already complete)
+  - `401`: Authentication required
+  - `404`: No puzzle found for this date
+}

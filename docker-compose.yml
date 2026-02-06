@@ -88,7 +88,7 @@ services:
       - AUTH0_AUDIENCE=com.hannahscovill.scorekeeper
       - AUTH0_M2M_CLIENT_ID=${AUTH0_M2M_CLIENT_ID}
       - AUTH0_M2M_CLIENT_SECRET=${AUTH0_M2M_CLIENT_SECRET}
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,https://localhost:3000,https://hannahscovill.github.io
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,https://localhost:3000,https://hannahscovill.github.io,https://hannahscovill.github.io/scorekeeper
       - RUST_LOG=debug
       - TLS_ENABLED=false
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
