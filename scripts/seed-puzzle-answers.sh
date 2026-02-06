@@ -1,5 +1,5 @@
 #!/bin/bash
-# Seed puzzle answers for Jan 1, 2026 - Feb 28, 2026
+# Seed puzzle answers for a 2-week window (1 week ago to 1 week ahead)
 set -e
 
 # Default to local DynamoDB
@@ -61,19 +61,15 @@ WORDS=(
   "berry" "birth" "black" "blade" "blame"
 )
 
-# Generate dates from Jan 1, 2026 to Feb 28, 2026
-START_DATE="2026-02-01"
-END_DATE="2026-02-28"
-
-# Use date command (works on macOS and Linux)
+# Generate dates dynamically: 1 week ago to 1 week ahead
 if [[ "$OSTYPE" == "darwin"* ]]; then
   # macOS
-  current=$(date -j -f "%Y-%m-%d" "$START_DATE" "+%s")
-  end=$(date -j -f "%Y-%m-%d" "$END_DATE" "+%s")
+  current=$(date -v-7d "+%s")
+  end=$(date -v+7d "+%s")
 else
   # Linux
-  current=$(date -d "$START_DATE" "+%s")
-  end=$(date -d "$END_DATE" "+%s")
+  current=$(date -d "-7 days" "+%s")
+  end=$(date -d "+7 days" "+%s")
 fi
 
 index=0
@@ -108,4 +104,4 @@ while [ $current -le $end ]; do
 done
 
 echo ""
-echo "Seeding complete! Added ${#WORDS[@]} puzzle answers."
+echo "Seeding complete! Processed 15 days of puzzle answers."
