@@ -128,12 +128,24 @@ fn get_template(issue_type: &str) -> IssueTemplate {
 fn build_issue_body(
     issue_type: &str,
     description: &str,
+    reporter_display_name: Option<&str>,
+    reporter_user_id: Option<&str>,
     user_agent: Option<&str>,
     page_url: Option<&str>,
 ) -> String {
     let template = get_template(issue_type);
     let body = template.body.replace("{description}", description);
     let mut result = body.trim_end().to_string();
+
+    if reporter_display_name.is_some() || reporter_user_id.is_some() {
+        result.push_str("\n\n## Reporter\n");
+        if let Some(name) = reporter_display_name {
+            result.push_str(&format!("- Name: {}\n", name));
+        }
+        if let Some(id) = reporter_user_id {
+            result.push_str(&format!("- User ID: `{}`\n", id));
+        }
+    }
 
     if user_agent.is_some() || page_url.is_some() {
         result.push_str("\n\n## Environment\n");
@@ -337,7 +349,13 @@ impl GitHubIssueService {
     }
 
     /// Create a GitHub issue. Handles Turnstile verification and GitHub API call.
-    pub async fn create_issue(&self, request: &IssueRequest) -> Result<IssueResponse, AppError> {
+    /// Reporter info is resolved from the authenticated user's JWT and Auth0 profile.
+    pub async fn create_issue(
+        &self,
+        request: &IssueRequest,
+        reporter_display_name: Option<&str>,
+        reporter_user_id: Option<&str>,
+    ) -> Result<IssueResponse, AppError> {
         // Verify Turnstile token
         self.verify_turnstile(&request.turnstile_token).await?;
 
@@ -351,6 +369,8 @@ impl GitHubIssueService {
             body: build_issue_body(
                 &request.issue_type,
                 &request.description,
+                reporter_display_name,
+                reporter_user_id,
                 request.user_agent.as_deref(),
                 request.page_url.as_deref(),
             ),
@@ -447,7 +467,7 @@ mod tests {
 
     #[test]
     fn build_issue_body_replaces_description() {
-        let body = build_issue_body("bug", "Test description here", None, None);
+        let body = build_issue_body("bug", "Test description here", None, None, None, None);
         assert!(
             body.contains("Test description here"),
             "description not inserted into body"
@@ -457,9 +477,9 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_footer() {
-        let body = build_issue_body("bug", "Test", None, None);
+        let body = build_issue_body("bug", "Test", None, None, None, None);
         assert!(
-            body.contains("Submitted anonymously"),
+            body.contains("Submitted via"),
             "footer not appended"
         );
     }
@@ -469,6 +489,8 @@ mod tests {
         let body = build_issue_body(
             "bug",
             "Test",
+            None,
+            None,
             Some("Mozilla/5.0 (Macintosh)"),
             Some("https://wordles.dev/gamemaker"),
         );
@@ -484,8 +506,35 @@ mod tests {
     }
 
     #[test]
+    fn build_issue_body_includes_reporter_section() {
+        let body = build_issue_body(
+            "bug",
+            "Test",
+            Some("Hannah"),
+            Some("auth0|abc123"),
+            None,
+            None,
+        );
+        assert!(body.contains("## Reporter"), "missing reporter section");
+        assert!(body.contains("- Name: Hannah"), "missing reporter name");
+        assert!(
+            body.contains("- User ID: `auth0|abc123`"),
+            "missing reporter user ID"
+        );
+    }
+
+    #[test]
+    fn build_issue_body_omits_reporter_when_absent() {
+        let body = build_issue_body("bug", "Test", None, None, None, None);
+        assert!(
+            !body.contains("## Reporter"),
+            "reporter section should not appear"
+        );
+    }
+
+    #[test]
     fn build_issue_body_omits_environment_when_absent() {
-        let body = build_issue_body("bug", "Test", None, None);
+        let body = build_issue_body("bug", "Test", None, None, None, None);
         assert!(
             !body.contains("## Environment"),
             "environment section should not appear"
