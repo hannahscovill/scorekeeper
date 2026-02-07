@@ -13,6 +13,11 @@
 #                       (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:scorekeeper/auth0-m2m-xxxxx)
 #                       The secret should contain JSON: {"clientId": "...", "clientSecret": "..."}
 #
+# WORDLES_GITHUB_APP_SECRET_ARN: The ARN of the Secrets Manager secret containing GitHub App credentials
+#                         for the issue proxy (e.g., arn:aws:secretsmanager:us-west-2:...:secret:wordles/github-app-xxxxx)
+#                         The secret should contain JSON: {"appId": "...", "installationId": "...", "privateKey": "..."}
+#                         Optional - if not provided, /issues endpoint will be disabled
+#
 # OTEL_SECRETS_ARN: The ARN of the Secrets Manager secret containing Grafana Cloud credentials
 #                   (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:otel-collector/grafana-xxxxx)
 #                   The secret should contain JSON:
@@ -229,7 +234,8 @@ jobs:
             ScorekeeperStack \
             --require-approval never \
             -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }} \
-            ${{ secrets.OTEL_SECRETS_ARN && format('-c otelSecretsArn={0}', secrets.OTEL_SECRETS_ARN) || '' }}
+            ${{ secrets.OTEL_SECRETS_ARN && format('-c otelSecretsArn={0}', secrets.OTEL_SECRETS_ARN) || '' }} \
+            ${{ secrets.WORDLES_GITHUB_APP_SECRET_ARN && format('-c githubAppSecretArn={0}', secrets.WORDLES_GITHUB_APP_SECRET_ARN) || '' }}
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}

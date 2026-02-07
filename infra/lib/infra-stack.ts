@@ -11,6 +11,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -51,6 +52,19 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
    * If not provided, profile endpoints will not be available.
    */
   readonly auth0M2mSecretArn?: string;
+
+  /**
+   * ARN of the Secrets Manager secret containing GitHub App credentials for the issue proxy.
+   * The secret should be a JSON object with 'appId', 'installationId', and 'privateKey' fields.
+   * If not provided, the /issues endpoint will not be available.
+   */
+  readonly githubAppSecretArn?: string;
+
+  /**
+   * SSM parameter name for the Turnstile secret key (used for issue proxy CAPTCHA).
+   * @default '/wordles/turnstile-secret-key'
+   */
+  readonly turnstileSsmParamName?: string;
 
   /**
    * ARN of the Secrets Manager secret containing OTel collector secrets.
@@ -161,6 +175,22 @@ export class ScorekeeperStack extends cdk.Stack {
       ? secretsmanager.Secret.fromSecretCompleteArn(this, 'Auth0M2mSecret', auth0M2mSecretArn)
       : undefined;
 
+    // Look up GitHub App secret if ARN is provided (for issue proxy)
+    const githubAppSecretArn = props?.githubAppSecretArn ?? this.node.tryGetContext('githubAppSecretArn');
+    const githubAppSecret = githubAppSecretArn
+      ? secretsmanager.Secret.fromSecretCompleteArn(this, 'GitHubAppSecret', githubAppSecretArn)
+      : undefined;
+
+    // Look up Turnstile SSM parameter (for issue proxy CAPTCHA verification)
+    const turnstileSsmParamName = props?.turnstileSsmParamName
+      ?? this.node.tryGetContext('turnstileSsmParamName')
+      ?? '/wordles/turnstile-secret-key';
+    const turnstileParam = githubAppSecret
+      ? ssm.StringParameter.fromSecureStringParameterAttributes(this, 'TurnstileSecretKey', {
+          parameterName: turnstileSsmParamName,
+        })
+      : undefined;
+
     // Look up OTel secrets if ARN is provided (for Grafana Cloud credentials)
     const otelSecretsArn = props?.otelSecretsArn ?? this.node.tryGetContext('otelSecretsArn');
     const otelSecrets = otelSecretsArn
@@ -199,15 +229,24 @@ export class ScorekeeperStack extends cdk.Stack {
             OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4317',
             APP_VERSION: 'latest',
           },
-          // Auth0 M2M credentials for profile endpoints (from Secrets Manager)
-          ...(auth0M2mSecret
-            ? {
-                secrets: {
-                  AUTH0_M2M_CLIENT_ID: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'clientId'),
-                  AUTH0_M2M_CLIENT_SECRET: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'clientSecret'),
-                },
-              }
-            : {}),
+          // Secrets injected into the container at runtime
+          secrets: {
+            // Auth0 M2M credentials for profile endpoints
+            ...(auth0M2mSecret && {
+              AUTH0_M2M_CLIENT_ID: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'clientId'),
+              AUTH0_M2M_CLIENT_SECRET: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'clientSecret'),
+            }),
+            // GitHub App credentials for issue proxy
+            ...(githubAppSecret && {
+              GITHUB_APP_ID: ecs.Secret.fromSecretsManager(githubAppSecret, 'appId'),
+              GITHUB_INSTALLATION_ID: ecs.Secret.fromSecretsManager(githubAppSecret, 'installationId'),
+              GITHUB_PRIVATE_KEY: ecs.Secret.fromSecretsManager(githubAppSecret, 'privateKey'),
+            }),
+            // Turnstile CAPTCHA secret for issue proxy
+            ...(turnstileParam && {
+              TURNSTILE_SECRET_KEY: ecs.Secret.fromSsmParameter(turnstileParam),
+            }),
+          },
         },
         circuitBreaker: {
           rollback: true,
