@@ -70,7 +70,7 @@ pub async fn create_issue(
 
     // Delegate to service (Turnstile verification + GitHub API call)
     let response = service
-        .create_issue(&body, display_name.as_deref(), Some(&user_id))
+        .create_issue(&body, display_name.as_deref(), &user_id)
         .await?;
 
     tracing::info!("Created issue #{} from IP {}", response.issue_number, source_ip);

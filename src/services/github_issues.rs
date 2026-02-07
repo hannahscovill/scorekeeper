@@ -129,7 +129,7 @@ fn build_issue_body(
     issue_type: &str,
     description: &str,
     reporter_display_name: Option<&str>,
-    reporter_user_id: Option<&str>,
+    reporter_user_id: &str,
     user_agent: Option<&str>,
     page_url: Option<&str>,
     commit_hash: Option<&str>,
@@ -138,15 +138,11 @@ fn build_issue_body(
     let body = template.body.replace("{description}", description);
     let mut result = body.trim_end().to_string();
 
-    if reporter_display_name.is_some() || reporter_user_id.is_some() {
-        result.push_str("\n\n## Reporter\n");
-        if let Some(name) = reporter_display_name {
-            result.push_str(&format!("- Name: {}\n", name));
-        }
-        if let Some(id) = reporter_user_id {
-            result.push_str(&format!("- User ID: `{}`\n", id));
-        }
+    result.push_str("\n\n## Reporter\n");
+    if let Some(name) = reporter_display_name {
+        result.push_str(&format!("- Name: {}\n", name));
     }
+    result.push_str(&format!("- User ID: `{}`\n", reporter_user_id));
 
     if user_agent.is_some() || page_url.is_some() || commit_hash.is_some() {
         result.push_str("\n\n## Environment\n");
@@ -361,7 +357,7 @@ impl GitHubIssueService {
         &self,
         request: &IssueRequest,
         reporter_display_name: Option<&str>,
-        reporter_user_id: Option<&str>,
+        reporter_user_id: &str,
     ) -> Result<IssueResponse, AppError> {
         // Verify Turnstile token
         self.verify_turnstile(&request.turnstile_token).await?;
@@ -475,7 +471,7 @@ mod tests {
 
     #[test]
     fn build_issue_body_replaces_description() {
-        let body = build_issue_body("bug", "Test description here", None, None, None, None, None);
+        let body = build_issue_body("bug", "Test description here", None, "auth0|test", None, None, None);
         assert!(
             body.contains("Test description here"),
             "description not inserted into body"
@@ -485,7 +481,7 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_footer() {
-        let body = build_issue_body("bug", "Test", None, None, None, None, None);
+        let body = build_issue_body("bug", "Test", None, "auth0|test", None, None, None);
         assert!(
             body.contains("Submitted via"),
             "footer not appended"
@@ -498,7 +494,7 @@ mod tests {
             "bug",
             "Test",
             None,
-            None,
+            "auth0|test",
             Some("Mozilla/5.0 (Macintosh)"),
             Some("https://wordles.dev/gamemaker"),
             None,
@@ -520,7 +516,7 @@ mod tests {
             "bug",
             "Test",
             Some("Hannah"),
-            Some("auth0|abc123"),
+            "auth0|abc123",
             None,
             None,
             None,
@@ -534,17 +530,19 @@ mod tests {
     }
 
     #[test]
-    fn build_issue_body_omits_reporter_when_absent() {
-        let body = build_issue_body("bug", "Test", None, None, None, None, None);
+    fn build_issue_body_always_includes_reporter_user_id() {
+        let body = build_issue_body("bug", "Test", None, "auth0|xyz789", None, None, None);
+        assert!(body.contains("## Reporter"), "reporter section should always appear");
         assert!(
-            !body.contains("## Reporter"),
-            "reporter section should not appear"
+            body.contains("- User ID: `auth0|xyz789`"),
+            "user ID should always be present"
         );
+        assert!(!body.contains("- Name:"), "name should be absent when not provided");
     }
 
     #[test]
     fn build_issue_body_omits_environment_when_absent() {
-        let body = build_issue_body("bug", "Test", None, None, None, None, None);
+        let body = build_issue_body("bug", "Test", None, "auth0|test", None, None, None);
         assert!(
             !body.contains("## Environment"),
             "environment section should not appear"
@@ -553,7 +551,7 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_commit_hash() {
-        let body = build_issue_body("bug", "Test", None, None, None, None, Some("abc1234"));
+        let body = build_issue_body("bug", "Test", None, "auth0|test", None, None, Some("abc1234"));
         assert!(body.contains("## Environment"), "missing environment section");
         assert!(
             body.contains("- Commit: `abc1234`"),
