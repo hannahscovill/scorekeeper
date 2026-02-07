@@ -15,9 +15,9 @@ pub fn init_telemetry() {
     let otel_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
         .unwrap_or_else(|_| "http://localhost:4317".to_string());
 
-    let is_prod = std::env::var("ENVIRONMENT")
-        .map(|e| e == "production")
-        .unwrap_or(false);
+    let environment =
+        std::env::var("ENVIRONMENT").unwrap_or_else(|_| "local".into());
+    let is_prod = environment == "production";
 
     // Build OpenTelemetry exporter
     let exporter = opentelemetry_otlp::SpanExporter::builder()
@@ -35,10 +35,7 @@ pub fn init_telemetry() {
                 "service.version",
                 std::env::var("APP_VERSION").unwrap_or_else(|_| "dev".into()),
             ),
-            KeyValue::new(
-                "deployment.environment",
-                std::env::var("ENVIRONMENT").unwrap_or_else(|_| "local".into()),
-            ),
+            KeyValue::new("deployment.environment", environment),
         ]))
         .build();
 
