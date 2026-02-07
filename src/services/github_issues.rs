@@ -23,6 +23,10 @@ pub struct IssueRequest {
     pub turnstile_token: String,
     #[serde(default)]
     pub website: String, // honeypot
+    #[serde(default)]
+    pub user_agent: Option<String>,
+    #[serde(default)]
+    pub page_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -121,10 +125,27 @@ fn get_template(issue_type: &str) -> IssueTemplate {
     parse_template(raw)
 }
 
-fn build_issue_body(issue_type: &str, description: &str) -> String {
+fn build_issue_body(
+    issue_type: &str,
+    description: &str,
+    user_agent: Option<&str>,
+    page_url: Option<&str>,
+) -> String {
     let template = get_template(issue_type);
     let body = template.body.replace("{description}", description);
-    format!("{}{}", body.trim_end(), TEMPLATE_FOOTER)
+    let mut result = body.trim_end().to_string();
+
+    if user_agent.is_some() || page_url.is_some() {
+        result.push_str("\n\n## Environment\n");
+        if let Some(ua) = user_agent {
+            result.push_str(&format!("- Browser: {}\n", ua));
+        }
+        if let Some(url) = page_url {
+            result.push_str(&format!("- URL: {}\n", url));
+        }
+    }
+
+    format!("{}{}", result.trim_end(), TEMPLATE_FOOTER)
 }
 
 fn issue_label(issue_type: &str) -> String {
@@ -323,11 +344,16 @@ impl GitHubIssueService {
         // Get GitHub token
         let github_token = self.get_github_token().await?;
 
-        let full_title = format!("{}{}", issue_title_prefix(&request.issue_type), request.title);
+        let full_title = format!("{} {}", issue_title_prefix(&request.issue_type), request.title);
 
         let create_issue = GitHubCreateIssue {
             title: full_title,
-            body: build_issue_body(&request.issue_type, &request.description),
+            body: build_issue_body(
+                &request.issue_type,
+                &request.description,
+                request.user_agent.as_deref(),
+                request.page_url.as_deref(),
+            ),
             labels: vec![issue_label(&request.issue_type)],
         };
 
@@ -421,7 +447,7 @@ mod tests {
 
     #[test]
     fn build_issue_body_replaces_description() {
-        let body = build_issue_body("bug", "Test description here");
+        let body = build_issue_body("bug", "Test description here", None, None);
         assert!(
             body.contains("Test description here"),
             "description not inserted into body"
@@ -431,7 +457,7 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_footer() {
-        let body = build_issue_body("bug", "Test");
+        let body = build_issue_body("bug", "Test", None, None);
         assert!(
             body.contains("Submitted anonymously"),
             "footer not appended"
@@ -439,10 +465,38 @@ mod tests {
     }
 
     #[test]
+    fn build_issue_body_includes_environment_section() {
+        let body = build_issue_body(
+            "bug",
+            "Test",
+            Some("Mozilla/5.0 (Macintosh)"),
+            Some("https://wordles.dev/gamemaker"),
+        );
+        assert!(body.contains("## Environment"), "missing environment section");
+        assert!(
+            body.contains("- Browser: Mozilla/5.0 (Macintosh)"),
+            "missing browser info"
+        );
+        assert!(
+            body.contains("- URL: https://wordles.dev/gamemaker"),
+            "missing page URL"
+        );
+    }
+
+    #[test]
+    fn build_issue_body_omits_environment_when_absent() {
+        let body = build_issue_body("bug", "Test", None, None);
+        assert!(
+            !body.contains("## Environment"),
+            "environment section should not appear"
+        );
+    }
+
+    #[test]
     fn parse_template_handles_frontmatter() {
-        let raw = "---\ntitle_prefix: \"[Test] \"\nlabel: test-label\n---\n\nBody content";
+        let raw = "---\ntitle_prefix: [Test]\nlabel: test-label\n---\n\nBody content";
         let template = parse_template(raw);
-        assert_eq!(template.title_prefix, "[Test] ");
+        assert_eq!(template.title_prefix, "[Test]");
         assert_eq!(template.label, "test-label");
         assert_eq!(template.body, "Body content");
     }

@@ -1,5 +1,5 @@
 ---
-title_prefix: '[Feature Request] '
+title_prefix: [Feature Request]
 label: enhancement
 ---
 

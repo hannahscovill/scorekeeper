@@ -1,5 +1,5 @@
 ---
-title_prefix: '[Bug Report] '
+title_prefix: [Bug Report]
 label: bug
 ---
 

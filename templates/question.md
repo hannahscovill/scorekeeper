@@ -1,5 +1,5 @@
 ---
-title_prefix: '[Question] '
+title_prefix: [Question]
 label: question
 ---
 
