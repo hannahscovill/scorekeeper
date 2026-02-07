@@ -16,4 +16,9 @@ if [ "$current_dir" != "$main_dir" ]; then
 
   echo "husky - fetching cargo dependencies in $(basename "$current_dir")..."
   cargo fetch
+
+  if [ ! -d .husky/_  ]; then
+    echo "husky - bootstrapping husky runner via infra npm install..."
+    cd infra && npm install && cd ..
+  fi
 fi
