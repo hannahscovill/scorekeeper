@@ -17,7 +17,7 @@ pub mod routes;
 pub mod services;
 pub mod telemetry;
 
-use config::Config;
+use config::{Config, Environment};
 use db::{
     DynamoDbPuzzleRepository, DynamoDbRepository, GameDatabase, InMemoryDb, InMemoryPuzzleDb,
     PuzzleDatabase,
@@ -80,8 +80,10 @@ async fn hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let environment = Environment::from_env();
+
     // Initialize telemetry (OpenTelemetry + tracing)
-    telemetry::init_telemetry();
+    telemetry::init_telemetry(&environment);
 
     let config = Config::from_env();
     let bind_addr = config.bind_address();
@@ -197,9 +199,6 @@ async fn main() -> std::io::Result<()> {
 
     // Initialize GitHub Issue service (requires GitHub App credentials or PAT)
     // Validate that credentials are complete — fail fast on partial config.
-    let is_prod = std::env::var("ENVIRONMENT")
-        .map(|v| v == "prod")
-        .unwrap_or(false);
     let has_app_id = config.github_app_id().is_some();
     let has_installation_id = config.github_installation_id().is_some();
     let has_private_key = config.github_private_key().is_some();
@@ -227,9 +226,9 @@ async fn main() -> std::io::Result<()> {
     }
 
     // In production, fail fast if issue proxy credentials are missing entirely.
-    if is_prod && !all_app_creds && !has_token {
+    if environment.is_production() && !all_app_creds && !has_token {
         panic!(
-            "ENVIRONMENT=prod but GitHub issue proxy credentials are not configured. \
+            "ENVIRONMENT=production but GitHub issue proxy credentials are not configured. \
              Set GITHUB_APP_ID, GITHUB_INSTALLATION_ID, and GITHUB_PRIVATE_KEY \
              (or GITHUB_TOKEN for PAT auth)."
         );

@@ -1,5 +1,6 @@
 //! OpenTelemetry initialization for the scorekeeper service.
 
+use crate::config::Environment;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
@@ -8,16 +9,12 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 
 /// Initialize telemetry (tracing + OpenTelemetry).
 /// Call this at the start of main(), before any other initialization.
-pub fn init_telemetry() {
+pub fn init_telemetry(environment: &Environment) {
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new("info,scorekeeper=debug"));
 
     let otel_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
         .unwrap_or_else(|_| "http://localhost:4317".to_string());
-
-    let is_prod = std::env::var("ENVIRONMENT")
-        .map(|e| e == "production")
-        .unwrap_or(false);
 
     // Build OpenTelemetry exporter
     let exporter = opentelemetry_otlp::SpanExporter::builder()
@@ -35,18 +32,15 @@ pub fn init_telemetry() {
                 "service.version",
                 std::env::var("APP_VERSION").unwrap_or_else(|_| "dev".into()),
             ),
-            KeyValue::new(
-                "deployment.environment",
-                std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".into()),
-            ),
+            KeyValue::new("deployment.environment", environment.as_str()),
         ]))
         .build();
 
     let tracer = tracer_provider.tracer("scorekeeper");
     let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
 
-    // Format layer (JSON for prod, pretty for dev)
-    let fmt_layer = if is_prod {
+    // Format layer (JSON for production, pretty for local dev)
+    let fmt_layer = if environment.is_production() {
         tracing_subscriber::fmt::layer()
             .json()
             .with_target(true)

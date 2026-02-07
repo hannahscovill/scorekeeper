@@ -85,8 +85,7 @@ export class ScorekeeperStack extends cdk.Stack {
     super(scope, id, props);
 
     const environmentName = props?.environmentName ?? 'dev';
-    const isProd = environmentName === 'prod';
-    const desiredCount = props?.desiredCount ?? (isProd ? 2 : 1);
+    const desiredCount = props?.desiredCount ?? 2;
 
     // Look up the existing ECR Repository created by PrerequisiteInfraStack
     const ecrRepository = ecr.Repository.fromRepositoryName(
@@ -147,7 +146,7 @@ export class ScorekeeperStack extends cdk.Stack {
     const vpc = new ec2.Vpc(this, 'ScorekeeperVpc', {
       vpcName: `scorekeeper-vpc-${environmentName}`,
       maxAzs: 2,
-      natGateways: isProd ? 2 : 1,
+      natGateways: 2,
       subnetConfiguration: [
         {
           name: 'Public',
@@ -166,7 +165,7 @@ export class ScorekeeperStack extends cdk.Stack {
     const cluster = new ecs.Cluster(this, 'ScorekeeperCluster', {
       clusterName: `scorekeeper-cluster-${environmentName}`,
       vpc,
-      containerInsightsV2: isProd ? ecs.ContainerInsights.ENABLED : ecs.ContainerInsights.DISABLED,
+      containerInsightsV2: ecs.ContainerInsights.ENABLED,
     });
 
     // Look up Auth0 M2M secret if ARN is provided (required for profile endpoints)
@@ -218,8 +217,8 @@ export class ScorekeeperStack extends cdk.Stack {
           containerName: 'scorekeeper',
           containerPort: 8080,
           environment: {
-            ENVIRONMENT: environmentName,
-            RUST_LOG: isProd ? 'info' : 'debug',
+            ENVIRONMENT: 'production',
+            RUST_LOG: 'info',
             S3_AVATAR_BUCKET: avatarBucket.bucketName,
             S3_COMMON_WORDS_BUCKET: commonWordsBucket.bucketName,
             S3_COMMON_WORDS_KEY: commonWordsKey,
@@ -286,7 +285,7 @@ export class ScorekeeperStack extends cdk.Stack {
           logRetention: logs.RetentionDays.ONE_WEEK,
         }),
         environment: {
-          ENVIRONMENT: environmentName,
+          ENVIRONMENT: 'production',
         },
         secrets: {
           GRAFANA_OTLP_ENDPOINT: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_OTLP_ENDPOINT'),
@@ -326,25 +325,23 @@ export class ScorekeeperStack extends cdk.Stack {
       );
     }
 
-    // Auto-scaling configuration for production
-    if (isProd) {
-      const scaling = fargateService.service.autoScaleTaskCount({
-        minCapacity: 2,
-        maxCapacity: 10,
-      });
+    // Auto-scaling
+    const scaling = fargateService.service.autoScaleTaskCount({
+      minCapacity: 2,
+      maxCapacity: 10,
+    });
 
-      scaling.scaleOnCpuUtilization('CpuScaling', {
-        targetUtilizationPercent: 70,
-        scaleInCooldown: cdk.Duration.seconds(60),
-        scaleOutCooldown: cdk.Duration.seconds(60),
-      });
+    scaling.scaleOnCpuUtilization('CpuScaling', {
+      targetUtilizationPercent: 70,
+      scaleInCooldown: cdk.Duration.seconds(60),
+      scaleOutCooldown: cdk.Duration.seconds(60),
+    });
 
-      scaling.scaleOnMemoryUtilization('MemoryScaling', {
-        targetUtilizationPercent: 70,
-        scaleInCooldown: cdk.Duration.seconds(60),
-        scaleOutCooldown: cdk.Duration.seconds(60),
-      });
-    }
+    scaling.scaleOnMemoryUtilization('MemoryScaling', {
+      targetUtilizationPercent: 70,
+      scaleInCooldown: cdk.Duration.seconds(60),
+      scaleOutCooldown: cdk.Duration.seconds(60),
+    });
 
     // Grant the task execution role permission to pull from ECR
     ecrRepository.grantPull(fargateService.taskDefinition.executionRole!);
