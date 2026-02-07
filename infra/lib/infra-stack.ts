@@ -88,10 +88,6 @@ export class ScorekeeperStack extends cdk.Stack {
     const isProd = environmentName === 'prod';
     const desiredCount = props?.desiredCount ?? (isProd ? 2 : 1);
 
-    // Standardized environment label for telemetry (used in OTEL resource attributes).
-    // "local" = docker-compose / npm run dev, "production" = AWS deployment.
-    const otelEnvironment = isProd ? 'production' : 'local';
-
     // Look up the existing ECR Repository created by PrerequisiteInfraStack
     const ecrRepository = ecr.Repository.fromRepositoryName(
       this,
@@ -222,7 +218,7 @@ export class ScorekeeperStack extends cdk.Stack {
           containerName: 'scorekeeper',
           containerPort: 8080,
           environment: {
-            ENVIRONMENT: otelEnvironment,
+            ENVIRONMENT: 'production',
             RUST_LOG: isProd ? 'info' : 'debug',
             S3_AVATAR_BUCKET: avatarBucket.bucketName,
             S3_COMMON_WORDS_BUCKET: commonWordsBucket.bucketName,
@@ -290,7 +286,7 @@ export class ScorekeeperStack extends cdk.Stack {
           logRetention: logs.RetentionDays.ONE_WEEK,
         }),
         environment: {
-          ENVIRONMENT: otelEnvironment,
+          ENVIRONMENT: 'production',
         },
         secrets: {
           GRAFANA_OTLP_ENDPOINT: ecs.Secret.fromSecretsManager(otelSecrets, 'GRAFANA_OTLP_ENDPOINT'),
