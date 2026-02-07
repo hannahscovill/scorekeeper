@@ -1,0 +1,7 @@
+{
+  "issueType": "bug",
+  "title": "Game doesn't load on mobile Safari",
+  "description": "When I open the game on my iPhone using Safari, the page shows a blank white screen.",
+  "turnstileToken": "0.abc123...",
+  "website": ""
+}

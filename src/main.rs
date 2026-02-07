@@ -24,11 +24,14 @@ use db::{
 };
 use middleware::auth::JwtAuth;
 use routes::{
-    clear_puzzle_cache, create_games, get_game, get_games, get_history, get_profile,
+    clear_puzzle_cache, create_games, create_issue, get_game, get_games, get_history, get_profile,
     get_puzzle_by_date, get_puzzles, health_check, list_games, set_puzzle, submit_guess,
     update_profile, upload_avatar,
 };
-use services::{Auth0ManagementService, CommonWordsService, CommonWordsSource, S3AvatarService};
+use services::{
+    Auth0ManagementService, CommonWordsService, CommonWordsSource, GitHubIssueService,
+    RateLimiter, S3AvatarService,
+};
 
 /// Load TLS configuration from certificate and key files.
 fn load_tls_config(cert_path: &str, key_path: &str) -> std::io::Result<ServerConfig> {
@@ -192,6 +195,53 @@ async fn main() -> std::io::Result<()> {
         None
     };
 
+    // Initialize GitHub Issue service (requires GitHub App credentials or PAT)
+    // Validate that credentials are complete — fail fast on partial config.
+    let has_app_id = config.github_app_id().is_some();
+    let has_installation_id = config.github_installation_id().is_some();
+    let has_private_key = config.github_private_key().is_some();
+    let has_token = config.github_token().is_some();
+    let app_creds = [has_app_id, has_installation_id, has_private_key];
+    let some_app_creds = app_creds.iter().any(|&v| v);
+    let all_app_creds = app_creds.iter().all(|&v| v);
+
+    if some_app_creds && !all_app_creds && !has_token {
+        let missing: Vec<&str> = [
+            (!has_app_id, "GITHUB_APP_ID"),
+            (!has_installation_id, "GITHUB_INSTALLATION_ID"),
+            (!has_private_key, "GITHUB_PRIVATE_KEY / GITHUB_PRIVATE_KEY_FILE"),
+        ]
+        .iter()
+        .filter(|(m, _)| *m)
+        .map(|(_, name)| *name)
+        .collect();
+        panic!(
+            "Partial GitHub App config detected. Missing: {}. \
+             Set all three (GITHUB_APP_ID, GITHUB_INSTALLATION_ID, GITHUB_PRIVATE_KEY) \
+             or remove them all to disable the issue proxy.",
+            missing.join(", ")
+        );
+    }
+
+    let github_issue_service =
+        if all_app_creds || has_token {
+            info!("GitHub Issue service enabled");
+            Some(web::Data::new(GitHubIssueService::new(
+                config.github_app_id().map(|s| s.to_string()),
+                config.github_installation_id().map(|s| s.to_string()),
+                config.github_private_key().map(|s| s.to_string()),
+                config.github_token().map(|s| s.to_string()),
+                config.github_repo().to_string(),
+                config.turnstile_secret_key().map(|s| s.to_string()),
+                config.turnstile_verify_url().to_string(),
+            )))
+        } else {
+            info!("GitHub Issue service disabled (no GitHub credentials configured)");
+            None
+        };
+
+    let issue_rate_limiter = web::Data::new(RateLimiter::new());
+
     let config_for_tls = config.clone();
     let config = web::Data::new(config);
 
@@ -245,6 +295,14 @@ async fn main() -> std::io::Result<()> {
         // Add common words service if configured
         if let Some(ref cws) = common_words_service {
             app = app.app_data(cws.clone());
+        }
+
+        // Only register issue endpoint if GitHub credentials are configured
+        if let Some(ref gh) = github_issue_service {
+            app = app
+                .app_data(gh.clone())
+                .app_data(issue_rate_limiter.clone())
+                .service(create_issue);
         }
 
         // Only register profile endpoints if Auth0 M2M is configured

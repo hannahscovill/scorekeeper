@@ -39,8 +39,12 @@ pub enum AppError {
     NotFound(String),
     /// 422 Validation Error
     ValidationError(Vec<ValidationDetail>),
+    /// 429 Too Many Requests
+    TooManyRequests(String),
     /// 500 Internal Server Error
     InternalError(String),
+    /// 502 Bad Gateway
+    BadGateway(String),
 }
 
 impl AppError {
@@ -69,9 +73,19 @@ impl AppError {
         AppError::ValidationError(details)
     }
 
+    /// Create a 429 Too Many Requests error.
+    pub fn too_many_requests(msg: impl Into<String>) -> Self {
+        AppError::TooManyRequests(msg.into())
+    }
+
     /// Create a 500 Internal Server Error.
     pub fn internal(msg: impl Into<String>) -> Self {
         AppError::InternalError(msg.into())
+    }
+
+    /// Create a 502 Bad Gateway error.
+    pub fn bad_gateway(msg: impl Into<String>) -> Self {
+        AppError::BadGateway(msg.into())
     }
 }
 
@@ -83,7 +97,9 @@ impl fmt::Display for AppError {
             AppError::Forbidden(msg) => write!(f, "Forbidden: {}", msg),
             AppError::NotFound(msg) => write!(f, "Not found: {}", msg),
             AppError::ValidationError(_) => write!(f, "Validation failed"),
+            AppError::TooManyRequests(msg) => write!(f, "Too many requests: {}", msg),
             AppError::InternalError(msg) => write!(f, "Internal server error: {}", msg),
+            AppError::BadGateway(msg) => write!(f, "Bad gateway: {}", msg),
         }
     }
 }
@@ -130,10 +146,28 @@ impl ResponseError for AppError {
                     },
                 })
             }
+            AppError::TooManyRequests(msg) => {
+                HttpResponse::TooManyRequests().json(ErrorResponse {
+                    error: ErrorBody {
+                        code: "TOO_MANY_REQUESTS".to_string(),
+                        message: msg.clone(),
+                        details: None,
+                    },
+                })
+            }
             AppError::InternalError(msg) => {
                 HttpResponse::InternalServerError().json(ErrorResponse {
                     error: ErrorBody {
                         code: "INTERNAL_ERROR".to_string(),
+                        message: msg.clone(),
+                        details: None,
+                    },
+                })
+            }
+            AppError::BadGateway(msg) => {
+                HttpResponse::BadGateway().json(ErrorResponse {
+                    error: ErrorBody {
+                        code: "BAD_GATEWAY".to_string(),
                         message: msg.clone(),
                         details: None,
                     },
@@ -292,6 +326,44 @@ mod tests {
 
         assert_eq!(json["error"]["code"], "INTERNAL_ERROR");
         assert_eq!(json["error"]["message"], "Database connection failed");
+    }
+
+    #[test]
+    fn test_too_many_requests_helper() {
+        let err = AppError::too_many_requests("Rate limit exceeded");
+        assert!(matches!(err, AppError::TooManyRequests(msg) if msg == "Rate limit exceeded"));
+    }
+
+    #[test]
+    fn test_bad_gateway_helper() {
+        let err = AppError::bad_gateway("Upstream service failed");
+        assert!(matches!(err, AppError::BadGateway(msg) if msg == "Upstream service failed"));
+    }
+
+    #[actix_web::test]
+    async fn test_too_many_requests_response() {
+        let err = AppError::too_many_requests("Rate limit exceeded");
+        let response = err.error_response();
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["error"]["code"], "TOO_MANY_REQUESTS");
+        assert_eq!(json["error"]["message"], "Rate limit exceeded");
+    }
+
+    #[actix_web::test]
+    async fn test_bad_gateway_response() {
+        let err = AppError::bad_gateway("Failed to create issue");
+        let response = err.error_response();
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["error"]["code"], "BAD_GATEWAY");
+        assert_eq!(json["error"]["message"], "Failed to create issue");
     }
 
     #[test]

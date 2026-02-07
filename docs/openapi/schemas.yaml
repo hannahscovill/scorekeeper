@@ -524,6 +524,60 @@ CacheClearResponse:
       example: "Puzzle answer cache cleared"
 
 # -----------------------------------------------------------------------------
+# Issue Schemas
+# -----------------------------------------------------------------------------
+
+IssueType:
+  type: string
+  enum:
+    - bug
+    - feature
+    - question
+  description: The type of issue being reported
+
+IssueRequest:
+  type: object
+  required:
+    - issueType
+    - title
+    - description
+    - turnstileToken
+  properties:
+    issueType:
+      $ref: "#/IssueType"
+    title:
+      type: string
+      description: Brief summary of the issue
+      example: "Game doesn't load on mobile Safari"
+    description:
+      type: string
+      description: Detailed description of the issue
+      example: "When I open the game on my iPhone using Safari, the page shows a blank white screen."
+    turnstileToken:
+      type: string
+      description: Cloudflare Turnstile CAPTCHA token
+    website:
+      type: string
+      description: Honeypot field (should be empty for real users)
+      default: ""
+
+IssueReportResponse:
+  type: object
+  required:
+    - issueNumber
+    - issueUrl
+  properties:
+    issueNumber:
+      type: integer
+      description: The GitHub issue number
+      example: 42
+    issueUrl:
+      type: string
+      format: uri
+      description: URL to the created GitHub issue
+      example: "https://github.com/hannahscovill/wordles-with-friends-client-web/issues/42"
+
+# -----------------------------------------------------------------------------
 # Common Schemas
 # -----------------------------------------------------------------------------
 

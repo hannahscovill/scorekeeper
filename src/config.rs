@@ -41,6 +41,20 @@ pub struct Config {
     pub common_words_file_path: Option<String>,
     /// Comma-separated list of admin user IDs (Auth0 subjects).
     pub admin_user_ids: Vec<String>,
+    /// GitHub App ID for issue creation.
+    pub github_app_id: Option<String>,
+    /// GitHub App installation ID.
+    pub github_installation_id: Option<String>,
+    /// GitHub App private key (PEM format, from env var or file).
+    pub github_private_key: Option<String>,
+    /// GitHub personal access token (for local dev).
+    pub github_token: Option<String>,
+    /// GitHub repository (owner/repo) to create issues in.
+    pub github_repo: String,
+    /// Cloudflare Turnstile secret key for CAPTCHA verification.
+    pub turnstile_secret_key: Option<String>,
+    /// Cloudflare Turnstile verification URL.
+    pub turnstile_verify_url: String,
 }
 
 impl Default for Config {
@@ -70,6 +84,14 @@ impl Default for Config {
             s3_common_words_key: None,
             common_words_file_path: None,
             admin_user_ids: Vec::new(),
+            github_app_id: None,
+            github_installation_id: None,
+            github_private_key: None,
+            github_token: None,
+            github_repo: "hannahscovill/wordles-with-friends-client-web".to_string(),
+            turnstile_secret_key: None,
+            turnstile_verify_url: "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+                .to_string(),
         }
     }
 }
@@ -120,6 +142,25 @@ impl Config {
                         .collect()
                 })
                 .unwrap_or_default(),
+            github_app_id: std::env::var("GITHUB_APP_ID").ok().filter(|s| !s.is_empty()),
+            github_installation_id: std::env::var("GITHUB_INSTALLATION_ID").ok().filter(|s| !s.is_empty()),
+            github_private_key: std::env::var("GITHUB_PRIVATE_KEY")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .or_else(|| {
+                    std::env::var("GITHUB_PRIVATE_KEY_FILE")
+                        .ok()
+                        .filter(|s| !s.is_empty())
+                        .and_then(|path| std::fs::read_to_string(&path).ok())
+                }),
+            github_token: std::env::var("GITHUB_TOKEN").ok().filter(|s| !s.is_empty()),
+            github_repo: std::env::var("GITHUB_REPO").unwrap_or_else(|_| {
+                "hannahscovill/wordles-with-friends-client-web".to_string()
+            }),
+            turnstile_secret_key: std::env::var("TURNSTILE_SECRET_KEY").ok().filter(|s| !s.is_empty()),
+            turnstile_verify_url: std::env::var("TURNSTILE_VERIFY_URL").unwrap_or_else(|_| {
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify".to_string()
+            }),
         }
     }
 
@@ -209,6 +250,41 @@ impl Config {
     pub fn is_admin(&self, user_id: &str) -> bool {
         self.admin_user_ids.iter().any(|id| id == user_id)
     }
+
+    /// Returns the GitHub App ID.
+    pub fn github_app_id(&self) -> Option<&str> {
+        self.github_app_id.as_deref()
+    }
+
+    /// Returns the GitHub App installation ID.
+    pub fn github_installation_id(&self) -> Option<&str> {
+        self.github_installation_id.as_deref()
+    }
+
+    /// Returns the GitHub App private key.
+    pub fn github_private_key(&self) -> Option<&str> {
+        self.github_private_key.as_deref()
+    }
+
+    /// Returns the GitHub personal access token.
+    pub fn github_token(&self) -> Option<&str> {
+        self.github_token.as_deref()
+    }
+
+    /// Returns the GitHub repository (owner/repo).
+    pub fn github_repo(&self) -> &str {
+        &self.github_repo
+    }
+
+    /// Returns the Turnstile secret key.
+    pub fn turnstile_secret_key(&self) -> Option<&str> {
+        self.turnstile_secret_key.as_deref()
+    }
+
+    /// Returns the Turnstile verification URL.
+    pub fn turnstile_verify_url(&self) -> &str {
+        &self.turnstile_verify_url
+    }
 }
 
 #[cfg(test)]
@@ -251,6 +327,19 @@ mod tests {
         assert!(config.s3_common_words_key.is_none());
         assert!(config.common_words_file_path.is_none());
         assert!(config.admin_user_ids.is_empty());
+        assert!(config.github_app_id.is_none());
+        assert!(config.github_installation_id.is_none());
+        assert!(config.github_private_key.is_none());
+        assert!(config.github_token.is_none());
+        assert_eq!(
+            config.github_repo,
+            "hannahscovill/wordles-with-friends-client-web"
+        );
+        assert!(config.turnstile_secret_key.is_none());
+        assert_eq!(
+            config.turnstile_verify_url,
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+        );
     }
 
     #[test]
