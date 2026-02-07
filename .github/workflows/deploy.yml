@@ -122,6 +122,25 @@ jobs:
           cache: "npm"
           cache-dependency-path: infra/package-lock.json
 
+      - name: Validate required secrets
+        if: ${{ env.CDK_ACTION != 'destroy' }}
+        run: |
+          MISSING=()
+          # Auth0 M2M (required for profile endpoints)
+          if [[ -z "${{ secrets.AUTH0_M2M_SECRET_ARN }}" ]]; then
+            MISSING+=("AUTH0_M2M_SECRET_ARN")
+          fi
+          # GitHub App (required for issue proxy)
+          if [[ -z "${{ secrets.WORDLES_GITHUB_APP_SECRET_ARN }}" ]]; then
+            MISSING+=("WORDLES_GITHUB_APP_SECRET_ARN")
+          fi
+          if [[ ${#MISSING[@]} -gt 0 ]]; then
+            echo "::error::Missing required GitHub Actions secrets: ${MISSING[*]}"
+            echo "Configure them in Settings → Secrets and variables → Actions → Secrets"
+            exit 1
+          fi
+          echo "All required secrets are configured."
+
       - name: Install CDK dependencies
         working-directory: infra
         run: npm ci
