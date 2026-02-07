@@ -41,9 +41,7 @@ pub async fn create_issue(
 
     // Validate required fields
     if body.title.trim().is_empty() || body.description.trim().is_empty() {
-        return Err(AppError::bad_request(
-            "Title and description are required",
-        ));
+        return Err(AppError::bad_request("Title and description are required"));
     }
 
     // Honeypot check — if filled, silently return 200
@@ -76,7 +74,11 @@ pub async fn create_issue(
         .create_issue(&body, display_name.as_deref(), &user_id)
         .await?;
 
-    tracing::info!("Created issue #{} from IP {}", response.issue_number, source_ip);
+    tracing::info!(
+        "Created issue #{} from IP {}",
+        response.issue_number,
+        source_ip
+    );
 
     Ok(HttpResponse::Created().json(response))
 }

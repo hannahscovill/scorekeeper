@@ -181,8 +181,13 @@ mod tests {
     fn test_graded_game_response_with_answer_on_loss() {
         let game_id = Uuid::new_v4();
         let moves = vec![grade_guess("crane", "stale")];
-        let game =
-            GradedGame::new(game_id, "auth0|123", moves, false, Some("stale".to_string()));
+        let game = GradedGame::new(
+            game_id,
+            "auth0|123",
+            moves,
+            false,
+            Some("stale".to_string()),
+        );
 
         let json = serde_json::to_string(&game).unwrap();
         assert!(json.contains("\"answer\":\"stale\""));

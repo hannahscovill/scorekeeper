@@ -85,6 +85,7 @@ export class ScorekeeperStack extends cdk.Stack {
     super(scope, id, props);
 
     const environmentName = props?.environmentName ?? 'dev';
+    const isProd = environmentName === 'prod';
     const commitHash = this.node.tryGetContext('commitHash') ?? 'dev-0000000';
     const desiredCount = props?.desiredCount ?? 2;
 
@@ -147,7 +148,7 @@ export class ScorekeeperStack extends cdk.Stack {
     const vpc = new ec2.Vpc(this, 'ScorekeeperVpc', {
       vpcName: `scorekeeper-vpc-${environmentName}`,
       maxAzs: 2,
-      natGateways: 2,
+      natGateways: isProd ? 2 : 1,
       subnetConfiguration: [
         {
           name: 'Public',

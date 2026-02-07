@@ -91,10 +91,10 @@ fn parse_template(raw: &str) -> IssueTemplate {
     let mut body = raw.to_string();
 
     // Parse YAML frontmatter (between --- delimiters)
-    if raw.starts_with("---") {
-        if let Some(end) = raw[3..].find("---") {
-            let frontmatter = &raw[3..3 + end];
-            body = raw[3 + end + 3..].trim_start().to_string();
+    if let Some(stripped) = raw.strip_prefix("---") {
+        if let Some(end) = stripped.find("---") {
+            let frontmatter = &stripped[..end];
+            body = stripped[end + 3..].trim_start().to_string();
 
             for line in frontmatter.lines() {
                 if let Some((key, value)) = line.split_once(':') {
@@ -174,6 +174,12 @@ pub struct RateLimiter {
     requests: Mutex<HashMap<String, Vec<Instant>>>,
 }
 
+impl Default for RateLimiter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RateLimiter {
     pub fn new() -> Self {
         Self {
@@ -213,6 +219,7 @@ pub struct GitHubIssueService {
 }
 
 impl GitHubIssueService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         github_app_id: Option<String>,
         github_installation_id: Option<String>,
@@ -338,9 +345,7 @@ impl GitHubIssueService {
             &self.github_installation_id,
             &self.github_private_key,
         ) {
-            (Some(app_id), Some(installation_id), Some(private_key))
-                if !private_key.is_empty() =>
-            {
+            (Some(app_id), Some(installation_id), Some(private_key)) if !private_key.is_empty() => {
                 self.get_installation_token(app_id, installation_id, private_key)
                     .await
             }
@@ -365,7 +370,11 @@ impl GitHubIssueService {
         // Get GitHub token
         let github_token = self.get_github_token().await?;
 
-        let full_title = format!("{} {}", issue_title_prefix(&request.issue_type), request.title);
+        let full_title = format!(
+            "{} {}",
+            issue_title_prefix(&request.issue_type),
+            request.title
+        );
 
         let create_issue = GitHubCreateIssue {
             title: full_title,
@@ -403,10 +412,9 @@ impl GitHubIssueService {
             return Err(AppError::bad_gateway("Failed to create issue"));
         }
 
-        let issue: GitHubIssueResponse = github_resp
-            .json()
-            .await
-            .map_err(|e| AppError::bad_gateway(format!("Failed to parse GitHub response: {}", e)))?;
+        let issue: GitHubIssueResponse = github_resp.json().await.map_err(|e| {
+            AppError::bad_gateway(format!("Failed to parse GitHub response: {}", e))
+        })?;
 
         tracing::info!("Created issue #{}", issue.number);
 
@@ -442,10 +450,7 @@ mod tests {
             !template.title_prefix.is_empty(),
             "feature template missing title_prefix"
         );
-        assert!(
-            !template.label.is_empty(),
-            "feature template missing label"
-        );
+        assert!(!template.label.is_empty(), "feature template missing label");
         assert!(
             template.body.contains("{description}"),
             "feature template missing {{description}} placeholder"
@@ -471,7 +476,15 @@ mod tests {
 
     #[test]
     fn build_issue_body_replaces_description() {
-        let body = build_issue_body("bug", "Test description here", None, "auth0|test", None, None, None);
+        let body = build_issue_body(
+            "bug",
+            "Test description here",
+            None,
+            "auth0|test",
+            None,
+            None,
+            None,
+        );
         assert!(
             body.contains("Test description here"),
             "description not inserted into body"
@@ -482,10 +495,7 @@ mod tests {
     #[test]
     fn build_issue_body_includes_footer() {
         let body = build_issue_body("bug", "Test", None, "auth0|test", None, None, None);
-        assert!(
-            body.contains("Submitted via"),
-            "footer not appended"
-        );
+        assert!(body.contains("Submitted via"), "footer not appended");
     }
 
     #[test]
@@ -499,7 +509,10 @@ mod tests {
             Some("https://wordles.dev/gamemaker"),
             None,
         );
-        assert!(body.contains("## Environment"), "missing environment section");
+        assert!(
+            body.contains("## Environment"),
+            "missing environment section"
+        );
         assert!(
             body.contains("- Browser: Mozilla/5.0 (Macintosh)"),
             "missing browser info"
@@ -532,12 +545,18 @@ mod tests {
     #[test]
     fn build_issue_body_always_includes_reporter_user_id() {
         let body = build_issue_body("bug", "Test", None, "auth0|xyz789", None, None, None);
-        assert!(body.contains("## Reporter"), "reporter section should always appear");
+        assert!(
+            body.contains("## Reporter"),
+            "reporter section should always appear"
+        );
         assert!(
             body.contains("- User ID: `auth0|xyz789`"),
             "user ID should always be present"
         );
-        assert!(!body.contains("- Name:"), "name should be absent when not provided");
+        assert!(
+            !body.contains("- Name:"),
+            "name should be absent when not provided"
+        );
     }
 
     #[test]
@@ -551,12 +570,20 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_commit_hash() {
-        let body = build_issue_body("bug", "Test", None, "auth0|test", None, None, Some("abc1234"));
-        assert!(body.contains("## Environment"), "missing environment section");
-        assert!(
-            body.contains("- Commit: `abc1234`"),
-            "missing commit hash"
+        let body = build_issue_body(
+            "bug",
+            "Test",
+            None,
+            "auth0|test",
+            None,
+            None,
+            Some("abc1234"),
         );
+        assert!(
+            body.contains("## Environment"),
+            "missing environment section"
+        );
+        assert!(body.contains("- Commit: `abc1234`"), "missing commit hash");
     }
 
     #[test]
@@ -621,10 +648,7 @@ mod tests {
 
     #[test]
     fn issue_title_prefix_matches_template() {
-        assert_eq!(
-            issue_title_prefix("bug"),
-            get_template("bug").title_prefix
-        );
+        assert_eq!(issue_title_prefix("bug"), get_template("bug").title_prefix);
         assert_eq!(
             issue_title_prefix("feature"),
             get_template("feature").title_prefix

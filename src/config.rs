@@ -181,8 +181,12 @@ impl Config {
                         .collect()
                 })
                 .unwrap_or_default(),
-            github_app_id: std::env::var("GITHUB_APP_ID").ok().filter(|s| !s.is_empty()),
-            github_installation_id: std::env::var("GITHUB_INSTALLATION_ID").ok().filter(|s| !s.is_empty()),
+            github_app_id: std::env::var("GITHUB_APP_ID")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            github_installation_id: std::env::var("GITHUB_INSTALLATION_ID")
+                .ok()
+                .filter(|s| !s.is_empty()),
             github_private_key: std::env::var("GITHUB_PRIVATE_KEY")
                 .ok()
                 .filter(|s| !s.is_empty())
@@ -193,10 +197,11 @@ impl Config {
                         .and_then(|path| std::fs::read_to_string(&path).ok())
                 }),
             github_token: std::env::var("GITHUB_TOKEN").ok().filter(|s| !s.is_empty()),
-            github_repo: std::env::var("GITHUB_REPO").unwrap_or_else(|_| {
-                "hannahscovill/wordles-with-friends-client-web".to_string()
-            }),
-            turnstile_secret_key: std::env::var("TURNSTILE_SECRET_KEY").ok().filter(|s| !s.is_empty()),
+            github_repo: std::env::var("GITHUB_REPO")
+                .unwrap_or_else(|_| "hannahscovill/wordles-with-friends-client-web".to_string()),
+            turnstile_secret_key: std::env::var("TURNSTILE_SECRET_KEY")
+                .ok()
+                .filter(|s| !s.is_empty()),
             turnstile_verify_url: std::env::var("TURNSTILE_VERIFY_URL").unwrap_or_else(|_| {
                 "https://challenges.cloudflare.com/turnstile/v0/siteverify".to_string()
             }),

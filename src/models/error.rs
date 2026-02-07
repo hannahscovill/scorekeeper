@@ -146,15 +146,13 @@ impl ResponseError for AppError {
                     },
                 })
             }
-            AppError::TooManyRequests(msg) => {
-                HttpResponse::TooManyRequests().json(ErrorResponse {
-                    error: ErrorBody {
-                        code: "TOO_MANY_REQUESTS".to_string(),
-                        message: msg.clone(),
-                        details: None,
-                    },
-                })
-            }
+            AppError::TooManyRequests(msg) => HttpResponse::TooManyRequests().json(ErrorResponse {
+                error: ErrorBody {
+                    code: "TOO_MANY_REQUESTS".to_string(),
+                    message: msg.clone(),
+                    details: None,
+                },
+            }),
             AppError::InternalError(msg) => {
                 HttpResponse::InternalServerError().json(ErrorResponse {
                     error: ErrorBody {
@@ -164,15 +162,13 @@ impl ResponseError for AppError {
                     },
                 })
             }
-            AppError::BadGateway(msg) => {
-                HttpResponse::BadGateway().json(ErrorResponse {
-                    error: ErrorBody {
-                        code: "BAD_GATEWAY".to_string(),
-                        message: msg.clone(),
-                        details: None,
-                    },
-                })
-            }
+            AppError::BadGateway(msg) => HttpResponse::BadGateway().json(ErrorResponse {
+                error: ErrorBody {
+                    code: "BAD_GATEWAY".to_string(),
+                    message: msg.clone(),
+                    details: None,
+                },
+            }),
         }
     }
 }

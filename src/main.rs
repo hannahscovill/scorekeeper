@@ -29,8 +29,8 @@ use routes::{
     update_profile, upload_avatar,
 };
 use services::{
-    Auth0ManagementService, CommonWordsService, CommonWordsSource, GitHubIssueService,
-    RateLimiter, S3AvatarService,
+    Auth0ManagementService, CommonWordsService, CommonWordsSource, GitHubIssueService, RateLimiter,
+    S3AvatarService,
 };
 
 /// Load TLS configuration from certificate and key files.
@@ -211,7 +211,10 @@ async fn main() -> std::io::Result<()> {
         let missing: Vec<&str> = [
             (!has_app_id, "GITHUB_APP_ID"),
             (!has_installation_id, "GITHUB_INSTALLATION_ID"),
-            (!has_private_key, "GITHUB_PRIVATE_KEY / GITHUB_PRIVATE_KEY_FILE"),
+            (
+                !has_private_key,
+                "GITHUB_PRIVATE_KEY / GITHUB_PRIVATE_KEY_FILE",
+            ),
         ]
         .iter()
         .filter(|(m, _)| *m)
@@ -234,23 +237,22 @@ async fn main() -> std::io::Result<()> {
         );
     }
 
-    let github_issue_service =
-        if all_app_creds || has_token {
-            info!("GitHub Issue service enabled");
-            Some(web::Data::new(GitHubIssueService::new(
-                config.github_app_id().map(|s| s.to_string()),
-                config.github_installation_id().map(|s| s.to_string()),
-                config.github_private_key().map(|s| s.to_string()),
-                config.github_token().map(|s| s.to_string()),
-                config.github_repo().to_string(),
-                config.turnstile_secret_key().map(|s| s.to_string()),
-                config.turnstile_verify_url().to_string(),
-                std::env::var("COMMIT_HASH").ok(),
-            )))
-        } else {
-            info!("GitHub Issue service disabled (no GitHub credentials configured)");
-            None
-        };
+    let github_issue_service = if all_app_creds || has_token {
+        info!("GitHub Issue service enabled");
+        Some(web::Data::new(GitHubIssueService::new(
+            config.github_app_id().map(|s| s.to_string()),
+            config.github_installation_id().map(|s| s.to_string()),
+            config.github_private_key().map(|s| s.to_string()),
+            config.github_token().map(|s| s.to_string()),
+            config.github_repo().to_string(),
+            config.turnstile_secret_key().map(|s| s.to_string()),
+            config.turnstile_verify_url().to_string(),
+            std::env::var("COMMIT_HASH").ok(),
+        )))
+    } else {
+        info!("GitHub Issue service disabled (no GitHub credentials configured)");
+        None
+    };
 
     let issue_rate_limiter = web::Data::new(RateLimiter::new());
 
