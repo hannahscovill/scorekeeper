@@ -37,7 +37,7 @@ pub fn init_telemetry() {
             ),
             KeyValue::new(
                 "deployment.environment",
-                std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".into()),
+                std::env::var("ENVIRONMENT").unwrap_or_else(|_| "local".into()),
             ),
         ]))
         .build();

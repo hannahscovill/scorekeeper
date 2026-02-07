@@ -4,24 +4,16 @@ services:
     container_name: otel-collector
     command: ["--config=/etc/otel/config.yaml"]
     volumes:
-      - ./collector/otel-collector-config-dev.yaml:/etc/otel/config.yaml
+      - ./collector/otel-collector-config.yaml:/etc/otel/config.yaml
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
       - "13133:13133" # Health check
-    networks:
-      - scorekeeper-network
-    depends_on:
-      - jaeger
-
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: jaeger
-    ports:
-      - "16686:16686" # Jaeger UI
-      - "14268:14268" # Jaeger collector
     environment:
-      - COLLECTOR_OTLP_ENABLED=true
+      - ENVIRONMENT=local
+      - GRAFANA_OTLP_ENDPOINT=${GRAFANA_OTLP_ENDPOINT}
+      - GRAFANA_INSTANCE_ID=${GRAFANA_INSTANCE_ID}
+      - GRAFANA_API_KEY=${GRAFANA_API_KEY}
     networks:
       - scorekeeper-network
 
@@ -92,7 +84,7 @@ services:
       - RUST_LOG=debug
       - TLS_ENABLED=false
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - ENVIRONMENT=development
+      - ENVIRONMENT=local
       - APP_VERSION=dev
       # - TLS_CERT_PATH=/app/certs/cert.pem
       # - TLS_KEY_PATH=/app/certs/key.pem
