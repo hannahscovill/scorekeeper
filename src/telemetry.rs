@@ -30,7 +30,7 @@ pub fn init_telemetry(environment: &Environment) {
             KeyValue::new("service.name", "scorekeeper"),
             KeyValue::new(
                 "service.version",
-                std::env::var("APP_VERSION").unwrap_or_else(|_| "dev".into()),
+                std::env::var("COMMIT_HASH").unwrap_or_else(|_| "dev-0000000".into()),
             ),
             KeyValue::new("deployment.environment", environment.as_str()),
         ]))
