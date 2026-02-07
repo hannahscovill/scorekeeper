@@ -1,0 +1,24 @@
+# Auto-setup new worktrees: copy .env and fetch cargo dependencies
+# git worktree add passes: prev_HEAD new_HEAD branch_flag
+# branch_flag=1 for branch checkout, also set for worktree creation
+
+main_worktree="$(git rev-parse --path-format=absolute --git-common-dir)/.."
+
+# Only run when the current directory is NOT the main worktree (i.e. we're in a new worktree)
+current_dir="$(pwd)"
+main_dir="$(cd "$main_worktree" && pwd)"
+
+if [ "$current_dir" != "$main_dir" ]; then
+  if [ ! -f .env ] && [ -f "$main_dir/.env" ]; then
+    cp "$main_dir/.env" .env
+    echo "husky - copied .env from main worktree to $(basename "$current_dir")"
+  fi
+
+  echo "husky - fetching cargo dependencies in $(basename "$current_dir")..."
+  cargo fetch
+
+  if [ ! -d .husky/_  ]; then
+    echo "husky - bootstrapping husky runner via infra npm install..."
+    cd infra && npm install && cd ..
+  fi
+fi
