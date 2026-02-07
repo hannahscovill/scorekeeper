@@ -2,6 +2,42 @@
 
 use serde::Deserialize;
 
+/// Deployment environment — parsed once from the `ENVIRONMENT` env var.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Environment {
+    /// Local development (docker-compose, cargo run, npm run dev).
+    Local,
+    /// AWS production deployment.
+    Production,
+}
+
+impl Environment {
+    /// Parse from the `ENVIRONMENT` env var. Defaults to `Local`.
+    pub fn from_env() -> Self {
+        match std::env::var("ENVIRONMENT").as_deref() {
+            Ok("production") => Self::Production,
+            _ => Self::Local,
+        }
+    }
+
+    pub fn is_production(&self) -> bool {
+        matches!(self, Self::Production)
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::Production => "production",
+        }
+    }
+}
+
+impl std::fmt::Display for Environment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// Server configuration settings.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
