@@ -55,8 +55,11 @@ pub async fn create_issue(
         })));
     }
 
-    // Resolve reporter info from JWT claims + Auth0 user profile
+    // Validate user identity from JWT claims
     let user_id = claims.sub.clone();
+    if user_id.is_empty() {
+        return Err(AppError::bad_request("User ID is required"));
+    }
     let display_name = match auth0_service.get_user(&user_id).await {
         Ok(user) => user
             .user_metadata
@@ -70,7 +73,7 @@ pub async fn create_issue(
 
     // Delegate to service (Turnstile verification + GitHub API call)
     let response = service
-        .create_issue(&body, display_name.as_deref(), Some(&user_id))
+        .create_issue(&body, display_name.as_deref(), &user_id)
         .await?;
 
     tracing::info!("Created issue #{} from IP {}", response.issue_number, source_ip);

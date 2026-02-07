@@ -245,6 +245,7 @@ async fn main() -> std::io::Result<()> {
                 config.github_repo().to_string(),
                 config.turnstile_secret_key().map(|s| s.to_string()),
                 config.turnstile_verify_url().to_string(),
+                std::env::var("COMMIT_HASH").ok(),
             )))
         } else {
             info!("GitHub Issue service disabled (no GitHub credentials configured)");

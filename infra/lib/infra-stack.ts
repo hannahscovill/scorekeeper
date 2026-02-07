@@ -85,6 +85,7 @@ export class ScorekeeperStack extends cdk.Stack {
     super(scope, id, props);
 
     const environmentName = props?.environmentName ?? 'dev';
+    const commitHash = this.node.tryGetContext('commitHash') ?? 'dev-0000000';
     const desiredCount = props?.desiredCount ?? 2;
 
     // Look up the existing ECR Repository created by PrerequisiteInfraStack
@@ -226,7 +227,7 @@ export class ScorekeeperStack extends cdk.Stack {
             AWS_REGION: this.region,
             // OTel configuration - collector sidecar on localhost
             OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4317',
-            APP_VERSION: 'latest',
+            COMMIT_HASH: commitHash,
           },
           // Secrets injected into the container at runtime
           secrets: {
