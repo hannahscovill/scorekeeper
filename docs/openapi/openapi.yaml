@@ -281,6 +281,10 @@ paths:
       description: |
         Create a GitHub issue on behalf of an authenticated user.
 
+        The reporter's user ID is extracted from the JWT and included in the
+        issue body. Display name is resolved from the Auth0 user profile when
+        available. The server's deploy commit hash is also included.
+
         Includes Turnstile CAPTCHA verification, honeypot spam detection,
         and per-IP rate limiting (5 issues per hour).
       operationId: createIssue

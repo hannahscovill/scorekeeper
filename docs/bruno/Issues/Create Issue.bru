@@ -25,12 +25,17 @@ body:json {
     "title": "Game doesn't load on mobile Safari",
     "description": "When I open the game on my iPhone using Safari, the page shows a blank white screen.",
     "turnstileToken": "0.test-token",
-    "website": ""
+    "website": "",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+    "pageUrl": "https://wordles.dev/play"
   }
 }
 
 docs {
   Submit an issue report. Creates a GitHub issue on behalf of the authenticated user.
+
+  The reporter's user ID (from JWT) and display name (from Auth0 profile) are
+  included in the issue body. The server's deploy commit hash is also included.
 
   ## Authentication
   Requires a valid Bearer token (inherited from collection).
@@ -41,6 +46,8 @@ docs {
   - `description` (string, required): Detailed description
   - `turnstileToken` (string, required): Cloudflare Turnstile CAPTCHA token
   - `website` (string, optional): Honeypot field — should always be empty
+  - `userAgent` (string, optional): Browser user-agent string
+  - `pageUrl` (string, optional): URL of the page the user was on
 
   ## Responses
   - `201`: Issue created successfully
@@ -50,7 +57,7 @@ docs {
       "issueUrl": "https://github.com/hannahscovill/wordles-with-friends-client-web/issues/42"
     }
     ```
-  - `400`: Invalid request (empty title or description)
+  - `400`: Invalid request (empty title/description or missing user ID)
   - `401`: Authentication required or invalid token
   - `403`: Turnstile verification failed
   - `429`: Rate limit exceeded (5 issues per IP per hour)

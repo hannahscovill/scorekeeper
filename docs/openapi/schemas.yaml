@@ -560,6 +560,12 @@ IssueRequest:
       type: string
       description: Honeypot field (should be empty for real users)
       default: ""
+    userAgent:
+      type: string
+      description: Browser user-agent string (included in the issue's Environment section)
+    pageUrl:
+      type: string
+      description: URL of the page the user was on when reporting the issue
 
 IssueReportResponse:
   type: object
