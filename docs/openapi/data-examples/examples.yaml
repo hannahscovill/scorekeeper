@@ -101,6 +101,25 @@ AvatarUploadResponse:
     $ref: "./AvatarUploadResponse.json"
 
 # -----------------------------------------------------------------------------
+# Issue Examples
+# -----------------------------------------------------------------------------
+
+IssueRequestBug:
+  summary: Bug report submission
+  value:
+    $ref: "./IssueRequestBug.json"
+
+IssueRequestFeature:
+  summary: Feature request submission
+  value:
+    $ref: "./IssueRequestFeature.json"
+
+IssueReportResponse:
+  summary: Issue creation response
+  value:
+    $ref: "./IssueReportResponse.json"
+
+# -----------------------------------------------------------------------------
 # Team Examples
 # -----------------------------------------------------------------------------
 

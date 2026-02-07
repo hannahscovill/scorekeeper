@@ -1,0 +1,57 @@
+meta {
+  name: Create Issue
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://{{baseUrl}}/issues
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Origin: http://localhost:3000
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "issueType": "bug",
+    "title": "Game doesn't load on mobile Safari",
+    "description": "When I open the game on my iPhone using Safari, the page shows a blank white screen.",
+    "turnstileToken": "0.test-token",
+    "website": ""
+  }
+}
+
+docs {
+  Submit an issue report. Creates a GitHub issue on behalf of the authenticated user.
+
+  ## Authentication
+  Requires a valid Bearer token (inherited from collection).
+
+  ## Request Body
+  - `issueType` (string, required): One of "bug", "feature", or "question"
+  - `title` (string, required): Brief summary of the issue
+  - `description` (string, required): Detailed description
+  - `turnstileToken` (string, required): Cloudflare Turnstile CAPTCHA token
+  - `website` (string, optional): Honeypot field — should always be empty
+
+  ## Responses
+  - `201`: Issue created successfully
+    ```json
+    {
+      "issueNumber": 42,
+      "issueUrl": "https://github.com/hannahscovill/wordles-with-friends-client-web/issues/42"
+    }
+    ```
+  - `400`: Invalid request (empty title or description)
+  - `401`: Authentication required or invalid token
+  - `403`: Turnstile verification failed
+  - `429`: Rate limit exceeded (5 issues per IP per hour)
+}

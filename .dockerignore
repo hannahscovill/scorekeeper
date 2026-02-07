@@ -16,9 +16,10 @@ target/
 Dockerfile
 .dockerignore
 
-# Documentation
-*.md
-README*
+# Documentation (exclude root markdown but keep templates/)
+/README*
+/CHANGELOG*
+/CONTRIBUTING*
 
 # CI/CD
 .github/

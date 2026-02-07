@@ -15,6 +15,9 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs
 # Build dependencies only (includes running build.rs)
 RUN cargo build --release && rm -rf src
 
+# Copy templates (used by include_str! in github_issues.rs)
+COPY templates ./templates
+
 # Copy actual source code
 COPY src ./src
 
