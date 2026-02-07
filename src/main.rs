@@ -197,6 +197,9 @@ async fn main() -> std::io::Result<()> {
 
     // Initialize GitHub Issue service (requires GitHub App credentials or PAT)
     // Validate that credentials are complete — fail fast on partial config.
+    let is_prod = std::env::var("ENVIRONMENT")
+        .map(|v| v == "prod")
+        .unwrap_or(false);
     let has_app_id = config.github_app_id().is_some();
     let has_installation_id = config.github_installation_id().is_some();
     let has_private_key = config.github_private_key().is_some();
@@ -220,6 +223,15 @@ async fn main() -> std::io::Result<()> {
              Set all three (GITHUB_APP_ID, GITHUB_INSTALLATION_ID, GITHUB_PRIVATE_KEY) \
              or remove them all to disable the issue proxy.",
             missing.join(", ")
+        );
+    }
+
+    // In production, fail fast if issue proxy credentials are missing entirely.
+    if is_prod && !all_app_creds && !has_token {
+        panic!(
+            "ENVIRONMENT=prod but GitHub issue proxy credentials are not configured. \
+             Set GITHUB_APP_ID, GITHUB_INSTALLATION_ID, and GITHUB_PRIVATE_KEY \
+             (or GITHUB_TOKEN for PAT auth)."
         );
     }
 
