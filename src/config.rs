@@ -12,10 +12,13 @@ pub enum Environment {
 }
 
 impl Environment {
+    const LOCAL: &str = "local";
+    const PRODUCTION: &str = "production";
+
     /// Parse from the `ENVIRONMENT` env var. Defaults to `Local`.
     pub fn from_env() -> Self {
         match std::env::var("ENVIRONMENT").as_deref() {
-            Ok("production") => Self::Production,
+            Ok(Self::PRODUCTION) => Self::Production,
             _ => Self::Local,
         }
     }
@@ -26,8 +29,8 @@ impl Environment {
 
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Local => "local",
-            Self::Production => "production",
+            Self::Local => Self::LOCAL,
+            Self::Production => Self::PRODUCTION,
         }
     }
 }
