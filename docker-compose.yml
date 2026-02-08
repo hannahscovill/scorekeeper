@@ -76,7 +76,8 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8080
-      - AUTH0_DOMAIN=dev-g32naui5mvpwnsg7.us.auth0.com
+      # - AUTH0_DOMAIN=dev-g32naui5mvpwnsg7.us.auth0.com
+      - AUTH0_DOMAIN=scovill.us.auth0.com
       - AUTH0_AUDIENCE=com.hannahscovill.scorekeeper
       - AUTH0_M2M_CLIENT_ID=${AUTH0_M2M_CLIENT_ID}
       - AUTH0_M2M_CLIENT_SECRET=${AUTH0_M2M_CLIENT_SECRET}
