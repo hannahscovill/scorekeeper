@@ -14,8 +14,14 @@ if [ "$current_dir" != "$main_dir" ]; then
     echo "husky - copied .env from main worktree to $(basename "$current_dir")"
   fi
 
-  echo "husky - fetching cargo dependencies in $(basename "$current_dir")..."
-  cargo fetch
+  if [ -f "$main_dir/.claude/settings.local.json" ]; then
+    mkdir -p .claude
+    cp "$main_dir/.claude/settings.local.json" .claude/settings.local.json
+    echo "husky - copied .claude/settings.local.json from main worktree to $(basename "$current_dir")"
+  fi
+
+  echo "husky - fetching and building cargo dependencies in $(basename "$current_dir")..."
+  cargo build
 
   if [ ! -d .husky/_  ]; then
     echo "husky - bootstrapping husky runner via infra npm install..."
