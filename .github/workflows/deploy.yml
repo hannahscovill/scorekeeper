@@ -51,7 +51,7 @@
 #    - IAM limited access (for CDK to create/update roles)
 #    - VPC/EC2 permissions (for CDK infrastructure)
 #    - S3 access (for CDK assets bucket)
-#    - secretsmanager:DescribeSecret on wordles/scorekeeper/*
+#    - secretsmanager:GetSecretValue on wordles/scorekeeper/*
 
 name: Deploy
 
@@ -113,7 +113,7 @@ jobs:
       - name: Fetch secret ARNs from Secrets Manager
         if: ${{ env.CDK_ACTION != 'destroy' }}
         run: |
-          arn() { aws secretsmanager describe-secret --secret-id "$1" --query ARN --output text 2>/dev/null || echo ""; }
+          arn() { aws secretsmanager get-secret-value --secret-id "$1" --query ARN --output text 2>/dev/null || echo ""; }
 
           AUTH0_M2M_ARN=$(arn wordles/scorekeeper/auth0-m2m)
           GITHUB_APP_ARN=$(arn wordles/scorekeeper/github-app)
