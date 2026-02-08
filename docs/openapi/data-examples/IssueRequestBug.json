@@ -3,5 +3,10 @@
   "title": "Game doesn't load on mobile Safari",
   "description": "When I open the game on my iPhone using Safari, the page shows a blank white screen.",
   "turnstileToken": "0.abc123...",
-  "website": ""
+  "website": "",
+  "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+  "pageUrl": "https://wordles.dev/play",
+  "posthogSessionId": "019470a2-b3c4-7d8e-9f0a-1b2c3d4e5f6a",
+  "clientEnvironmentName": "production",
+  "clientCommitHash": "a1b2c3d"
 }

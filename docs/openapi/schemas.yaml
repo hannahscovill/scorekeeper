@@ -562,10 +562,19 @@ IssueRequest:
       default: ""
     userAgent:
       type: string
-      description: Browser user-agent string (included in the issue's Environment section)
+      description: Browser user-agent string (included in the issue's Client environment section)
     pageUrl:
       type: string
       description: URL of the page the user was on when reporting the issue
+    posthogSessionId:
+      type: string
+      description: PostHog session ID for correlating issue reports with session replays
+    clientEnvironmentName:
+      type: string
+      description: Client deployment environment name (e.g. "local", "production")
+    clientCommitHash:
+      type: string
+      description: Client git commit hash at build time
 
 IssueReportResponse:
   type: object

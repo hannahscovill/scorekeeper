@@ -27,6 +27,12 @@ pub struct IssueRequest {
     pub user_agent: Option<String>,
     #[serde(default)]
     pub page_url: Option<String>,
+    #[serde(default)]
+    pub posthog_session_id: Option<String>,
+    #[serde(default)]
+    pub client_environment_name: Option<String>,
+    #[serde(default)]
+    pub client_commit_hash: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -130,30 +136,62 @@ fn build_issue_body(
     description: &str,
     reporter_display_name: Option<&str>,
     reporter_user_id: &str,
+    posthog_session_id: Option<&str>,
     user_agent: Option<&str>,
     page_url: Option<&str>,
-    commit_hash: Option<&str>,
+    client_environment_name: Option<&str>,
+    client_commit_hash: Option<&str>,
+    server_environment_name: Option<&str>,
+    server_commit_hash: Option<&str>,
 ) -> String {
     let template = get_template(issue_type);
     let body = template.body.replace("{description}", description);
     let mut result = body.trim_end().to_string();
 
+    // Reporter section
     result.push_str("\n\n## Reporter\n");
     if let Some(name) = reporter_display_name {
-        result.push_str(&format!("- Name: {}\n", name));
+        result.push_str(&format!("- Display Name: {}\n", name));
     }
     result.push_str(&format!("- User ID: `{}`\n", reporter_user_id));
+    if let Some(session_id) = posthog_session_id {
+        result.push_str(&format!("- Posthog Session ID: `{}`\n", session_id));
+    }
 
-    if user_agent.is_some() || page_url.is_some() || commit_hash.is_some() {
-        result.push_str("\n\n## Environment\n");
-        if let Some(ua) = user_agent {
-            result.push_str(&format!("- Browser: {}\n", ua));
+    // Environment section
+    let has_client = user_agent.is_some()
+        || page_url.is_some()
+        || client_environment_name.is_some()
+        || client_commit_hash.is_some();
+    let has_server = server_environment_name.is_some() || server_commit_hash.is_some();
+
+    if has_client || has_server {
+        result.push_str("\n## Environment\n");
+
+        if has_client {
+            result.push_str("\n### Client\n");
+            if let Some(ua) = user_agent {
+                result.push_str(&format!("- Browser: {}\n", ua));
+            }
+            if let Some(url) = page_url {
+                result.push_str(&format!("- URL: {}\n", url));
+            }
+            if let Some(env) = client_environment_name {
+                result.push_str(&format!("- Environment Name: `{}`\n", env));
+            }
+            if let Some(hash) = client_commit_hash {
+                result.push_str(&format!("- Commit Hash: `{}`\n", hash));
+            }
         }
-        if let Some(url) = page_url {
-            result.push_str(&format!("- URL: {}\n", url));
-        }
-        if let Some(hash) = commit_hash {
-            result.push_str(&format!("- Commit: `{}`\n", hash));
+
+        if has_server {
+            result.push_str("\n### Server\n");
+            if let Some(env) = server_environment_name {
+                result.push_str(&format!("- Environment Name: `{}`\n", env));
+            }
+            if let Some(hash) = server_commit_hash {
+                result.push_str(&format!("- Commit Hash: `{}`\n", hash));
+            }
         }
     }
 
@@ -215,7 +253,8 @@ pub struct GitHubIssueService {
     github_repo: String,
     turnstile_secret_key: Option<String>,
     turnstile_verify_url: String,
-    commit_hash: Option<String>,
+    server_commit_hash: Option<String>,
+    server_environment_name: Option<String>,
 }
 
 impl GitHubIssueService {
@@ -228,7 +267,8 @@ impl GitHubIssueService {
         github_repo: String,
         turnstile_secret_key: Option<String>,
         turnstile_verify_url: String,
-        commit_hash: Option<String>,
+        server_commit_hash: Option<String>,
+        server_environment_name: Option<String>,
     ) -> Self {
         Self {
             client: reqwest::Client::new(),
@@ -239,7 +279,8 @@ impl GitHubIssueService {
             github_repo,
             turnstile_secret_key,
             turnstile_verify_url,
-            commit_hash,
+            server_commit_hash,
+            server_environment_name,
         }
     }
 
@@ -383,9 +424,13 @@ impl GitHubIssueService {
                 &request.description,
                 reporter_display_name,
                 reporter_user_id,
+                request.posthog_session_id.as_deref(),
                 request.user_agent.as_deref(),
                 request.page_url.as_deref(),
-                self.commit_hash.as_deref(),
+                request.client_environment_name.as_deref(),
+                request.client_commit_hash.as_deref(),
+                self.server_environment_name.as_deref(),
+                self.server_commit_hash.as_deref(),
             ),
             labels: vec![issue_label(&request.issue_type)],
         };
@@ -484,6 +529,10 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
+            None,
+            None,
         );
         assert!(
             body.contains("Test description here"),
@@ -494,25 +543,32 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_footer() {
-        let body = build_issue_body("bug", "Test", None, "auth0|test", None, None, None);
+        let body = build_issue_body(
+            "bug", "Test", None, "auth0|test", None, None, None, None, None, None, None,
+        );
         assert!(body.contains("Submitted via"), "footer not appended");
     }
 
     #[test]
-    fn build_issue_body_includes_environment_section() {
+    fn build_issue_body_includes_client_environment_section() {
         let body = build_issue_body(
             "bug",
             "Test",
             None,
             "auth0|test",
+            None,
             Some("Mozilla/5.0 (Macintosh)"),
             Some("https://wordles.dev/gamemaker"),
+            Some("production"),
+            Some("abc1234"),
+            None,
             None,
         );
         assert!(
             body.contains("## Environment"),
             "missing environment section"
         );
+        assert!(body.contains("### Client"), "missing client subsection");
         assert!(
             body.contains("- Browser: Mozilla/5.0 (Macintosh)"),
             "missing browser info"
@@ -520,6 +576,44 @@ mod tests {
         assert!(
             body.contains("- URL: https://wordles.dev/gamemaker"),
             "missing page URL"
+        );
+        assert!(
+            body.contains("- Environment Name: `production`"),
+            "missing client environment name"
+        );
+        assert!(
+            body.contains("- Commit Hash: `abc1234`"),
+            "missing client commit hash"
+        );
+    }
+
+    #[test]
+    fn build_issue_body_includes_server_environment_section() {
+        let body = build_issue_body(
+            "bug",
+            "Test",
+            None,
+            "auth0|test",
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some("production"),
+            Some("def5678"),
+        );
+        assert!(
+            body.contains("## Environment"),
+            "missing environment section"
+        );
+        assert!(body.contains("### Server"), "missing server subsection");
+        assert!(
+            body.contains("- Environment Name: `production`"),
+            "missing server environment name"
+        );
+        assert!(
+            body.contains("- Commit Hash: `def5678`"),
+            "missing server commit hash"
         );
     }
 
@@ -530,21 +624,34 @@ mod tests {
             "Test",
             Some("Hannah"),
             "auth0|abc123",
+            Some("posthog-session-123"),
+            None,
+            None,
+            None,
             None,
             None,
             None,
         );
         assert!(body.contains("## Reporter"), "missing reporter section");
-        assert!(body.contains("- Name: Hannah"), "missing reporter name");
+        assert!(
+            body.contains("- Display Name: Hannah"),
+            "missing reporter display name"
+        );
         assert!(
             body.contains("- User ID: `auth0|abc123`"),
             "missing reporter user ID"
+        );
+        assert!(
+            body.contains("- Posthog Session ID: `posthog-session-123`"),
+            "missing posthog session ID"
         );
     }
 
     #[test]
     fn build_issue_body_always_includes_reporter_user_id() {
-        let body = build_issue_body("bug", "Test", None, "auth0|xyz789", None, None, None);
+        let body = build_issue_body(
+            "bug", "Test", None, "auth0|xyz789", None, None, None, None, None, None, None,
+        );
         assert!(
             body.contains("## Reporter"),
             "reporter section should always appear"
@@ -554,14 +661,16 @@ mod tests {
             "user ID should always be present"
         );
         assert!(
-            !body.contains("- Name:"),
-            "name should be absent when not provided"
+            !body.contains("- Display Name:"),
+            "display name should be absent when not provided"
         );
     }
 
     #[test]
     fn build_issue_body_omits_environment_when_absent() {
-        let body = build_issue_body("bug", "Test", None, "auth0|test", None, None, None);
+        let body = build_issue_body(
+            "bug", "Test", None, "auth0|test", None, None, None, None, None, None, None,
+        );
         assert!(
             !body.contains("## Environment"),
             "environment section should not appear"
@@ -569,21 +678,36 @@ mod tests {
     }
 
     #[test]
-    fn build_issue_body_includes_commit_hash() {
+    fn build_issue_body_includes_both_client_and_server() {
         let body = build_issue_body(
             "bug",
             "Test",
-            None,
-            "auth0|test",
-            None,
-            None,
-            Some("abc1234"),
+            Some("hannah"),
+            "auth0|123abc",
+            Some("posthog-session-id"),
+            Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"),
+            Some("http://localhost:3000/profile"),
+            Some("production"),
+            Some("123abc0"),
+            Some("production"),
+            Some("123abc0"),
+        );
+        assert!(body.contains("## Reporter"), "missing reporter section");
+        assert!(
+            body.contains("- Display Name: hannah"),
+            "missing display name"
         );
         assert!(
-            body.contains("## Environment"),
-            "missing environment section"
+            body.contains("- User ID: `auth0|123abc`"),
+            "missing user ID"
         );
-        assert!(body.contains("- Commit: `abc1234`"), "missing commit hash");
+        assert!(
+            body.contains("- Posthog Session ID: `posthog-session-id`"),
+            "missing posthog session ID"
+        );
+        assert!(body.contains("### Client"), "missing client subsection");
+        assert!(body.contains("### Server"), "missing server subsection");
+        assert!(body.contains("Submitted via"), "missing footer");
     }
 
     #[test]
