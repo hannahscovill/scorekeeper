@@ -447,13 +447,13 @@ export class GitHubActionsRoleStack extends cdk.Stack {
       })
     );
 
-    // Secrets Manager - Auth0 M2M credentials
+    // Secrets Manager - scorekeeper secrets (Auth0 M2M, GitHub App, Turnstile, OTel)
     role.addToPolicy(
       new iam.PolicyStatement({
         sid: 'SecretsManager',
         effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
-        resources: [`arn:aws:secretsmanager:*:${this.account}:secret:scorekeeper/*`],
+        resources: [`arn:aws:secretsmanager:*:${this.account}:secret:wordles/scorekeeper/*`],
       })
     );
 
