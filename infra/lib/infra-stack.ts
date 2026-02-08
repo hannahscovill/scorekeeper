@@ -11,7 +11,6 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -61,10 +60,11 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
   readonly githubAppSecretArn?: string;
 
   /**
-   * SSM parameter name for the Turnstile secret key (used for issue proxy CAPTCHA).
-   * @default '/wordles/turnstile-secret-key'
+   * ARN of the Secrets Manager secret containing the Turnstile secret key.
+   * The secret should be a JSON object with a 'secret-key' field.
+   * If not provided, CAPTCHA verification will not be available.
    */
-  readonly turnstileSsmParamName?: string;
+  readonly turnstileSecretArn?: string;
 
   /**
    * ARN of the Secrets Manager secret containing OTel collector secrets.
@@ -181,14 +181,10 @@ export class ScorekeeperStack extends cdk.Stack {
       ? secretsmanager.Secret.fromSecretCompleteArn(this, 'GitHubAppSecret', githubAppSecretArn)
       : undefined;
 
-    // Look up Turnstile SSM parameter (for issue proxy CAPTCHA verification)
-    const turnstileSsmParamName = props?.turnstileSsmParamName
-      ?? this.node.tryGetContext('turnstileSsmParamName')
-      ?? '/wordles/turnstile-secret-key';
-    const turnstileParam = githubAppSecret
-      ? ssm.StringParameter.fromSecureStringParameterAttributes(this, 'TurnstileSecretKey', {
-          parameterName: turnstileSsmParamName,
-        })
+    // Look up Turnstile secret if ARN is provided (for issue proxy CAPTCHA verification)
+    const turnstileSecretArn = props?.turnstileSecretArn ?? this.node.tryGetContext('turnstileSecretArn');
+    const turnstileSecret = turnstileSecretArn
+      ? secretsmanager.Secret.fromSecretCompleteArn(this, 'TurnstileSecret', turnstileSecretArn)
       : undefined;
 
     // Look up OTel secrets if ARN is provided (for Grafana Cloud credentials)
@@ -243,8 +239,8 @@ export class ScorekeeperStack extends cdk.Stack {
               GITHUB_PRIVATE_KEY: ecs.Secret.fromSecretsManager(githubAppSecret, 'privateKey'),
             }),
             // Turnstile CAPTCHA secret for issue proxy
-            ...(turnstileParam && {
-              TURNSTILE_SECRET_KEY: ecs.Secret.fromSsmParameter(turnstileParam),
+            ...(turnstileSecret && {
+              TURNSTILE_SECRET_KEY: ecs.Secret.fromSecretsManager(turnstileSecret, 'secret-key'),
             }),
           },
         },
