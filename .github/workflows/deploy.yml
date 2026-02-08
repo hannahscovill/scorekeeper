@@ -9,24 +9,13 @@
 # AWS_REGION: AWS region to deploy to (e.g., us-west-2)
 # AWS_OIDC_ROLE_ARN: The ARN of the IAM role for GitHub OIDC authentication
 #                    (e.g., arn:aws:iam::123456789012:role/GitHubActions-scorekeeper)
-# AUTH0_M2M_SECRET_ARN: The ARN of the Secrets Manager secret containing Auth0 M2M credentials
-#                       (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:scorekeeper/auth0-m2m-xxxxx)
-#                       The secret should contain JSON: {"clientId": "...", "clientSecret": "..."}
 #
-# WORDLES_GITHUB_APP_SECRET_ARN: The ARN of the Secrets Manager secret containing GitHub App credentials
-#                         for the issue proxy (e.g., arn:aws:secretsmanager:us-west-2:...:secret:wordles/github-app-xxxxx)
-#                         The secret should contain JSON: {"appId": "...", "installationId": "...", "privateKey": "..."}
-#                         Optional - if not provided, /issues endpoint will be disabled
-#
-# OTEL_SECRETS_ARN: The ARN of the Secrets Manager secret containing Grafana Cloud credentials
-#                   (e.g., arn:aws:secretsmanager:us-west-2:123456789012:secret:otel-collector/grafana-xxxxx)
-#                   The secret should contain JSON:
-#                   {
-#                     "GRAFANA_OTLP_ENDPOINT": "https://otlp-gateway-prod-us-east-0.grafana.net/otlp",
-#                     "GRAFANA_INSTANCE_ID": "123456",
-#                     "GRAFANA_API_KEY": "glc_..."
-#                   }
-#                   Optional - if not provided, collector will use debug exporter only
+# Required AWS Secrets Manager secrets (us-west-2):
+# ---------------------------------------------------------------------------------
+# wordles/scorekeeper/auth0-m2m              → { clientId, clientSecret }  (Auth0 M2M for profile endpoints)
+# wordles/scorekeeper/github-app             → { appId, installationId, privateKey }  (GitHub App for issue proxy)
+# wordles/scorekeeper/turnstyle-secret-key   → { secret-key }  (Cloudflare Turnstile CAPTCHA)
+# wordles/scorekeeper/grafana-otel           → { GRAFANA_OTLP_ENDPOINT, GRAFANA_INSTANCE_ID, GRAFANA_API_KEY }
 #
 # AWS OIDC Setup:
 # ---------------
@@ -63,6 +52,7 @@
 #    - IAM limited access (for CDK to create/update roles)
 #    - VPC/EC2 permissions (for CDK infrastructure)
 #    - S3 access (for CDK assets bucket)
+#    - secretsmanager:GetSecretValue on wordles/scorekeeper/*
 
 name: Deploy
 
@@ -121,24 +111,31 @@ jobs:
           cache: "npm"
           cache-dependency-path: infra/package-lock.json
 
-      - name: Validate required secrets
+      - name: Fetch secret ARNs from Secrets Manager
         if: ${{ env.CDK_ACTION != 'destroy' }}
         run: |
+          arn() { aws secretsmanager get-secret-value --secret-id "$1" --query ARN --output text 2>/dev/null || echo ""; }
+
+          AUTH0_M2M_ARN=$(arn wordles/scorekeeper/auth0-m2m)
+          GITHUB_APP_ARN=$(arn wordles/scorekeeper/github-app)
+          TURNSTILE_ARN=$(arn wordles/scorekeeper/turnstyle-secret-key)
+          OTEL_ARN=$(arn wordles/scorekeeper/grafana-otel)
+
+          # All secrets are required
           MISSING=()
-          # Auth0 M2M (required for profile endpoints)
-          if [[ -z "${{ secrets.AUTH0_M2M_SECRET_ARN }}" ]]; then
-            MISSING+=("AUTH0_M2M_SECRET_ARN")
-          fi
-          # GitHub App (required for issue proxy)
-          if [[ -z "${{ secrets.WORDLES_GITHUB_APP_SECRET_ARN }}" ]]; then
-            MISSING+=("WORDLES_GITHUB_APP_SECRET_ARN")
-          fi
+          [[ -z "$AUTH0_M2M_ARN" ]] && MISSING+=("wordles/scorekeeper/auth0-m2m")
+          [[ -z "$GITHUB_APP_ARN" ]] && MISSING+=("wordles/scorekeeper/github-app")
+          [[ -z "$TURNSTILE_ARN" ]] && MISSING+=("wordles/scorekeeper/turnstyle-secret-key")
+          [[ -z "$OTEL_ARN" ]] && MISSING+=("wordles/scorekeeper/grafana-otel")
           if [[ ${#MISSING[@]} -gt 0 ]]; then
-            echo "::error::Missing required GitHub Actions secrets: ${MISSING[*]}"
-            echo "Configure them in Settings → Secrets and variables → Actions → Secrets"
+            echo "::error::Missing required Secrets Manager secrets: ${MISSING[*]}"
             exit 1
           fi
-          echo "All required secrets are configured."
+
+          echo "AUTH0_M2M_SECRET_ARN=$AUTH0_M2M_ARN" >> "$GITHUB_ENV"
+          echo "GITHUB_APP_SECRET_ARN=$GITHUB_APP_ARN" >> "$GITHUB_ENV"
+          echo "TURNSTILE_SECRET_ARN=$TURNSTILE_ARN" >> "$GITHUB_ENV"
+          echo "OTEL_SECRETS_ARN=$OTEL_ARN" >> "$GITHUB_ENV"
 
       - name: Install CDK dependencies
         working-directory: infra
@@ -192,10 +189,11 @@ jobs:
           npx cdk ${{ env.CDK_ACTION }} ${{ env.CDK_ACTION == 'destroy' && ' --force' || '' }} \
             ScorekeeperStack \
             --require-approval never \
-            -c auth0M2mSecretArn=${{ secrets.AUTH0_M2M_SECRET_ARN }} \
-            -c commitHash=${GITHUB_SHA::7} \
-            ${{ secrets.OTEL_SECRETS_ARN && format('-c otelSecretsArn={0}', secrets.OTEL_SECRETS_ARN) || '' }} \
-            ${{ secrets.WORDLES_GITHUB_APP_SECRET_ARN && format('-c githubAppSecretArn={0}', secrets.WORDLES_GITHUB_APP_SECRET_ARN) || '' }}
+            -c auth0M2mSecretArn=${{ env.AUTH0_M2M_SECRET_ARN }} \
+            -c githubAppSecretArn=${{ env.GITHUB_APP_SECRET_ARN }} \
+            -c turnstileSecretArn=${{ env.TURNSTILE_SECRET_ARN }} \
+            -c otelSecretsArn=${{ env.OTEL_SECRETS_ARN }} \
+            -c commitHash=${GITHUB_SHA::7}
         env:
           CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
           CDK_DEFAULT_REGION: ${{ env.AWS_REGION }}
