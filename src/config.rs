@@ -102,7 +102,8 @@ impl Default for Config {
             host: "0.0.0.0".to_string(),
             port: 8080,
             database_url: None,
-            auth0_domain: "dev-g32naui5mvpwnsg7.us.auth0.com".to_string(),
+            // Dev tenant: "dev-g32naui5mvpwnsg7.us.auth0.com"
+            auth0_domain: "scovill.us.auth0.com".to_string(),
             auth0_audience: "com.hannahscovill.scorekeeper".to_string(),
             auth0_m2m_client_id: None,
             auth0_m2m_client_secret: None,
@@ -154,7 +155,8 @@ impl Config {
                 .unwrap_or(8080),
             database_url: std::env::var("DATABASE_URL").ok(),
             auth0_domain: std::env::var("AUTH0_DOMAIN")
-                .unwrap_or_else(|_| "dev-g32naui5mvpwnsg7.us.auth0.com".to_string()),
+                // Dev tenant: "dev-g32naui5mvpwnsg7.us.auth0.com"
+                .unwrap_or_else(|_| "scovill.us.auth0.com".to_string()),
             auth0_audience: std::env::var("AUTH0_AUDIENCE")
                 .unwrap_or_else(|_| "com.hannahscovill.scorekeeper".to_string()),
             auth0_m2m_client_id: std::env::var("AUTH0_M2M_CLIENT_ID").ok(),
@@ -341,7 +343,7 @@ mod tests {
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 8080);
         assert!(config.database_url.is_none());
-        assert_eq!(config.auth0_domain, "dev-g32naui5mvpwnsg7.us.auth0.com");
+        assert_eq!(config.auth0_domain, "scovill.us.auth0.com");
         assert_eq!(config.auth0_audience, "com.hannahscovill.scorekeeper");
         assert!(config.auth0_m2m_client_id.is_none());
         assert!(config.auth0_m2m_client_secret.is_none());
