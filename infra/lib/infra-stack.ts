@@ -54,7 +54,7 @@ export interface ScorekeeperStackProps extends cdk.StackProps {
 
   /**
    * ARN of the Secrets Manager secret containing GitHub App credentials for the issue proxy.
-   * The secret should be a JSON object with 'appId', 'installationId', and 'privateKey' fields.
+   * The secret should be a JSON object with 'app-id', 'installation-id', and 'private-key' fields.
    * If not provided, the /issues endpoint will not be available.
    */
   readonly githubAppSecretArn?: string;
@@ -234,9 +234,9 @@ export class ScorekeeperStack extends cdk.Stack {
             }),
             // GitHub App credentials for issue proxy
             ...(githubAppSecret && {
-              GITHUB_APP_ID: ecs.Secret.fromSecretsManager(githubAppSecret, 'appId'),
-              GITHUB_INSTALLATION_ID: ecs.Secret.fromSecretsManager(githubAppSecret, 'installationId'),
-              GITHUB_PRIVATE_KEY: ecs.Secret.fromSecretsManager(githubAppSecret, 'privateKey'),
+              GITHUB_APP_ID: ecs.Secret.fromSecretsManager(githubAppSecret, 'app-id'),
+              GITHUB_INSTALLATION_ID: ecs.Secret.fromSecretsManager(githubAppSecret, 'installation-id'),
+              GITHUB_PRIVATE_KEY: ecs.Secret.fromSecretsManager(githubAppSecret, 'private-key'),
             }),
             // Turnstile CAPTCHA secret for issue proxy
             ...(turnstileSecret && {
