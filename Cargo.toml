@@ -35,6 +35,7 @@ futures-util = "0.3"
 async-trait = "0.1"
 base64 = "0.22"
 urlencoding = "2"
+md-5 = "0.10"
 phf = "0.11"
 rand = "0.8"
 

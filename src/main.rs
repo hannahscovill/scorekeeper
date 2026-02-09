@@ -25,8 +25,8 @@ use db::{
 use middleware::auth::JwtAuth;
 use routes::{
     clear_puzzle_cache, create_games, create_issue, get_game, get_games, get_history, get_profile,
-    get_puzzle_by_date, get_puzzles, health_check, list_games, set_puzzle, submit_guess,
-    update_profile, upload_avatar,
+    get_puzzle_by_date, get_puzzles, health_check, list_games, revert_avatar, set_puzzle,
+    submit_guess, update_profile, upload_avatar,
 };
 use services::{
     Auth0ManagementService, CommonWordsService, CommonWordsSource, GitHubIssueService, RateLimiter,
@@ -325,7 +325,10 @@ async fn main() -> std::io::Result<()> {
             if let Some(ref s3) = s3_avatar_service {
                 app = app.app_data(s3.clone());
             }
-            app = app.service(get_profile).service(update_profile);
+            app = app
+                .service(get_profile)
+                .service(update_profile)
+                .service(revert_avatar);
             if s3_avatar_service.is_some() {
                 app = app.service(upload_avatar);
             }
