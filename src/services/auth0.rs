@@ -45,6 +45,10 @@ struct UserMetadataUpdate {
     display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     avatar_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pronouns: Option<String>,
 }
 
 /// User metadata from Auth0.
@@ -54,12 +58,26 @@ pub struct UserMetadata {
     pub display_name: String,
     #[serde(default)]
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub pronouns: Option<String>,
 }
 
 /// Response from Auth0 user endpoints.
+/// Includes both root-level fields and user_metadata.
 #[derive(Debug, Deserialize)]
 pub struct Auth0User {
     pub user_id: String,
+    /// Auth0 root `name` field (often set by identity provider).
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Auth0 root `email` field.
+    #[serde(default)]
+    pub email: Option<String>,
+    /// Auth0 root `picture` field (often a Gravatar/social provider URL).
+    #[serde(default)]
+    pub picture: Option<String>,
     #[serde(default)]
     pub user_metadata: Option<UserMetadata>,
 }
@@ -198,6 +216,8 @@ impl Auth0ManagementService {
         user_id: &str,
         display_name: Option<&str>,
         avatar_url: Option<&str>,
+        name: Option<&str>,
+        pronouns: Option<&str>,
     ) -> Result<Auth0User, AppError> {
         let token = self.get_access_token().await?;
 
@@ -211,6 +231,8 @@ impl Auth0ManagementService {
             user_metadata: UserMetadataUpdate {
                 display_name: display_name.map(|s| s.to_string()),
                 avatar_url: avatar_url.map(|s| s.to_string()),
+                name: name.map(|s| s.to_string()),
+                pronouns: pronouns.map(|s| s.to_string()),
             },
         };
 
@@ -271,20 +293,69 @@ mod tests {
         let metadata = UserMetadataUpdate {
             display_name: Some("Test User".to_string()),
             avatar_url: Some("https://example.com/avatar.png".to_string()),
+            name: Some("Test Name".to_string()),
+            pronouns: Some("they/them".to_string()),
         };
         let json = serde_json::to_string(&metadata).unwrap();
         assert!(json.contains("display_name"));
         assert!(json.contains("Test User"));
         assert!(json.contains("avatar_url"));
         assert!(json.contains("https://example.com/avatar.png"));
+        assert!(json.contains("\"name\""));
+        assert!(json.contains("Test Name"));
+        assert!(json.contains("pronouns"));
+        assert!(json.contains("they/them"));
 
         // Test with None - should be omitted
         let metadata = UserMetadataUpdate {
             display_name: None,
             avatar_url: None,
+            name: None,
+            pronouns: None,
         };
         let json = serde_json::to_string(&metadata).unwrap();
         assert!(!json.contains("display_name"));
         assert!(!json.contains("avatar_url"));
+        assert!(!json.contains("\"name\""));
+        assert!(!json.contains("pronouns"));
+    }
+
+    #[test]
+    fn test_auth0_user_deserialization_with_root_fields() {
+        let json = r#"{
+            "user_id": "auth0|123",
+            "name": "Hannah Scovill",
+            "email": "hannah@example.com",
+            "picture": "https://s.gravatar.com/avatar/abc123",
+            "user_metadata": {
+                "display_name": "hscov",
+                "avatar_url": "avatars/auth0-123/1234567890.jpg",
+                "name": "Hannah",
+                "pronouns": "she/her"
+            }
+        }"#;
+        let user: Auth0User = serde_json::from_str(json).unwrap();
+        assert_eq!(user.user_id, "auth0|123");
+        assert_eq!(user.name, Some("Hannah Scovill".to_string()));
+        assert_eq!(user.email, Some("hannah@example.com".to_string()));
+        assert_eq!(
+            user.picture,
+            Some("https://s.gravatar.com/avatar/abc123".to_string())
+        );
+        let meta = user.user_metadata.unwrap();
+        assert_eq!(meta.display_name, "hscov");
+        assert_eq!(meta.name, Some("Hannah".to_string()));
+        assert_eq!(meta.pronouns, Some("she/her".to_string()));
+    }
+
+    #[test]
+    fn test_auth0_user_deserialization_minimal() {
+        let json = r#"{"user_id": "auth0|456"}"#;
+        let user: Auth0User = serde_json::from_str(json).unwrap();
+        assert_eq!(user.user_id, "auth0|456");
+        assert_eq!(user.name, None);
+        assert_eq!(user.email, None);
+        assert_eq!(user.picture, None);
+        assert!(user.user_metadata.is_none());
     }
 }

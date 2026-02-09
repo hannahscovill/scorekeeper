@@ -1,5 +1,6 @@
 //! User profile route handlers.
-//! All profile data is stored in Auth0 user_metadata.
+//! All user-editable profile data is stored in Auth0 user_metadata to protect
+//! it from being overwritten by social login identity provider syncs.
 
 use actix_multipart::Multipart;
 use actix_web::{get, post, put, web, HttpResponse};
@@ -20,6 +21,10 @@ pub struct UpdateProfileRequest {
     pub display_name: Option<String>,
     #[serde(default)]
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub pronouns: Option<String>,
 }
 
 /// Response from profile endpoints.
@@ -31,6 +36,12 @@ pub struct ProfileResponse {
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pronouns: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
 }
 
 /// Response from avatar upload endpoint.
@@ -66,14 +77,24 @@ pub async fn get_profile(
 ) -> Result<HttpResponse, AppError> {
     let user = auth0_service.get_user(&claims.sub).await?;
 
-    let display_name = user.user_metadata.as_ref().map(|m| m.display_name.clone());
-    let raw_avatar = user.user_metadata.and_then(|m| m.avatar_url);
+    let metadata = user.user_metadata.as_ref();
+    let display_name = metadata.map(|m| m.display_name.clone());
+    let name = metadata.and_then(|m| m.name.clone());
+    let pronouns = metadata.and_then(|m| m.pronouns.clone());
+
+    // Avatar resolution chain: user_metadata.avatar_url → Auth0 root picture → null
+    let raw_avatar = metadata
+        .and_then(|m| m.avatar_url.clone())
+        .or_else(|| user.picture.clone());
     let avatar_url = resolve_avatar(&s3_service, raw_avatar).await;
 
     Ok(HttpResponse::Ok().json(ProfileResponse {
         user_id: user.user_id,
         display_name,
         avatar_url,
+        name,
+        pronouns,
+        email: user.email,
     }))
 }
 
@@ -87,9 +108,13 @@ pub async fn update_profile(
     s3_service: Option<web::Data<S3AvatarService>>,
 ) -> Result<HttpResponse, AppError> {
     // Must have at least one field to update
-    if body.display_name.is_none() && body.avatar_url.is_none() {
+    if body.display_name.is_none()
+        && body.avatar_url.is_none()
+        && body.name.is_none()
+        && body.pronouns.is_none()
+    {
         return Err(AppError::bad_request(
-            "At least one field (displayName or avatarUrl) must be provided",
+            "At least one field (displayName, avatarUrl, name, or pronouns) must be provided",
         ));
     }
 
@@ -98,17 +123,27 @@ pub async fn update_profile(
             &claims.sub,
             body.display_name.as_deref(),
             body.avatar_url.as_deref(),
+            body.name.as_deref(),
+            body.pronouns.as_deref(),
         )
         .await?;
 
-    let display_name = user.user_metadata.as_ref().map(|m| m.display_name.clone());
-    let raw_avatar = user.user_metadata.and_then(|m| m.avatar_url);
+    let metadata = user.user_metadata.as_ref();
+    let display_name = metadata.map(|m| m.display_name.clone());
+    let name = metadata.and_then(|m| m.name.clone());
+    let pronouns = metadata.and_then(|m| m.pronouns.clone());
+    let raw_avatar = metadata
+        .and_then(|m| m.avatar_url.clone())
+        .or_else(|| user.picture.clone());
     let avatar_url = resolve_avatar(&s3_service, raw_avatar).await;
 
     Ok(HttpResponse::Ok().json(ProfileResponse {
         user_id: user.user_id,
         display_name,
         avatar_url,
+        name,
+        pronouns,
+        email: user.email,
     }))
 }
 
@@ -163,7 +198,7 @@ pub async fn upload_avatar(
 
     // Update Auth0 user metadata with the S3 key
     auth0_service
-        .update_user_metadata(&claims.sub, None, Some(&avatar_key))
+        .update_user_metadata(&claims.sub, None, Some(&avatar_key), None, None)
         .await?;
 
     // Generate a pre-signed URL for the response so the frontend can display it immediately
@@ -183,6 +218,8 @@ mod tests {
         let request: UpdateProfileRequest = serde_json::from_str(json).unwrap();
         assert_eq!(request.display_name, Some("Test User".to_string()));
         assert_eq!(request.avatar_url, None);
+        assert_eq!(request.name, None);
+        assert_eq!(request.pronouns, None);
 
         // Test with just avatarUrl
         let json = r#"{"avatarUrl": "https://example.com/avatar.png"}"#;
@@ -193,10 +230,12 @@ mod tests {
             Some("https://example.com/avatar.png".to_string())
         );
 
-        // Test with both fields
-        let json = r#"{"displayName": "Test User", "avatarUrl": "https://example.com/avatar.png"}"#;
+        // Test with all fields
+        let json = r#"{"displayName": "hscov", "name": "Hannah", "pronouns": "she/her", "avatarUrl": "https://example.com/avatar.png"}"#;
         let request: UpdateProfileRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(request.display_name, Some("Test User".to_string()));
+        assert_eq!(request.display_name, Some("hscov".to_string()));
+        assert_eq!(request.name, Some("Hannah".to_string()));
+        assert_eq!(request.pronouns, Some("she/her".to_string()));
         assert_eq!(
             request.avatar_url,
             Some("https://example.com/avatar.png".to_string())
@@ -207,6 +246,8 @@ mod tests {
         let request: UpdateProfileRequest = serde_json::from_str(json).unwrap();
         assert_eq!(request.display_name, None);
         assert_eq!(request.avatar_url, None);
+        assert_eq!(request.name, None);
+        assert_eq!(request.pronouns, None);
     }
 
     #[test]
@@ -215,21 +256,33 @@ mod tests {
             user_id: "auth0|123".to_string(),
             display_name: Some("Test User".to_string()),
             avatar_url: Some("https://example.com/avatar.png".to_string()),
+            name: Some("Test Name".to_string()),
+            pronouns: Some("they/them".to_string()),
+            email: Some("test@example.com".to_string()),
         };
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("userId"));
         assert!(json.contains("displayName"));
         assert!(json.contains("avatarUrl"));
+        assert!(json.contains("\"name\""));
+        assert!(json.contains("pronouns"));
+        assert!(json.contains("email"));
 
         // Test with None fields - should be omitted
         let response = ProfileResponse {
             user_id: "auth0|123".to_string(),
             display_name: None,
             avatar_url: None,
+            name: None,
+            pronouns: None,
+            email: None,
         };
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("userId"));
         assert!(!json.contains("displayName"));
         assert!(!json.contains("avatarUrl"));
+        assert!(!json.contains("\"name\""));
+        assert!(!json.contains("pronouns"));
+        assert!(!json.contains("email"));
     }
 }
