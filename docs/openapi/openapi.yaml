@@ -283,7 +283,12 @@ paths:
 
         The reporter's user ID is extracted from the JWT and included in the
         issue body. Display name is resolved from the Auth0 user profile when
-        available. The server's deploy commit hash is also included.
+        available. PostHog session ID is included for session replay correlation.
+
+        The issue body includes separate Client and Server environment sections.
+        Client metadata (browser, URL, environment name, commit hash) is sent
+        by the frontend. Server metadata (environment name, commit hash) is
+        appended by the backend from its own deployment context.
 
         Includes Turnstile CAPTCHA verification, honeypot spam detection,
         and per-IP rate limiting (5 issues per hour).

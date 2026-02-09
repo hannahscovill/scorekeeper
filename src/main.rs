@@ -248,6 +248,7 @@ async fn main() -> std::io::Result<()> {
             config.turnstile_secret_key().map(|s| s.to_string()),
             config.turnstile_verify_url().to_string(),
             std::env::var("COMMIT_HASH").ok(),
+            Some(environment.as_str().to_string()),
         )))
     } else {
         info!("GitHub Issue service disabled (no GitHub credentials configured)");

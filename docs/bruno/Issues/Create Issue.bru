@@ -27,7 +27,10 @@ body:json {
     "turnstileToken": "0.test-token",
     "website": "",
     "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
-    "pageUrl": "https://wordles.dev/play"
+    "pageUrl": "https://wordles.dev/play",
+    "posthogSessionId": "019470a2-b3c4-7d8e-9f0a-1b2c3d4e5f6a",
+    "clientEnvironmentName": "local",
+    "clientCommitHash": "a1b2c3d"
   }
 }
 
@@ -35,7 +38,10 @@ docs {
   Submit an issue report. Creates a GitHub issue on behalf of the authenticated user.
 
   The reporter's user ID (from JWT) and display name (from Auth0 profile) are
-  included in the issue body. The server's deploy commit hash is also included.
+  included in the issue body. PostHog session ID is included for session replay
+  correlation. The issue body includes separate Client and Server environment
+  sections — client metadata is sent by the frontend, server metadata is
+  appended by the backend from its own deployment context.
 
   ## Authentication
   Requires a valid Bearer token (inherited from collection).
@@ -48,6 +54,9 @@ docs {
   - `website` (string, optional): Honeypot field — should always be empty
   - `userAgent` (string, optional): Browser user-agent string
   - `pageUrl` (string, optional): URL of the page the user was on
+  - `posthogSessionId` (string, optional): PostHog session ID for replay correlation
+  - `clientEnvironmentName` (string, optional): Client deployment environment name
+  - `clientCommitHash` (string, optional): Client git commit hash
 
   ## Responses
   - `201`: Issue created successfully

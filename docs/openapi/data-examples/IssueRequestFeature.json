@@ -3,5 +3,10 @@
   "title": "Add dark mode support",
   "description": "It would be great to have a dark mode option for playing at night.",
   "turnstileToken": "0.abc123...",
-  "website": ""
+  "website": "",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+  "pageUrl": "https://wordles.dev/profile",
+  "posthogSessionId": "019470a2-b3c4-7d8e-9f0a-1b2c3d4e5f6a",
+  "clientEnvironmentName": "production",
+  "clientCommitHash": "a1b2c3d"
 }
