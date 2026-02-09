@@ -7,6 +7,7 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecrAssets from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -96,14 +97,31 @@ export class ScorekeeperStack extends cdk.Stack {
     );
 
     // S3 bucket for avatar uploads (private — accessed via pre-signed URLs)
+    // Public read access is allowed only for the "logo/" prefix (company logos for Auth0).
     const avatarBucketName = props?.avatarBucketName ?? 'scorekeeper-avatars';
     const avatarBucket = new s3.Bucket(this, 'AvatarBucket', {
       bucketName: avatarBucketName,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: true,
+        ignorePublicAcls: true,
+        blockPublicPolicy: false,
+        restrictPublicBuckets: false,
+      }),
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
+
+    // Allow anonymous read access to objects under the "logo/" prefix only
+    avatarBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: 'PublicReadLogos',
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.StarPrincipal()],
+        actions: ['s3:GetObject'],
+        resources: [avatarBucket.arnForObjects('logo/*')],
+      })
+    );
 
     // S3 bucket for common words (private - used for puzzle word selection)
     const commonWordsBucketName = props?.commonWordsBucketName ?? 'scorekeeper-common-words';
