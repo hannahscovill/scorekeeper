@@ -5,7 +5,6 @@
 use actix_multipart::Multipart;
 use actix_web::{get, post, put, web, HttpResponse};
 use futures_util::StreamExt;
-use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -50,15 +49,6 @@ pub struct ProfileResponse {
 #[serde(rename_all = "camelCase")]
 pub struct AvatarUploadResponse {
     pub avatar_url: String,
-}
-
-/// Compute a Gravatar URL for the given email.
-fn gravatar_url(email: &str) -> String {
-    let normalized = email.trim().to_lowercase();
-    let mut hasher = Md5::new();
-    hasher.update(normalized.as_bytes());
-    let hash = hasher.finalize();
-    format!("https://www.gravatar.com/avatar/{:x}?d=mp", hash)
 }
 
 /// Resolve an avatar URL through the S3 service if available.
@@ -217,26 +207,6 @@ pub async fn upload_avatar(
     Ok(HttpResponse::Ok().json(AvatarUploadResponse { avatar_url }))
 }
 
-/// POST /profile/avatar/revert - Revert to Gravatar avatar.
-/// Clears user_metadata.avatar_url so the profile falls back to Auth0 root picture or Gravatar.
-#[post("/profile/avatar/revert")]
-#[instrument(name = "revert_avatar", skip(auth0_service), fields(user_id = %claims.sub))]
-pub async fn revert_avatar(
-    claims: Claims,
-    auth0_service: web::Data<Auth0ManagementService>,
-) -> Result<HttpResponse, AppError> {
-    // Clear avatar_url from user_metadata
-    let user = auth0_service.clear_avatar_url(&claims.sub).await?;
-
-    // Compute fallback: use root picture if available, otherwise Gravatar
-    let avatar_url = user
-        .picture
-        .or_else(|| user.email.as_ref().map(|e| gravatar_url(e)))
-        .unwrap_or_else(|| "https://www.gravatar.com/avatar/?d=mp".to_string());
-
-    Ok(HttpResponse::Ok().json(AvatarUploadResponse { avatar_url }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -314,17 +284,5 @@ mod tests {
         assert!(!json.contains("\"name\""));
         assert!(!json.contains("pronouns"));
         assert!(!json.contains("email"));
-    }
-
-    #[test]
-    fn test_gravatar_url() {
-        // MD5 of "test@example.com" is known
-        let url = gravatar_url("test@example.com");
-        assert!(url.starts_with("https://www.gravatar.com/avatar/"));
-        assert!(url.ends_with("?d=mp"));
-
-        // Whitespace and case should be normalized
-        let url_normalized = gravatar_url("  Test@Example.COM  ");
-        assert_eq!(url, url_normalized);
     }
 }

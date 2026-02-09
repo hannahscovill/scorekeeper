@@ -272,60 +272,6 @@ impl Auth0ManagementService {
         Ok(user)
     }
 
-    /// Clears the avatar_url from a user's metadata in Auth0.
-    /// Sets user_metadata.avatar_url to null so the profile falls back
-    /// to the Auth0 root `picture` field or Gravatar.
-    pub async fn clear_avatar_url(&self, user_id: &str) -> Result<Auth0User, AppError> {
-        let token = self.get_access_token().await?;
-
-        let url = format!(
-            "https://{}/api/v2/users/{}",
-            self.domain,
-            urlencoding::encode(user_id)
-        );
-
-        // Auth0 requires null to clear a user_metadata field
-        let request_body = serde_json::json!({
-            "user_metadata": {
-                "avatar_url": null
-            }
-        });
-
-        debug!("Clearing avatar_url for user: {}", user_id);
-
-        let response = self
-            .client
-            .patch(&url)
-            .bearer_auth(&token)
-            .json(&request_body)
-            .send()
-            .await
-            .map_err(|e| {
-                error!("Failed to update user in Auth0: {}", e);
-                AppError::internal("Failed to communicate with Auth0")
-            })?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            error!("Auth0 clear avatar failed: {} - {}", status, body);
-
-            return match status.as_u16() {
-                404 => Err(AppError::not_found("User not found")),
-                401 | 403 => Err(AppError::internal(
-                    "Auth0 Management API authorization failed",
-                )),
-                _ => Err(AppError::internal("Failed to update user in Auth0")),
-            };
-        }
-
-        let user: Auth0User = response.json().await.map_err(|e| {
-            error!("Failed to parse user update response: {}", e);
-            AppError::internal("Invalid response from Auth0")
-        })?;
-
-        Ok(user)
-    }
 }
 
 #[cfg(test)]

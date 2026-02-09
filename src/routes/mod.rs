@@ -15,5 +15,5 @@ pub use guess::submit_guess;
 pub use health::*;
 pub use history::get_history;
 pub use issues::create_issue;
-pub use profile::{get_profile, revert_avatar, update_profile, upload_avatar};
+pub use profile::{get_profile, update_profile, upload_avatar};
 pub use puzzle::{clear_puzzle_cache, get_puzzle_by_date, get_puzzles, set_puzzle};
