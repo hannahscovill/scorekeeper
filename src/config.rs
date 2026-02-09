@@ -96,15 +96,17 @@ pub struct Config {
     pub turnstile_verify_url: String,
 }
 
+/// Default Auth0 tenant used when `AUTH0_TENANT` is not set.
+const DEFAULT_AUTH0_TENANT: &str = "drivewire";
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             host: "0.0.0.0".to_string(),
             port: 8080,
             database_url: None,
-            // Dev tenant: "dev-g32naui5mvpwnsg7.us.auth0.com"
-            auth0_domain: "drivewire.us.auth0.com".to_string(),
-            auth0_audience: "com.drivewire.scorekeeper".to_string(),
+            auth0_domain: format!("{}.us.auth0.com", DEFAULT_AUTH0_TENANT),
+            auth0_audience: format!("com.{}.scorekeeper", DEFAULT_AUTH0_TENANT),
             auth0_m2m_client_id: None,
             auth0_m2m_client_secret: None,
             tls_enabled: false,
@@ -139,6 +141,9 @@ impl Default for Config {
 impl Config {
     /// Creates a new configuration from environment variables.
     pub fn from_env() -> Self {
+        let tenant =
+            std::env::var("AUTH0_TENANT").unwrap_or_else(|_| DEFAULT_AUTH0_TENANT.to_string());
+
         let default_origins = vec![
             "http://localhost:3000".to_string(),
             "https://localhost:3000".to_string(),
@@ -155,10 +160,9 @@ impl Config {
                 .unwrap_or(8080),
             database_url: std::env::var("DATABASE_URL").ok(),
             auth0_domain: std::env::var("AUTH0_DOMAIN")
-                // Dev tenant: "dev-g32naui5mvpwnsg7.us.auth0.com"
-                .unwrap_or_else(|_| "drivewire.us.auth0.com".to_string()),
+                .unwrap_or_else(|_| format!("{}.us.auth0.com", tenant)),
             auth0_audience: std::env::var("AUTH0_AUDIENCE")
-                .unwrap_or_else(|_| "com.drivewire.scorekeeper".to_string()),
+                .unwrap_or_else(|_| format!("com.{}.scorekeeper", tenant)),
             auth0_m2m_client_id: std::env::var("AUTH0_M2M_CLIENT_ID").ok(),
             auth0_m2m_client_secret: std::env::var("AUTH0_M2M_CLIENT_SECRET").ok(),
             tls_enabled: std::env::var("TLS_ENABLED")
@@ -343,8 +347,14 @@ mod tests {
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 8080);
         assert!(config.database_url.is_none());
-        assert_eq!(config.auth0_domain, "drivewire.us.auth0.com");
-        assert_eq!(config.auth0_audience, "com.drivewire.scorekeeper");
+        assert_eq!(
+            config.auth0_domain,
+            format!("{}.us.auth0.com", DEFAULT_AUTH0_TENANT)
+        );
+        assert_eq!(
+            config.auth0_audience,
+            format!("com.{}.scorekeeper", DEFAULT_AUTH0_TENANT)
+        );
         assert!(config.auth0_m2m_client_id.is_none());
         assert!(config.auth0_m2m_client_secret.is_none());
         assert!(!config.tls_enabled);
