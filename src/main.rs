@@ -325,9 +325,7 @@ async fn main() -> std::io::Result<()> {
             if let Some(ref s3) = s3_avatar_service {
                 app = app.app_data(s3.clone());
             }
-            app = app
-                .service(get_profile)
-                .service(update_profile);
+            app = app.service(get_profile).service(update_profile);
             if s3_avatar_service.is_some() {
                 app = app.service(upload_avatar);
             }

@@ -271,7 +271,6 @@ impl Auth0ManagementService {
 
         Ok(user)
     }
-
 }
 
 #[cfg(test)]
