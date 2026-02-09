@@ -1,5 +1,6 @@
 //! Route handlers for the scorekeeper API.
 
+pub mod convert_session;
 pub mod game;
 pub mod games;
 pub mod guess;

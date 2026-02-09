@@ -305,7 +305,8 @@ async fn main() -> std::io::Result<()> {
             .service(get_puzzles)
             .service(set_puzzle)
             .service(clear_puzzle_cache)
-            .service(get_history);
+            .service(get_history)
+            .service(routes::convert_session::convert_session);
 
         // Add common words service if configured
         if let Some(ref cws) = common_words_service {

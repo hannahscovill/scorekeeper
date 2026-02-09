@@ -34,6 +34,9 @@ pub trait PuzzleDatabase: Send + Sync {
     /// Creates or updates a game state.
     async fn upsert_game_state(&self, game_state: &GameState) -> DatabaseResult<GameState>;
 
+    /// Deletes a game state for a user on a specific puzzle date.
+    async fn delete_game_state(&self, user_id: &str, puzzle_date: NaiveDate) -> DatabaseResult<()>;
+
     /// Gets the puzzle answer for a specific date.
     async fn get_puzzle_answer(&self, puzzle_date: NaiveDate) -> DatabaseResult<Option<String>>;
 
@@ -101,6 +104,13 @@ impl DynamoDbPuzzleRepository {
             "updated_at".to_string(),
             AttributeValue::S(state.updated_at.to_rfc3339()),
         );
+
+        // Add TTL for anonymous (session cookie) users — 24 hours from now.
+        // Authenticated users have user_ids containing '|' (e.g., "auth0|abc123").
+        if !state.user_id.contains('|') {
+            let ttl_epoch = (Utc::now() + chrono::Duration::hours(24)).timestamp();
+            item.insert("ttl".to_string(), AttributeValue::N(ttl_epoch.to_string()));
+        }
 
         item
     }
@@ -231,6 +241,23 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
             .map_err(|e| DatabaseError::Other(format!("DynamoDB put error: {}", e)))?;
 
         Ok(game_state.clone())
+    }
+
+    #[instrument(name = "db.delete_game_state", skip(self))]
+    async fn delete_game_state(&self, user_id: &str, puzzle_date: NaiveDate) -> DatabaseResult<()> {
+        let pk = format!("USER#{}#PUZZLE#{}", user_id, puzzle_date);
+        let sk = GameState::sk();
+
+        self.client
+            .delete_item()
+            .table_name(&self.table_name)
+            .key("pk", AttributeValue::S(pk))
+            .key("sk", AttributeValue::S(sk.to_string()))
+            .send()
+            .await
+            .map_err(|e| DatabaseError::Other(format!("DynamoDB delete error: {}", e)))?;
+
+        Ok(())
     }
 
     #[instrument(name = "db.get_puzzle_answer", skip(self))]
@@ -449,6 +476,16 @@ impl PuzzleDatabase for InMemoryPuzzleDb {
         Ok(game_state.clone())
     }
 
+    async fn delete_game_state(&self, user_id: &str, puzzle_date: NaiveDate) -> DatabaseResult<()> {
+        let key = format!("{}#{}", user_id, puzzle_date);
+        let mut states = self
+            .game_states
+            .write()
+            .map_err(|e| DatabaseError::LockError(e.to_string()))?;
+        states.remove(&key);
+        Ok(())
+    }
+
     async fn get_puzzle_answer(&self, puzzle_date: NaiveDate) -> DatabaseResult<Option<String>> {
         let answers = self
             .puzzle_answers
@@ -614,5 +651,30 @@ mod tests {
 
         let answer = db.get_puzzle_answer(date).await.unwrap();
         assert_eq!(answer, Some("slate".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_inmemory_delete_game_state() {
+        let db = InMemoryPuzzleDb::new();
+        let date = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+
+        let mut state = GameState::new("user1", date);
+        state.add_guess("crane");
+        db.upsert_game_state(&state).await.unwrap();
+
+        assert!(db.get_game_state("user1", date).await.unwrap().is_some());
+
+        db.delete_game_state("user1", date).await.unwrap();
+
+        assert!(db.get_game_state("user1", date).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_inmemory_delete_game_state_nonexistent() {
+        let db = InMemoryPuzzleDb::new();
+        let date = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+
+        // Deleting a nonexistent state should succeed (idempotent)
+        db.delete_game_state("user1", date).await.unwrap();
     }
 }
