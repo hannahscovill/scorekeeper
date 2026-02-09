@@ -544,7 +544,17 @@ mod tests {
     #[test]
     fn build_issue_body_includes_footer() {
         let body = build_issue_body(
-            "bug", "Test", None, "auth0|test", None, None, None, None, None, None, None,
+            "bug",
+            "Test",
+            None,
+            "auth0|test",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         assert!(body.contains("Submitted via"), "footer not appended");
     }
@@ -650,7 +660,17 @@ mod tests {
     #[test]
     fn build_issue_body_always_includes_reporter_user_id() {
         let body = build_issue_body(
-            "bug", "Test", None, "auth0|xyz789", None, None, None, None, None, None, None,
+            "bug",
+            "Test",
+            None,
+            "auth0|xyz789",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         assert!(
             body.contains("## Reporter"),
@@ -669,7 +689,17 @@ mod tests {
     #[test]
     fn build_issue_body_omits_environment_when_absent() {
         let body = build_issue_body(
-            "bug", "Test", None, "auth0|test", None, None, None, None, None, None, None,
+            "bug",
+            "Test",
+            None,
+            "auth0|test",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         assert!(
             !body.contains("## Environment"),
