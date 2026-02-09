@@ -231,6 +231,8 @@ export class ScorekeeperStack extends cdk.Stack {
             ...(auth0M2mSecret && {
               AUTH0_M2M_CLIENT_ID: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'clientId'),
               AUTH0_M2M_CLIENT_SECRET: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'clientSecret'),
+              AUTH0_DOMAIN: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'domain'),
+              AUTH0_AUDIENCE: ecs.Secret.fromSecretsManager(auth0M2mSecret, 'audience'),
             }),
             // GitHub App credentials for issue proxy
             ...(githubAppSecret && {
