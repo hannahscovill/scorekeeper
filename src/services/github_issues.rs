@@ -131,65 +131,68 @@ fn get_template(issue_type: &str) -> IssueTemplate {
     parse_template(raw)
 }
 
-fn build_issue_body(
-    issue_type: &str,
-    description: &str,
-    reporter_display_name: Option<&str>,
-    reporter_user_id: &str,
-    posthog_session_id: Option<&str>,
-    user_agent: Option<&str>,
-    page_url: Option<&str>,
-    client_environment_name: Option<&str>,
-    client_commit_hash: Option<&str>,
-    server_environment_name: Option<&str>,
-    server_commit_hash: Option<&str>,
-) -> String {
-    let template = get_template(issue_type);
-    let body = template.body.replace("{description}", description);
+struct IssueBodyParams<'a> {
+    issue_type: &'a str,
+    description: &'a str,
+    reporter_display_name: Option<&'a str>,
+    reporter_user_id: &'a str,
+    posthog_session_id: Option<&'a str>,
+    user_agent: Option<&'a str>,
+    page_url: Option<&'a str>,
+    client_environment_name: Option<&'a str>,
+    client_commit_hash: Option<&'a str>,
+    server_environment_name: Option<&'a str>,
+    server_commit_hash: Option<&'a str>,
+}
+
+fn build_issue_body(params: &IssueBodyParams) -> String {
+    let template = get_template(params.issue_type);
+    let body = template.body.replace("{description}", params.description);
     let mut result = body.trim_end().to_string();
 
     // Reporter section
     result.push_str("\n\n## Reporter\n");
-    if let Some(name) = reporter_display_name {
+    if let Some(name) = params.reporter_display_name {
         result.push_str(&format!("- Display Name: {}\n", name));
     }
-    result.push_str(&format!("- User ID: `{}`\n", reporter_user_id));
-    if let Some(session_id) = posthog_session_id {
+    result.push_str(&format!("- User ID: `{}`\n", params.reporter_user_id));
+    if let Some(session_id) = params.posthog_session_id {
         result.push_str(&format!("- Posthog Session ID: `{}`\n", session_id));
     }
 
     // Environment section
-    let has_client = user_agent.is_some()
-        || page_url.is_some()
-        || client_environment_name.is_some()
-        || client_commit_hash.is_some();
-    let has_server = server_environment_name.is_some() || server_commit_hash.is_some();
+    let has_client = params.user_agent.is_some()
+        || params.page_url.is_some()
+        || params.client_environment_name.is_some()
+        || params.client_commit_hash.is_some();
+    let has_server =
+        params.server_environment_name.is_some() || params.server_commit_hash.is_some();
 
     if has_client || has_server {
         result.push_str("\n## Environment\n");
 
         if has_client {
             result.push_str("\n### Client\n");
-            if let Some(ua) = user_agent {
+            if let Some(ua) = params.user_agent {
                 result.push_str(&format!("- Browser: {}\n", ua));
             }
-            if let Some(url) = page_url {
+            if let Some(url) = params.page_url {
                 result.push_str(&format!("- URL: {}\n", url));
             }
-            if let Some(env) = client_environment_name {
+            if let Some(env) = params.client_environment_name {
                 result.push_str(&format!("- Environment Name: `{}`\n", env));
             }
-            if let Some(hash) = client_commit_hash {
+            if let Some(hash) = params.client_commit_hash {
                 result.push_str(&format!("- Commit Hash: `{}`\n", hash));
             }
         }
 
         if has_server {
             result.push_str("\n### Server\n");
-            if let Some(env) = server_environment_name {
+            if let Some(env) = params.server_environment_name {
                 result.push_str(&format!("- Environment Name: `{}`\n", env));
             }
-            if let Some(hash) = server_commit_hash {
+            if let Some(hash) = params.server_commit_hash {
                 result.push_str(&format!("- Commit Hash: `{}`\n", hash));
             }
         }
@@ -419,19 +422,19 @@ impl GitHubIssueService {
 
         let create_issue = GitHubCreateIssue {
             title: full_title,
-            body: build_issue_body(
-                &request.issue_type,
-                &request.description,
+            body: build_issue_body(&IssueBodyParams {
+                issue_type: &request.issue_type,
+                description: &request.description,
                 reporter_display_name,
                 reporter_user_id,
-                request.posthog_session_id.as_deref(),
-                request.user_agent.as_deref(),
-                request.page_url.as_deref(),
-                request.client_environment_name.as_deref(),
-                request.client_commit_hash.as_deref(),
-                self.server_environment_name.as_deref(),
-                self.server_commit_hash.as_deref(),
-            ),
+                posthog_session_id: request.posthog_session_id.as_deref(),
+                user_agent: request.user_agent.as_deref(),
+                page_url: request.page_url.as_deref(),
+                client_environment_name: request.client_environment_name.as_deref(),
+                client_commit_hash: request.client_commit_hash.as_deref(),
+                server_environment_name: self.server_environment_name.as_deref(),
+                server_commit_hash: self.server_commit_hash.as_deref(),
+            }),
             labels: vec![issue_label(&request.issue_type)],
         };
 
@@ -521,19 +524,19 @@ mod tests {
 
     #[test]
     fn build_issue_body_replaces_description() {
-        let body = build_issue_body(
-            "bug",
-            "Test description here",
-            None,
-            "auth0|test",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "bug",
+            description: "Test description here",
+            reporter_display_name: None,
+            reporter_user_id: "auth0|test",
+            posthog_session_id: None,
+            user_agent: None,
+            page_url: None,
+            client_environment_name: None,
+            client_commit_hash: None,
+            server_environment_name: None,
+            server_commit_hash: None,
+        });
         assert!(
             body.contains("Test description here"),
             "description not inserted into body"
@@ -543,37 +546,37 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_footer() {
-        let body = build_issue_body(
-            "bug",
-            "Test",
-            None,
-            "auth0|test",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "bug",
+            description: "Test",
+            reporter_display_name: None,
+            reporter_user_id: "auth0|test",
+            posthog_session_id: None,
+            user_agent: None,
+            page_url: None,
+            client_environment_name: None,
+            client_commit_hash: None,
+            server_environment_name: None,
+            server_commit_hash: None,
+        });
         assert!(body.contains("Submitted via"), "footer not appended");
     }
 
     #[test]
     fn build_issue_body_includes_client_environment_section() {
-        let body = build_issue_body(
-            "bug",
-            "Test",
-            None,
-            "auth0|test",
-            None,
-            Some("Mozilla/5.0 (Macintosh)"),
-            Some("https://wordles.dev/gamemaker"),
-            Some("production"),
-            Some("abc1234"),
-            None,
-            None,
-        );
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "bug",
+            description: "Test",
+            reporter_display_name: None,
+            reporter_user_id: "auth0|test",
+            posthog_session_id: None,
+            user_agent: Some("Mozilla/5.0 (Macintosh)"),
+            page_url: Some("https://wordles.dev/gamemaker"),
+            client_environment_name: Some("production"),
+            client_commit_hash: Some("abc1234"),
+            server_environment_name: None,
+            server_commit_hash: None,
+        });
         assert!(
             body.contains("## Environment"),
             "missing environment section"
@@ -599,19 +602,19 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_server_environment_section() {
-        let body = build_issue_body(
-            "bug",
-            "Test",
-            None,
-            "auth0|test",
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some("production"),
-            Some("def5678"),
-        );
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "bug",
+            description: "Test",
+            reporter_display_name: None,
+            reporter_user_id: "auth0|test",
+            posthog_session_id: None,
+            user_agent: None,
+            page_url: None,
+            client_environment_name: None,
+            client_commit_hash: None,
+            server_environment_name: Some("production"),
+            server_commit_hash: Some("def5678"),
+        });
         assert!(
             body.contains("## Environment"),
             "missing environment section"
@@ -629,19 +632,19 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_reporter_section() {
-        let body = build_issue_body(
-            "bug",
-            "Test",
-            Some("Hannah"),
-            "auth0|abc123",
-            Some("posthog-session-123"),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "bug",
+            description: "Test",
+            reporter_display_name: Some("Hannah"),
+            reporter_user_id: "auth0|abc123",
+            posthog_session_id: Some("posthog-session-123"),
+            user_agent: None,
+            page_url: None,
+            client_environment_name: None,
+            client_commit_hash: None,
+            server_environment_name: None,
+            server_commit_hash: None,
+        });
         assert!(body.contains("## Reporter"), "missing reporter section");
         assert!(
             body.contains("- Display Name: Hannah"),
@@ -659,19 +662,19 @@ mod tests {
 
     #[test]
     fn build_issue_body_always_includes_reporter_user_id() {
-        let body = build_issue_body(
-            "bug",
-            "Test",
-            None,
-            "auth0|xyz789",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "bug",
+            description: "Test",
+            reporter_display_name: None,
+            reporter_user_id: "auth0|xyz789",
+            posthog_session_id: None,
+            user_agent: None,
+            page_url: None,
+            client_environment_name: None,
+            client_commit_hash: None,
+            server_environment_name: None,
+            server_commit_hash: None,
+        });
         assert!(
             body.contains("## Reporter"),
             "reporter section should always appear"
@@ -688,19 +691,19 @@ mod tests {
 
     #[test]
     fn build_issue_body_omits_environment_when_absent() {
-        let body = build_issue_body(
-            "bug",
-            "Test",
-            None,
-            "auth0|test",
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "bug",
+            description: "Test",
+            reporter_display_name: None,
+            reporter_user_id: "auth0|test",
+            posthog_session_id: None,
+            user_agent: None,
+            page_url: None,
+            client_environment_name: None,
+            client_commit_hash: None,
+            server_environment_name: None,
+            server_commit_hash: None,
+        });
         assert!(
             !body.contains("## Environment"),
             "environment section should not appear"
@@ -709,19 +712,19 @@ mod tests {
 
     #[test]
     fn build_issue_body_includes_both_client_and_server() {
-        let body = build_issue_body(
-            "bug",
-            "Test",
-            Some("hannah"),
-            "auth0|123abc",
-            Some("posthog-session-id"),
-            Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"),
-            Some("http://localhost:3000/profile"),
-            Some("production"),
-            Some("123abc0"),
-            Some("production"),
-            Some("123abc0"),
-        );
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "bug",
+            description: "Test",
+            reporter_display_name: Some("hannah"),
+            reporter_user_id: "auth0|123abc",
+            posthog_session_id: Some("posthog-session-id"),
+            user_agent: Some("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"),
+            page_url: Some("http://localhost:3000/profile"),
+            client_environment_name: Some("production"),
+            client_commit_hash: Some("123abc0"),
+            server_environment_name: Some("production"),
+            server_commit_hash: Some("123abc0"),
+        });
         assert!(body.contains("## Reporter"), "missing reporter section");
         assert!(
             body.contains("- Display Name: hannah"),
