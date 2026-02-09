@@ -56,12 +56,11 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8080
-      # - AUTH0_DOMAIN=dev-g32naui5mvpwnsg7.us.auth0.com
-      - AUTH0_DOMAIN=scovill.us.auth0.com
-      - AUTH0_AUDIENCE=com.hannahscovill.scorekeeper
+      - AUTH0_DOMAIN=${AUTH0_DOMAIN:-drivewire.us.auth0.com}
+      - AUTH0_AUDIENCE=${AUTH0_AUDIENCE:-com.drivewire.scorekeeper}
       - AUTH0_M2M_CLIENT_ID=${AUTH0_M2M_CLIENT_ID}
       - AUTH0_M2M_CLIENT_SECRET=${AUTH0_M2M_CLIENT_SECRET}
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,https://localhost:3000,https://hannahscovill.github.io
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,https://localhost:3000,https://hannahscovill.github.io}
       - RUST_LOG=debug
       - TLS_ENABLED=true
       - TLS_CERT_PATH=/app/certs/cert.pem

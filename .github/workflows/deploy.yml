@@ -12,7 +12,7 @@
 #
 # Required AWS Secrets Manager secrets (us-west-2):
 # ---------------------------------------------------------------------------------
-# wordles/scorekeeper/auth0-m2m              → { clientId, clientSecret }  (Auth0 M2M for profile endpoints)
+# wordles/scorekeeper/<tenant>/auth0-m2m     → { clientId, clientSecret, domain, audience }  (Auth0 M2M)
 # wordles/scorekeeper/github-app             → { appId, installationId, privateKey }  (GitHub App for issue proxy)
 # wordles/scorekeeper/turnstyle-secret-key   → { secret-key }  (Cloudflare Turnstile CAPTCHA)
 # wordles/scorekeeper/grafana-otel           → { GRAFANA_OTLP_ENDPOINT, GRAFANA_INSTANCE_ID, GRAFANA_API_KEY }
@@ -80,6 +80,7 @@ concurrency:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
+  AUTH0_TENANT: drivewire
 
 jobs:
   deploy:
@@ -116,14 +117,14 @@ jobs:
         run: |
           arn() { aws secretsmanager get-secret-value --secret-id "$1" --query ARN --output text 2>/dev/null || echo ""; }
 
-          AUTH0_M2M_ARN=$(arn wordles/scorekeeper/auth0-m2m)
+          AUTH0_M2M_ARN=$(arn wordles/scorekeeper/${{ env.AUTH0_TENANT }}/auth0-m2m)
           GITHUB_APP_ARN=$(arn wordles/scorekeeper/github-app)
           TURNSTILE_ARN=$(arn wordles/scorekeeper/turnstyle-secret-key)
           OTEL_ARN=$(arn wordles/scorekeeper/grafana-otel)
 
           # All secrets are required
           MISSING=()
-          [[ -z "$AUTH0_M2M_ARN" ]] && MISSING+=("wordles/scorekeeper/auth0-m2m")
+          [[ -z "$AUTH0_M2M_ARN" ]] && MISSING+=("wordles/scorekeeper/${{ env.AUTH0_TENANT }}/auth0-m2m")
           [[ -z "$GITHUB_APP_ARN" ]] && MISSING+=("wordles/scorekeeper/github-app")
           [[ -z "$TURNSTILE_ARN" ]] && MISSING+=("wordles/scorekeeper/turnstyle-secret-key")
           [[ -z "$OTEL_ARN" ]] && MISSING+=("wordles/scorekeeper/grafana-otel")
