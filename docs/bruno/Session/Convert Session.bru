@@ -1,0 +1,54 @@
+meta {
+  name: Convert Session
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://{{baseUrl}}/convert-session
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "session_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  }
+}
+
+docs {
+  Convert anonymous session games to the authenticated user's account.
+
+  When a user plays anonymously (session cookie) and then logs in, this endpoint
+  migrates their anonymous game history to their authenticated account.
+
+  ## Authentication
+  Requires a valid Bearer token (JWT from Auth0 login).
+
+  ## Request Body
+  - `session_id` (string, required): The anonymous session cookie UUID
+
+  ## Conflict Resolution
+  If both the anonymous session and the authenticated user have a game for the
+  same puzzle date, whichever was created first is kept.
+
+  ## Responses
+  - `200`: Conversion completed
+    ```json
+    {
+      "converted": 2,
+      "conflicts_resolved": 1,
+      "puzzle_dates_affected": ["2026-02-08", "2026-02-07"]
+    }
+    ```
+  - `400`: Invalid session_id (not a UUID, or is an auth provider ID)
+  - `401`: Authentication required or invalid token
+}

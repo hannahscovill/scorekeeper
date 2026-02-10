@@ -23,6 +23,7 @@ use db::{
     PuzzleDatabase,
 };
 use middleware::auth::JwtAuth;
+use routes::convert_session::convert_session;
 use routes::{
     clear_puzzle_cache, create_games, create_issue, get_game, get_games, get_history, get_profile,
     get_puzzle_by_date, get_puzzles, health_check, list_games, set_puzzle, submit_guess,
@@ -305,7 +306,8 @@ async fn main() -> std::io::Result<()> {
             .service(get_puzzles)
             .service(set_puzzle)
             .service(clear_puzzle_cache)
-            .service(get_history);
+            .service(get_history)
+            .service(convert_session);
 
         // Add common words service if configured
         if let Some(ref cws) = common_words_service {

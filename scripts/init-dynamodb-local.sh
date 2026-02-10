@@ -48,6 +48,14 @@ aws dynamodb wait table-exists --endpoint-url "$ENDPOINT_URL" --table-name "$TAB
 
 echo "Table '$TABLE_NAME' created successfully!"
 
+# Enable TTL on the table (DynamoDB Local doesn't actually delete expired items,
+# but this ensures the table schema matches production)
+echo "Enabling TTL on attribute 'ttl'..."
+aws dynamodb update-time-to-live \
+  --endpoint-url "$ENDPOINT_URL" \
+  --table-name "$TABLE_NAME" \
+  --time-to-live-specification "Enabled=true, AttributeName=ttl" || true
+
 # Seed puzzle answers for local development
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$SCRIPT_DIR/seed-puzzle-answers.sh" ]; then
