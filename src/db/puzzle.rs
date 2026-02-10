@@ -105,10 +105,10 @@ impl DynamoDbPuzzleRepository {
             AttributeValue::S(state.updated_at.to_rfc3339()),
         );
 
-        // Add TTL for anonymous (session cookie) users — 24 hours from now.
+        // Add TTL for anonymous (session cookie) users — 7 days from now.
         // Authenticated users have user_ids prefixed with "auth0|" (e.g., "auth0|abc123").
         if !state.user_id.contains("auth0|") {
-            let ttl_epoch = (Utc::now() + chrono::Duration::hours(24)).timestamp();
+            let ttl_epoch = (Utc::now() + chrono::Duration::days(7)).timestamp();
             item.insert("ttl".to_string(), AttributeValue::N(ttl_epoch.to_string()));
         }
 
