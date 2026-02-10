@@ -23,12 +23,12 @@ use db::{
     PuzzleDatabase,
 };
 use middleware::auth::JwtAuth;
+use routes::convert_session::convert_session;
 use routes::{
     clear_puzzle_cache, create_games, create_issue, get_game, get_games, get_history, get_profile,
     get_puzzle_by_date, get_puzzles, health_check, list_games, set_puzzle, submit_guess,
     update_profile, upload_avatar,
 };
-use routes::convert_session::convert_session;
 use services::{
     Auth0ManagementService, CommonWordsService, CommonWordsSource, GitHubIssueService, RateLimiter,
     S3AvatarService,
