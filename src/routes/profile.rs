@@ -118,7 +118,7 @@ pub async fn update_profile(
         ));
     }
 
-    let user = auth0_service
+    auth0_service
         .update_user_metadata(
             &claims.sub,
             body.display_name.as_deref(),
@@ -127,6 +127,9 @@ pub async fn update_profile(
             body.pronouns.as_deref(),
         )
         .await?;
+
+    // Fetch the full user after PATCH — the PATCH response may omit user_metadata fields.
+    let user = auth0_service.get_user(&claims.sub).await?;
 
     let metadata = user.user_metadata.as_ref();
     let display_name = metadata.map(|m| m.display_name.clone());
