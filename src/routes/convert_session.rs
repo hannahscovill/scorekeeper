@@ -47,7 +47,7 @@ pub async fn convert_session(
     let session_id = &body.session_id;
 
     // Validate session_id is a UUID format (reject anything that looks like an Auth0 sub)
-    if session_id.contains('|') {
+    if session_id.contains("auth0|") {
         return Err(AppError::bad_request(
             "Invalid session_id: must be a session cookie UUID, not an auth provider ID",
         ));
@@ -370,13 +370,13 @@ mod tests {
     #[test]
     fn test_invalid_session_id_with_pipe() {
         let session_id = "auth0|abc123";
-        assert!(session_id.contains('|'));
+        assert!(session_id.contains("auth0|"));
     }
 
     #[test]
     fn test_valid_session_id_uuid() {
         let session_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
         assert!(uuid::Uuid::parse_str(session_id).is_ok());
-        assert!(!session_id.contains('|'));
+        assert!(!session_id.contains("auth0|"));
     }
 }

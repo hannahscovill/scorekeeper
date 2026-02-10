@@ -593,6 +593,46 @@ IssueReportResponse:
       example: "https://github.com/hannahscovill/wordles-with-friends-client-web/issues/42"
 
 # -----------------------------------------------------------------------------
+# Session Conversion Schemas
+# -----------------------------------------------------------------------------
+
+ConvertSessionRequest:
+  type: object
+  required:
+    - session_id
+  properties:
+    session_id:
+      type: string
+      format: uuid
+      description: The anonymous session cookie UUID to convert
+      example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+
+ConvertSessionResponse:
+  type: object
+  required:
+    - converted
+    - conflicts_resolved
+    - puzzle_dates_affected
+  properties:
+    converted:
+      type: integer
+      minimum: 0
+      description: Number of games successfully migrated to the authenticated user
+      example: 2
+    conflicts_resolved:
+      type: integer
+      minimum: 0
+      description: Number of puzzle dates where both session and auth user had games
+      example: 1
+    puzzle_dates_affected:
+      type: array
+      items:
+        type: string
+        format: date
+      description: Puzzle dates that were migrated or replaced
+      example: ["2026-02-08", "2026-02-07"]
+
+# -----------------------------------------------------------------------------
 # Common Schemas
 # -----------------------------------------------------------------------------
 

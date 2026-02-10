@@ -106,8 +106,8 @@ impl DynamoDbPuzzleRepository {
         );
 
         // Add TTL for anonymous (session cookie) users — 24 hours from now.
-        // Authenticated users have user_ids containing '|' (e.g., "auth0|abc123").
-        if !state.user_id.contains('|') {
+        // Authenticated users have user_ids prefixed with "auth0|" (e.g., "auth0|abc123").
+        if !state.user_id.contains("auth0|") {
             let ttl_epoch = (Utc::now() + chrono::Duration::hours(24)).timestamp();
             item.insert("ttl".to_string(), AttributeValue::N(ttl_epoch.to_string()));
         }

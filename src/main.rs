@@ -28,6 +28,7 @@ use routes::{
     get_puzzle_by_date, get_puzzles, health_check, list_games, set_puzzle, submit_guess,
     update_profile, upload_avatar,
 };
+use routes::convert_session::convert_session;
 use services::{
     Auth0ManagementService, CommonWordsService, CommonWordsSource, GitHubIssueService, RateLimiter,
     S3AvatarService,
@@ -306,7 +307,7 @@ async fn main() -> std::io::Result<()> {
             .service(set_puzzle)
             .service(clear_puzzle_cache)
             .service(get_history)
-            .service(routes::convert_session::convert_session);
+            .service(convert_session);
 
         // Add common words service if configured
         if let Some(ref cws) = common_words_service {

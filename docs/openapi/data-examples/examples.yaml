@@ -101,6 +101,25 @@ AvatarUploadResponse:
     $ref: "./AvatarUploadResponse.json"
 
 # -----------------------------------------------------------------------------
+# Session Conversion Examples
+# -----------------------------------------------------------------------------
+
+ConvertSessionRequest:
+  summary: Convert anonymous session request
+  value:
+    $ref: "./ConvertSessionRequest.json"
+
+ConvertSessionResponse:
+  summary: Session conversion response (games migrated)
+  value:
+    $ref: "./ConvertSessionResponse.json"
+
+ConvertSessionResponseEmpty:
+  summary: Session conversion response (no games found)
+  value:
+    $ref: "./ConvertSessionResponseEmpty.json"
+
+# -----------------------------------------------------------------------------
 # Issue Examples
 # -----------------------------------------------------------------------------
 

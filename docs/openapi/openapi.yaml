@@ -275,6 +275,52 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /convert-session:
+    post:
+      summary: Convert anonymous session to authenticated user
+      description: |
+        Migrate game states from an anonymous session cookie to an authenticated user's account.
+
+        When a user plays anonymously (using a session cookie UUID) and then logs in,
+        this endpoint transfers their anonymous game history to their authenticated account.
+
+        **Conflict resolution:** If both the anonymous session and the authenticated user
+        have a game for the same puzzle date, whichever was created first is kept.
+
+        Anonymous session records are deleted after conversion. In production, any
+        unconverted anonymous records are automatically cleaned up via DynamoDB TTL
+        (24-hour expiry).
+      operationId: convertSession
+      tags:
+        - Gameplay
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "schemas.yaml#/ConvertSessionRequest"
+            examples:
+              default:
+                $ref: "data-examples/examples.yaml#/ConvertSessionRequest"
+      responses:
+        "200":
+          description: Session conversion completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/ConvertSessionResponse"
+              examples:
+                default:
+                  $ref: "data-examples/examples.yaml#/ConvertSessionResponse"
+                noGames:
+                  $ref: "data-examples/examples.yaml#/ConvertSessionResponseEmpty"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /issues:
     post:
       summary: Submit an issue report
