@@ -313,4 +313,13 @@ mod tests {
         let date = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
         assert_eq!(PuzzleAnswer::pk(date), "PUZZLE#2026-01-15");
     }
+
+    #[test]
+    fn test_game_state_duplicate_guess_detection() {
+        let date = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let mut state = GameState::new("auth0|123", date);
+        state.add_guess("crane");
+        assert!(state.guesses.contains(&"crane".to_string()));
+        assert!(!state.guesses.contains(&"slate".to_string()));
+    }
 }
