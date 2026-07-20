@@ -10,3 +10,9 @@ TEST_CREDENTIALS.txt
 
 # Secret word list for puzzle selection - DO NOT COMMIT
 data/common_words.txt
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
