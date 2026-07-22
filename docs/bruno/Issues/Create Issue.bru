@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: http://{{baseUrl}}/issues
+  url: {{protocol}}://{{baseUrl}}/issues
   body: json
   auth: bearer
 }
@@ -36,16 +36,16 @@ body:json {
 
 docs {
   Submit an issue report. Creates a GitHub issue on behalf of the authenticated user.
-
+  
   The reporter's user ID (from JWT) and display name (from Auth0 profile) are
   included in the issue body. PostHog session ID is included for session replay
   correlation. The issue body includes separate Client and Server environment
   sections — client metadata is sent by the frontend, server metadata is
   appended by the backend from its own deployment context.
-
+  
   ## Authentication
   Requires a valid Bearer token (inherited from collection).
-
+  
   ## Request Body
   - `issueType` (string, required): One of "bug", "feature", or "question"
   - `title` (string, required): Brief summary of the issue
@@ -57,7 +57,7 @@ docs {
   - `posthogSessionId` (string, optional): PostHog session ID for replay correlation
   - `clientEnvironmentName` (string, optional): Client deployment environment name
   - `clientCommitHash` (string, optional): Client git commit hash
-
+  
   ## Responses
   - `201`: Issue created successfully
     ```json

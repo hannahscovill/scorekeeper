@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: http://{{baseUrl}}/game/2026-02-05
+  url: {{protocol}}://{{baseUrl}}/game/2026-02-05
   body: none
   auth: bearer
 }
@@ -16,15 +16,15 @@ auth:bearer {
 
 docs {
   Load game progress for a specific puzzle date.
-
+  
   ## Authentication
   Requires either:
   - Bearer token in Authorization header (JWT)
   - Cookie: wordle_session=<user_id> (for embedded games)
-
+  
   ## Path Parameters
   - `puzzle_date` (string, required): The puzzle date in YYYY-MM-DD format
-
+  
   ## Responses
   - `200`: Game progress retrieved successfully
     ```json

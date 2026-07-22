@@ -11,6 +11,49 @@ API backend for the Scorekeeper word puzzle game.
 
 See [AGENTS.md](./AGENTS.md) for development guidelines.
 
+### Recommended Installations
+
+- [mkcert](https://github.com/FiloSottile/mkcert) - generates locally-trusted TLS certs (see [Local HTTPS Certs](#local-https-certs) below)
+  ```bash
+  brew install mkcert
+  ```
+- [Bruno](https://www.usebruno.com/) - API client for exercising endpoints during local dev
+  ```bash
+  brew install --cask bruno
+  ```
+
+### Running Locally
+
+```bash
+docker compose -f docker-compose.dev.yml up
+```
+
+This starts DynamoDB Local + admin UI (seeded automatically) and the API via `Dockerfile.dev` with hot reload, served at `https://localhost:8080`. The DynamoDB admin UI is at `http://localhost:8001`.
+
+If the stack is already running in another terminal/session, bring it down first with `docker compose -f docker-compose.dev.yml down` before starting a fresh copy.
+
+### Local HTTPS Certs
+
+The dev server runs with TLS enabled (`certs/cert.pem` / `certs/key.pem`, mounted into the container per `docker-compose.dev.yml`). These files are gitignored and **not** checked in — each developer generates their own.
+
+Without a proper cert, browsers and strict HTTP clients will reject `https://localhost:8080` (self-signed cert not trusted, or missing Subject Alternative Names). Fix this with `mkcert`, which installs a local CA into your system/browser trust stores so `localhost` certs are trusted automatically:
+
+```bash
+# One-time: install mkcert's local CA into your system trust store
+mkcert -install
+
+# Generate the dev cert (run from the certs/ directory)
+cd certs
+mkcert -cert-file cert.pem -key-file key.pem localhost 127.0.0.1 ::1
+cd ..
+```
+
+Restart the stack (`docker compose -f docker-compose.dev.yml down && docker compose -f docker-compose.dev.yml up`) after generating new certs so the container picks them up. You can then curl without `-k`:
+
+```bash
+curl https://localhost:8080/health
+```
+
 ## DynamoDB Schema
 
 The application uses a single-table design in DynamoDB with composite primary keys (partition key `pk` and sort key `sk`).

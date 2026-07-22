@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: http://{{baseUrl}}/puzzles/2026-02-05
+  url: {{protocol}}://{{baseUrl}}/puzzles/2026-02-05
   body: none
   auth: bearer
 }
@@ -16,13 +16,13 @@ auth:bearer {
 
 docs {
   Retrieve a single puzzle for a specific date.
-
+  
   ## Authentication
   Requires a valid Bearer token.
-
+  
   ## Path Parameters
   - `date` (string, required): The puzzle date in YYYY-MM-DD format
-
+  
   ## Responses
   - `200`: Puzzle retrieved successfully
     Admin users see the answer:

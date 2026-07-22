@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: http://{{baseUrl}}/puzzles/cache/clear
+  url: {{protocol}}://{{baseUrl}}/puzzles/cache/clear
   body: none
   auth: bearer
 }
@@ -16,10 +16,10 @@ auth:bearer {
 
 docs {
   Clear the puzzle answer cache (game admin only).
-
+  
   ## Authentication
   Requires a valid Bearer token with `app_metadata.game_admin = true`.
-
+  
   ## Responses
   - `200`: Cache cleared successfully
     ```json

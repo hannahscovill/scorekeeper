@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: http://{{baseUrl}}/history
+  url: {{protocol}}://{{baseUrl}}/history
   body: none
   auth: bearer
 }
@@ -16,10 +16,10 @@ auth:bearer {
 
 docs {
   Retrieves the game history for the currently authenticated user.
-
+  
   ## Authentication
   Requires a valid Bearer token.
-
+  
   ## Responses
   - `200`: History retrieved successfully
     ```json
