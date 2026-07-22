@@ -223,7 +223,7 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
         }
 
         // Sort by puzzle_date descending (most recent first)
-        game_states.sort_by(|a, b| b.puzzle_date.cmp(&a.puzzle_date));
+        game_states.sort_by_key(|b| std::cmp::Reverse(b.puzzle_date));
 
         Ok(game_states)
     }
@@ -359,7 +359,7 @@ impl PuzzleDatabase for DynamoDbPuzzleRepository {
         }
 
         // Sort by date ascending
-        puzzles.sort_by(|a, b| a.puzzle_date.cmp(&b.puzzle_date));
+        puzzles.sort_by_key(|a| a.puzzle_date);
 
         Ok(puzzles)
     }
@@ -461,7 +461,7 @@ impl PuzzleDatabase for InMemoryPuzzleDb {
             .collect();
 
         // Sort by puzzle_date descending (most recent first)
-        user_states.sort_by(|a, b| b.puzzle_date.cmp(&a.puzzle_date));
+        user_states.sort_by_key(|b| std::cmp::Reverse(b.puzzle_date));
 
         Ok(user_states)
     }
@@ -518,7 +518,7 @@ impl PuzzleDatabase for InMemoryPuzzleDb {
             .collect();
 
         // Sort by date ascending
-        puzzles.sort_by(|a, b| a.puzzle_date.cmp(&b.puzzle_date));
+        puzzles.sort_by_key(|a| a.puzzle_date);
 
         Ok(puzzles)
     }

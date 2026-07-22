@@ -13,6 +13,14 @@ See [AGENTS.md](./AGENTS.md) for development guidelines.
 
 ### Recommended Installations
 
+- [Rust toolchain](https://doc.rust-lang.org/book/ch01-01-installation.html) - **not** needed to run the app (that's Docker's job, see [Running Locally](#running-locally)), but required on the host for `cargo fmt`/`cargo clippy`/`cargo test` to run directly, which the pre-commit hook (see [Pre-commit Hooks](#pre-commit-hooks)) and `AGENTS.md`'s quality gates both assume
+  ```bash
+  curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+  ```
+  The default rustup profile already includes `rustfmt` and `clippy`; verify with:
+  ```bash
+  cargo fmt --version && cargo clippy --version
+  ```
 - [mkcert](https://github.com/FiloSottile/mkcert) - generates locally-trusted TLS certs (see [Local HTTPS Certs](#local-https-certs) below)
   ```bash
   brew install mkcert
@@ -31,6 +39,10 @@ docker compose -f docker-compose.dev.yml up
 This starts DynamoDB Local + admin UI (seeded automatically) and the API via `Dockerfile.dev` with hot reload, served at `https://localhost:8080`. The DynamoDB admin UI is at `http://localhost:8001`.
 
 If the stack is already running in another terminal/session, bring it down first with `docker compose -f docker-compose.dev.yml down` before starting a fresh copy.
+
+### Pre-commit Hooks
+
+Run `npm install` at the repo root after cloning. This installs [husky](https://typicode.github.io/husky/) via the `prepare` script and points git's `core.hooksPath` at `.husky`, which is what activates the pre-commit hook (`cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, and the CDK tests). Without this step, commits will succeed locally even if those checks would fail in CI.
 
 ### Local HTTPS Certs
 
