@@ -78,6 +78,7 @@ services:
       - ./build.rs:/app/build.rs
       - ./data:/app/data
       - ./certs:/app/certs:ro
+      - ./templates:/app/templates
     networks:
       - scorekeeper-network-dev
     healthcheck:

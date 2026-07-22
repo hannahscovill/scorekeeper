@@ -5,9 +5,7 @@
 
 use actix_web::{get, post, put, web, HttpResponse};
 use chrono::NaiveDate;
-use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::sync::Arc;
 use tracing::instrument;
 
@@ -16,7 +14,7 @@ use crate::dictionary::is_valid_word;
 use crate::middleware::auth::Claims;
 use crate::middleware::validation::{deserialize_optional_date, validate_date_range};
 use crate::models::error::AppError;
-use crate::services::CommonWordsService;
+use crate::services::{create_random_puzzle, CommonWordsService};
 
 /// Request payload for setting a puzzle answer.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,18 +180,7 @@ pub async fn set_puzzle(
         ));
     }
 
-    let word = if body.set_random_unused_word {
-        // Get all existing puzzle answers to find used words
-        let existing_puzzles = puzzle_db
-            .get_puzzle_answers(None, None)
-            .await
-            .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
-
-        let used_words: HashSet<String> = existing_puzzles
-            .into_iter()
-            .map(|p| p.word.to_lowercase())
-            .collect();
-
+    if body.set_random_unused_word {
         // Require common words service for random word selection
         let cws = common_words.ok_or_else(|| {
             AppError::bad_request(
@@ -201,29 +188,23 @@ pub async fn set_puzzle(
             )
         })?;
 
-        let words = cws.get_words().await.ok_or_else(|| {
-            AppError::InternalError("Common words list failed to load".to_string())
-        })?;
+        let word =
+            create_random_puzzle(&puzzle_db, &cws, body.date, body.team_id.as_deref()).await?;
 
-        let mut rng = rand::thread_rng();
-        let unused: Vec<_> = words.iter().filter(|w| !used_words.contains(*w)).collect();
+        return Ok(HttpResponse::Ok().json(SetPuzzleResponse {
+            date: body.date,
+            word,
+            team_id: body.team_id.clone(),
+        }));
+    }
 
-        unused
-            .into_iter()
-            .choose(&mut rng)
-            .map(|s| s.to_string())
-            .ok_or_else(|| {
-                AppError::bad_request("No unused words available in the common words list")
-            })?
-    } else {
-        // Use the provided word
-        match &body.word {
-            Some(w) => w.to_lowercase(),
-            None => {
-                return Err(AppError::bad_request(
-                    "Either provide a word or set set_random_unused_word to true",
-                ))
-            }
+    // Use the provided word
+    let word = match &body.word {
+        Some(w) => w.to_lowercase(),
+        None => {
+            return Err(AppError::bad_request(
+                "Either provide a word or set set_random_unused_word to true",
+            ))
         }
     };
 

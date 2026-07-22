@@ -10,17 +10,21 @@ use crate::dictionary::is_valid_word;
 use crate::middleware::auth::{extract_bearer_token, extract_cookie_token, JwtAuth};
 use crate::models::error::AppError;
 use crate::models::guess::{GameState, GradedGame, GuessRequest};
-use crate::services::{grade_guess, is_winning_guess};
+use crate::services::{create_random_puzzle, grade_guess, is_winning_guess, CommonWordsService};
 
 /// POST /guess - Submit a guess for a word puzzle.
 ///
 /// Accepts authentication via either:
 /// - Authorization header: Bearer <token> (validated as JWT)
 /// - Cookie: wordle_session=<user_id> (used directly, for embedded games)
+///
+/// If no puzzle exists yet for the requested date, one is created automatically
+/// using a random, previously unused word from the common words list (the same
+/// selection logic as the admin `set_random_unused_word` puzzle-setting flow).
 #[post("/guess")]
 #[instrument(
     name = "submit_guess",
-    skip(req, body, puzzle_db, jwt_auth),
+    skip(req, body, puzzle_db, jwt_auth, common_words),
     fields(
         puzzle_date = %body.puzzle_date_iso_day,
         user_id = tracing::field::Empty,
@@ -33,6 +37,7 @@ pub async fn submit_guess(
     body: web::Json<GuessRequest>,
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
     jwt_auth: web::Data<JwtAuth>,
+    common_words: Option<web::Data<CommonWordsService>>,
 ) -> Result<HttpResponse, AppError> {
     // Try JWT first (Authorization header), fall back to cookie
     let user_id: String = if let Some(token) = extract_bearer_token(&req) {
@@ -62,12 +67,22 @@ pub async fn submit_guess(
         return Err(AppError::bad_request("Word not in dictionary"));
     }
 
-    // Get the puzzle answer
-    let answer = puzzle_db
+    // Get the puzzle answer, creating a random unused-word puzzle for this date
+    // if one doesn't exist yet (same word selection used by the admin
+    // set-puzzle-with-random-word flow).
+    let existing_answer = puzzle_db
         .get_puzzle_answer(puzzle_date)
         .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?
-        .ok_or_else(|| AppError::not_found("No puzzle found for this date"))?;
+        .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
+
+    let answer = match existing_answer {
+        Some(word) => word,
+        None => {
+            let cws =
+                common_words.ok_or_else(|| AppError::not_found("No puzzle found for this date"))?;
+            create_random_puzzle(&puzzle_db, &cws, puzzle_date, None).await?
+        }
+    };
 
     // Get or create game state
     let mut game_state = puzzle_db

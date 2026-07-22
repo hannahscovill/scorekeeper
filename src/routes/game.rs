@@ -10,7 +10,7 @@ use crate::db::PuzzleDatabase;
 use crate::middleware::auth::{extract_bearer_token, extract_cookie_token, JwtAuth};
 use crate::models::error::AppError;
 use crate::models::guess::{GameState, GradedGame};
-use crate::services::grade_guess;
+use crate::services::{create_random_puzzle, grade_guess, CommonWordsService};
 
 /// GET /game/{puzzle_date} - Load game progress for a specific puzzle date.
 ///
@@ -21,15 +21,20 @@ use crate::services::grade_guess;
 /// - Authorization header: Bearer <token> (validated as JWT)
 /// - Cookie: wordle_session=<user_id> (used directly, for embedded games)
 ///
+/// If no puzzle exists yet for the requested date, one is created automatically
+/// using a random, previously unused word from the common words list (the same
+/// selection logic as the admin `set_random_unused_word` puzzle-setting flow).
+///
 /// Responses:
 /// - 200: GradedGame with current progress (may be empty if no guesses yet)
 /// - 400: Bad request (invalid date format)
 /// - 401: Unauthorized (missing or invalid authentication)
-/// - 404: No puzzle found for this date
+/// - 404: No puzzle found for this date and none could be created (no common
+///   words list configured, or no unused words remain)
 #[get("/game/{puzzle_date}")]
 #[instrument(
     name = "get_game",
-    skip(req, puzzle_db, jwt_auth),
+    skip(req, puzzle_db, jwt_auth, common_words),
     fields(puzzle_date = tracing::field::Empty, user_id = tracing::field::Empty)
 )]
 pub async fn get_game(
@@ -37,6 +42,7 @@ pub async fn get_game(
     path: web::Path<String>,
     puzzle_db: web::Data<Arc<dyn PuzzleDatabase>>,
     jwt_auth: web::Data<JwtAuth>,
+    common_words: Option<web::Data<CommonWordsService>>,
 ) -> Result<HttpResponse, AppError> {
     // Try JWT first (Authorization header), fall back to cookie
     let user_id: String = if let Some(token) = extract_bearer_token(&req) {
@@ -59,12 +65,22 @@ pub async fn get_game(
     // Record puzzle_date in span
     tracing::Span::current().record("puzzle_date", puzzle_date.to_string().as_str());
 
-    // Verify the puzzle exists for this date
-    let answer = puzzle_db
+    // Get the puzzle answer, creating a random unused-word puzzle for this date
+    // if one doesn't exist yet (same word selection used by the admin
+    // set-puzzle-with-random-word flow).
+    let existing_answer = puzzle_db
         .get_puzzle_answer(puzzle_date)
         .await
-        .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?
-        .ok_or_else(|| AppError::not_found("No puzzle found for this date"))?;
+        .map_err(|e| AppError::InternalError(format!("Database error: {}", e)))?;
+
+    let answer = match existing_answer {
+        Some(word) => word,
+        None => {
+            let cws =
+                common_words.ok_or_else(|| AppError::not_found("No puzzle found for this date"))?;
+            create_random_puzzle(&puzzle_db, &cws, puzzle_date, None).await?
+        }
+    };
 
     // Get game state (or create empty one if no progress yet)
     let game_state = puzzle_db
