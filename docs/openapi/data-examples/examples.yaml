@@ -142,20 +142,50 @@ IssueReportResponse:
 # Mobile Test Track Signup Examples
 # -----------------------------------------------------------------------------
 
-MobileTestTrackSignupRequest:
-  summary: Authenticated mobile test track signup request
+MobileTestTrackSignupRequestIos:
+  summary: Authenticated signup — iOS only
   value:
-    $ref: "./MobileTestTrackSignupRequest.json"
+    $ref: "./MobileTestTrackSignupRequestIos.json"
 
-MobileTestTrackSignupResponse:
-  summary: Mobile test track signup response
+MobileTestTrackSignupRequestAndroid:
+  summary: Authenticated signup — Android only
   value:
-    $ref: "./MobileTestTrackSignupResponse.json"
+    $ref: "./MobileTestTrackSignupRequestAndroid.json"
 
-AnonymousMobileTestTrackSignupRequest:
-  summary: Anonymous mobile test track signup request
+MobileTestTrackSignupRequestBoth:
+  summary: Authenticated signup — both platforms
   value:
-    $ref: "./AnonymousMobileTestTrackSignupRequest.json"
+    $ref: "./MobileTestTrackSignupRequestBoth.json"
+
+MobileTestTrackSignupResponseIos:
+  summary: Signup response — iOS only
+  value:
+    $ref: "./MobileTestTrackSignupResponseIos.json"
+
+MobileTestTrackSignupResponseAndroid:
+  summary: Signup response — Android only
+  value:
+    $ref: "./MobileTestTrackSignupResponseAndroid.json"
+
+MobileTestTrackSignupResponseBoth:
+  summary: Signup response — both platforms
+  value:
+    $ref: "./MobileTestTrackSignupResponseBoth.json"
+
+AnonymousMobileTestTrackSignupRequestIos:
+  summary: Anonymous signup — iOS only
+  value:
+    $ref: "./AnonymousMobileTestTrackSignupRequestIos.json"
+
+AnonymousMobileTestTrackSignupRequestAndroid:
+  summary: Anonymous signup — Android only
+  value:
+    $ref: "./AnonymousMobileTestTrackSignupRequestAndroid.json"
+
+AnonymousMobileTestTrackSignupRequestBoth:
+  summary: Anonymous signup — both platforms
+  value:
+    $ref: "./AnonymousMobileTestTrackSignupRequestBoth.json"
 
 # -----------------------------------------------------------------------------
 # Team Examples

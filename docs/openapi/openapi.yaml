@@ -520,8 +520,12 @@ paths:
             schema:
               $ref: "schemas.yaml#/MobileTestTrackSignupRequest"
             examples:
-              default:
-                $ref: "data-examples/examples.yaml#/MobileTestTrackSignupRequest"
+              ios:
+                $ref: "data-examples/examples.yaml#/MobileTestTrackSignupRequestIos"
+              android:
+                $ref: "data-examples/examples.yaml#/MobileTestTrackSignupRequestAndroid"
+              both:
+                $ref: "data-examples/examples.yaml#/MobileTestTrackSignupRequestBoth"
       responses:
         "200":
           description: Current opt-in state after the call
@@ -530,8 +534,12 @@ paths:
               schema:
                 $ref: "schemas.yaml#/MobileTestTrackSignupResponse"
               examples:
-                default:
-                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponse"
+                ios:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseIos"
+                android:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseAndroid"
+                both:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseBoth"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -566,8 +574,12 @@ paths:
             schema:
               $ref: "schemas.yaml#/AnonymousMobileTestTrackSignupRequest"
             examples:
-              default:
-                $ref: "data-examples/examples.yaml#/AnonymousMobileTestTrackSignupRequest"
+              ios:
+                $ref: "data-examples/examples.yaml#/AnonymousMobileTestTrackSignupRequestIos"
+              android:
+                $ref: "data-examples/examples.yaml#/AnonymousMobileTestTrackSignupRequestAndroid"
+              both:
+                $ref: "data-examples/examples.yaml#/AnonymousMobileTestTrackSignupRequestBoth"
       responses:
         "200":
           description: Current opt-in state after the call
@@ -576,8 +588,12 @@ paths:
               schema:
                 $ref: "schemas.yaml#/MobileTestTrackSignupResponse"
               examples:
-                default:
-                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponse"
+                ios:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseIos"
+                android:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseAndroid"
+                both:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseBoth"
         "400":
           $ref: "#/components/responses/BadRequest"
         "403":
