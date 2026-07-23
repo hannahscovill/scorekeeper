@@ -1,11 +1,11 @@
 //! Anonymous internal test track signup route handler.
 //!
-//! Unlike `POST /profile/beta-signup` (authenticated, `src/routes/profile.rs`),
+//! Unlike `POST /profile/mobile-test-track-signup` (authenticated, `src/routes/profile.rs`),
 //! this endpoint requires no login — it lets an anonymous visitor give us an
 //! email without creating a real account. The email is stored as an Auth0
 //! "email" passwordless connection user (no password, never used to log in),
 //! reusing the same `user_metadata` opt-in fields and write path
-//! (`set_test_track_opt_in`) as the authenticated flow. Because this is a
+//! (`set_mobile_test_track_opt_in`) as the authenticated flow. Because this is a
 //! public, unauthenticated form, it needs the same anti-abuse plumbing as
 //! `POST /issues`: Turnstile CAPTCHA, per-IP rate limiting, and a honeypot
 //! field.
@@ -22,7 +22,7 @@ use crate::services::{Auth0ManagementService, GitHubIssueService, RateLimiter};
 /// At least one of `ios`/`android` must be true.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AnonymousBetaSignupRequest {
+pub struct AnonymousMobileTestTrackSignupRequest {
     pub email: String,
     #[serde(default)]
     pub ios: bool,
@@ -36,26 +36,26 @@ pub struct AnonymousBetaSignupRequest {
 /// Response from the anonymous internal test track signup endpoint.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AnonymousBetaSignupResponse {
-    pub opt_in_test_track_ios: bool,
-    pub opt_in_test_track_android: bool,
+pub struct AnonymousMobileTestTrackSignupResponse {
+    pub opt_in_mobile_test_track_ios: bool,
+    pub opt_in_mobile_test_track_android: bool,
 }
 
-/// POST /beta-signup - Opt an anonymous visitor into the internal test track
+/// POST /mobile-test-track-signup - Opt an anonymous visitor into the internal test track
 /// by email, without requiring an account.
 ///
 /// Idempotent per email: repeat submissions for platform(s) already opted
 /// into are a no-op (no Auth0 write, no GitHub notification). The GitHub
 /// notification never contains the email or any hint of it — only the Auth0
 /// user ID, which is enough to look the signup up in the Auth0 dashboard.
-#[post("/beta-signup")]
+#[post("/mobile-test-track-signup")]
 #[instrument(
-    name = "anonymous_beta_signup",
+    name = "anonymous_mobile_test_track_signup",
     skip(body, auth0_service, github_issue_service, rate_limiter)
 )]
-pub async fn anonymous_beta_signup(
+pub async fn anonymous_mobile_test_track_signup(
     req: HttpRequest,
-    body: web::Json<AnonymousBetaSignupRequest>,
+    body: web::Json<AnonymousMobileTestTrackSignupRequest>,
     auth0_service: web::Data<Auth0ManagementService>,
     github_issue_service: web::Data<GitHubIssueService>,
     rate_limiter: web::Data<RateLimiter>,
@@ -82,10 +82,12 @@ pub async fn anonymous_beta_signup(
     // Honeypot check — if filled, silently return 200 without doing anything.
     if !body.website.is_empty() {
         tracing::info!("Honeypot triggered from IP {}", source_ip);
-        return Ok(HttpResponse::Ok().json(AnonymousBetaSignupResponse {
-            opt_in_test_track_ios: false,
-            opt_in_test_track_android: false,
-        }));
+        return Ok(
+            HttpResponse::Ok().json(AnonymousMobileTestTrackSignupResponse {
+                opt_in_mobile_test_track_ios: false,
+                opt_in_mobile_test_track_android: false,
+            }),
+        );
     }
 
     // Cheap sanity check, not full RFC validation.
@@ -112,9 +114,11 @@ pub async fn anonymous_beta_signup(
     let (user_id, final_ios, final_android, has_new_signup) = match existing_lead {
         Some(existing) => {
             let metadata = existing.user_metadata.as_ref();
-            let existing_ios = metadata.map(|m| m.opt_in_test_track_ios).unwrap_or(false);
+            let existing_ios = metadata
+                .map(|m| m.opt_in_mobile_test_track_ios)
+                .unwrap_or(false);
             let existing_android = metadata
-                .map(|m| m.opt_in_test_track_android)
+                .map(|m| m.opt_in_mobile_test_track_android)
                 .unwrap_or(false);
 
             let newly_ios = body.ios && !existing_ios;
@@ -126,7 +130,7 @@ pub async fn anonymous_beta_signup(
             } else {
                 let ts = chrono::Utc::now().to_rfc3339();
                 auth0_service
-                    .set_test_track_opt_in(
+                    .set_mobile_test_track_opt_in(
                         &existing.user_id,
                         newly_ios.then_some(ts.as_str()),
                         newly_android.then_some(ts.as_str()),
@@ -158,17 +162,22 @@ pub async fn anonymous_beta_signup(
         // lead has no display name, and the email itself must never appear
         // in the issue.
         if let Err(e) = github_issue_service
-            .notify_beta_signup(None, &user_id, final_ios, final_android)
+            .notify_mobile_test_track_signup(None, &user_id, final_ios, final_android)
             .await
         {
-            tracing::warn!("Failed to notify GitHub of anonymous beta signup: {}", e);
+            tracing::warn!(
+                "Failed to notify GitHub of anonymous mobile test track signup: {}",
+                e
+            );
         }
     }
 
-    Ok(HttpResponse::Ok().json(AnonymousBetaSignupResponse {
-        opt_in_test_track_ios: final_ios,
-        opt_in_test_track_android: final_android,
-    }))
+    Ok(
+        HttpResponse::Ok().json(AnonymousMobileTestTrackSignupResponse {
+            opt_in_mobile_test_track_ios: final_ios,
+            opt_in_mobile_test_track_android: final_android,
+        }),
+    )
 }
 
 #[cfg(test)]
@@ -176,9 +185,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_anonymous_beta_signup_request_deserialization() {
+    fn test_anonymous_mobile_test_track_signup_request_deserialization() {
         let json = r#"{"email": "test@example.com", "ios": true, "turnstileToken": "tok"}"#;
-        let request: AnonymousBetaSignupRequest = serde_json::from_str(json).unwrap();
+        let request: AnonymousMobileTestTrackSignupRequest = serde_json::from_str(json).unwrap();
         assert_eq!(request.email, "test@example.com");
         assert!(request.ios);
         assert!(!request.android);
@@ -187,14 +196,14 @@ mod tests {
     }
 
     #[test]
-    fn test_anonymous_beta_signup_response_serialization() {
-        let response = AnonymousBetaSignupResponse {
-            opt_in_test_track_ios: true,
-            opt_in_test_track_android: false,
+    fn test_anonymous_mobile_test_track_signup_response_serialization() {
+        let response = AnonymousMobileTestTrackSignupResponse {
+            opt_in_mobile_test_track_ios: true,
+            opt_in_mobile_test_track_android: false,
         };
         let json = serde_json::to_string(&response).unwrap();
-        assert!(json.contains("\"optInTestTrackIos\":true"));
-        assert!(json.contains("\"optInTestTrackAndroid\":false"));
+        assert!(json.contains("\"optInMobileTestTrackIos\":true"));
+        assert!(json.contains("\"optInMobileTestTrackAndroid\":false"));
     }
 
     #[test]

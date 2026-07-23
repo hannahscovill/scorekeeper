@@ -1,11 +1,11 @@
 meta {
-  name: Beta Signup
+  name: Mobile Test Track Signup
   type: http
   seq: 4
 }
 
 post {
-  url: {{protocol}}://{{baseUrl}}/profile/beta-signup
+  url: {{protocol}}://{{baseUrl}}/profile/mobile-test-track-signup
   body: json
   auth: bearer
 }
@@ -55,8 +55,8 @@ docs {
   - `200`: Opt-in state reflects the user's current overall opt-in status
     ```json
     {
-      "optInTestTrackIos": true,
-      "optInTestTrackAndroid": false
+      "optInMobileTestTrackIos": true,
+      "optInMobileTestTrackAndroid": false
     }
     ```
   - `400`: Neither `ios` nor `android` was true

@@ -26,7 +26,7 @@ tags:
     description: Issue reporting (requires authentication)
   - name: Users
     description: User profile management
-  - name: Beta Signup
+  - name: Mobile Test Track Signup
     description: Internal mobile test track signup (authenticated and anonymous)
 
 paths:
@@ -489,7 +489,7 @@ paths:
               example:
                 message: "Failed to upload avatar"
 
-  /profile/beta-signup:
+  /profile/mobile-test-track-signup:
     post:
       summary: Opt into the internal mobile test track (authenticated)
       description: |
@@ -505,41 +505,46 @@ paths:
         GitHub notification is best-effort: if GitHub credentials aren't
         configured, the opt-in still succeeds and the notification is
         silently skipped.
-      operationId: betaSignup
+
+        **No Turnstile token required** — a valid JWT already proves the
+        request is from a real logged-in user, so CAPTCHA verification
+        (required on the anonymous `POST /mobile-test-track-signup` below) would be
+        redundant here.
+      operationId: mobileTestTrackSignup
       tags:
-        - Beta Signup
+        - Mobile Test Track Signup
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "schemas.yaml#/BetaSignupRequest"
+              $ref: "schemas.yaml#/MobileTestTrackSignupRequest"
             examples:
               default:
-                $ref: "data-examples/examples.yaml#/BetaSignupRequest"
+                $ref: "data-examples/examples.yaml#/MobileTestTrackSignupRequest"
       responses:
         "200":
           description: Current opt-in state after the call
           content:
             application/json:
               schema:
-                $ref: "schemas.yaml#/BetaSignupResponse"
+                $ref: "schemas.yaml#/MobileTestTrackSignupResponse"
               examples:
                 default:
-                  $ref: "data-examples/examples.yaml#/BetaSignupResponse"
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /beta-signup:
+  /mobile-test-track-signup:
     post:
       summary: Opt into the internal mobile test track (anonymous)
       description: |
         Opts an anonymous visitor into the iOS and/or Android internal test
         track by email, without requiring an account. Creates (or finds) a
         passwordless Auth0 "email" connection lead and writes the same
-        opt-in fields used by `POST /profile/beta-signup`.
+        opt-in fields used by `POST /profile/mobile-test-track-signup`.
 
         Idempotent per email/platform — resubmitting a platform already
         opted into is a no-op. Notifies via the same GitHub issue mechanism
@@ -550,29 +555,29 @@ paths:
         is: Turnstile CAPTCHA verification (required, not best-effort),
         per-IP rate limiting (5 requests per hour, separate quota from
         `/issues`), and a honeypot field.
-      operationId: anonymousBetaSignup
+      operationId: anonymousMobileTestTrackSignup
       tags:
-        - Beta Signup
+        - Mobile Test Track Signup
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "schemas.yaml#/AnonymousBetaSignupRequest"
+              $ref: "schemas.yaml#/AnonymousMobileTestTrackSignupRequest"
             examples:
               default:
-                $ref: "data-examples/examples.yaml#/AnonymousBetaSignupRequest"
+                $ref: "data-examples/examples.yaml#/AnonymousMobileTestTrackSignupRequest"
       responses:
         "200":
           description: Current opt-in state after the call
           content:
             application/json:
               schema:
-                $ref: "schemas.yaml#/BetaSignupResponse"
+                $ref: "schemas.yaml#/MobileTestTrackSignupResponse"
               examples:
                 default:
-                  $ref: "data-examples/examples.yaml#/BetaSignupResponse"
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "403":

@@ -48,7 +48,7 @@ pub struct ProfileResponse {
 /// At least one of `ios`/`android` must be true.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BetaSignupRequest {
+pub struct MobileTestTrackSignupRequest {
     #[serde(default)]
     pub ios: bool,
     #[serde(default)]
@@ -59,9 +59,9 @@ pub struct BetaSignupRequest {
 /// user's current overall opt-in state after the call.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BetaSignupResponse {
-    pub opt_in_test_track_ios: bool,
-    pub opt_in_test_track_android: bool,
+pub struct MobileTestTrackSignupResponse {
+    pub opt_in_mobile_test_track_ios: bool,
+    pub opt_in_mobile_test_track_android: bool,
 }
 
 /// Response from avatar upload endpoint.
@@ -170,7 +170,7 @@ pub async fn update_profile(
     }))
 }
 
-/// POST /profile/beta-signup - Opt the current user into the internal test track.
+/// POST /profile/mobile-test-track-signup - Opt the current user into the internal test track.
 ///
 /// Idempotent: if the user has already opted into the requested platform(s),
 /// returns success immediately without re-writing Auth0 or re-notifying
@@ -178,15 +178,15 @@ pub async fn update_profile(
 /// notification is best-effort — the Auth0 opt-in flags are the source of
 /// truth, so a notification failure never fails the request. The GitHub
 /// issue body includes display name and Auth0 user ID only — never email.
-#[post("/profile/beta-signup")]
+#[post("/profile/mobile-test-track-signup")]
 #[instrument(
-    name = "authenticated_beta_signup",
+    name = "authenticated_mobile_test_track_signup",
     skip(body, auth0_service, github_issue_service),
     fields(user_id = %claims.sub)
 )]
-pub async fn authenticated_beta_signup(
+pub async fn authenticated_mobile_test_track_signup(
     claims: Claims,
-    body: web::Json<BetaSignupRequest>,
+    body: web::Json<MobileTestTrackSignupRequest>,
     auth0_service: web::Data<Auth0ManagementService>,
     github_issue_service: Option<web::Data<GitHubIssueService>>,
 ) -> Result<HttpResponse, AppError> {
@@ -203,19 +203,19 @@ pub async fn authenticated_beta_signup(
     let existing_user = auth0_service.get_user(&user_id).await?;
     let existing_metadata = existing_user.user_metadata.as_ref();
     let existing_ios = existing_metadata
-        .map(|m| m.opt_in_test_track_ios)
+        .map(|m| m.opt_in_mobile_test_track_ios)
         .unwrap_or(false);
     let existing_android = existing_metadata
-        .map(|m| m.opt_in_test_track_android)
+        .map(|m| m.opt_in_mobile_test_track_android)
         .unwrap_or(false);
 
     let newly_ios = body.ios && !existing_ios;
     let newly_android = body.android && !existing_android;
 
     if !newly_ios && !newly_android {
-        return Ok(HttpResponse::Ok().json(BetaSignupResponse {
-            opt_in_test_track_ios: existing_ios,
-            opt_in_test_track_android: existing_android,
+        return Ok(HttpResponse::Ok().json(MobileTestTrackSignupResponse {
+            opt_in_mobile_test_track_ios: existing_ios,
+            opt_in_mobile_test_track_android: existing_android,
         }));
     }
 
@@ -223,7 +223,7 @@ pub async fn authenticated_beta_signup(
 
     // Auth0 write must succeed — it's the source of truth for opt-in state.
     auth0_service
-        .set_test_track_opt_in(
+        .set_mobile_test_track_opt_in(
             &user_id,
             newly_ios.then_some(opted_in_at.as_str()),
             newly_android.then_some(opted_in_at.as_str()),
@@ -240,18 +240,18 @@ pub async fn authenticated_beta_signup(
             let metadata = refreshed.user_metadata;
             let ios = metadata
                 .as_ref()
-                .map(|m| m.opt_in_test_track_ios)
+                .map(|m| m.opt_in_mobile_test_track_ios)
                 .unwrap_or(existing_ios || newly_ios);
             let android = metadata
                 .as_ref()
-                .map(|m| m.opt_in_test_track_android)
+                .map(|m| m.opt_in_mobile_test_track_android)
                 .unwrap_or(existing_android || newly_android);
             let name = metadata.map(|m| m.display_name).filter(|n| !n.is_empty());
             (ios, android, name)
         }
         Err(e) => {
             tracing::warn!(
-                "Failed to refetch profile after beta opt-in for {}: {}",
+                "Failed to refetch profile after mobile test track opt-in for {}: {}",
                 user_id,
                 e
             );
@@ -267,11 +267,16 @@ pub async fn authenticated_beta_signup(
     match github_issue_service {
         Some(gh) => {
             if let Err(e) = gh
-                .notify_beta_signup(display_name.as_deref(), &user_id, final_ios, final_android)
+                .notify_mobile_test_track_signup(
+                    display_name.as_deref(),
+                    &user_id,
+                    final_ios,
+                    final_android,
+                )
                 .await
             {
                 tracing::warn!(
-                    "Failed to notify GitHub of beta signup for {}: {}",
+                    "Failed to notify GitHub of mobile test track signup for {}: {}",
                     user_id,
                     e
                 );
@@ -279,15 +284,15 @@ pub async fn authenticated_beta_signup(
         }
         None => {
             tracing::info!(
-                "GitHub Issue service not configured; skipping beta signup notification for {}",
+                "GitHub Issue service not configured; skipping mobile test track signup notification for {}",
                 user_id
             );
         }
     }
 
-    Ok(HttpResponse::Ok().json(BetaSignupResponse {
-        opt_in_test_track_ios: final_ios,
-        opt_in_test_track_android: final_android,
+    Ok(HttpResponse::Ok().json(MobileTestTrackSignupResponse {
+        opt_in_mobile_test_track_ios: final_ios,
+        opt_in_mobile_test_track_android: final_android,
     }))
 }
 
@@ -431,32 +436,32 @@ mod tests {
     }
 
     #[test]
-    fn test_authenticated_beta_signup_request_deserialization() {
+    fn test_authenticated_mobile_test_track_signup_request_deserialization() {
         let json = r#"{"ios": true}"#;
-        let request: BetaSignupRequest = serde_json::from_str(json).unwrap();
+        let request: MobileTestTrackSignupRequest = serde_json::from_str(json).unwrap();
         assert!(request.ios);
         assert!(!request.android);
 
         let json = r#"{"ios": true, "android": true}"#;
-        let request: BetaSignupRequest = serde_json::from_str(json).unwrap();
+        let request: MobileTestTrackSignupRequest = serde_json::from_str(json).unwrap();
         assert!(request.ios);
         assert!(request.android);
 
         // Missing fields default to false
         let json = r#"{}"#;
-        let request: BetaSignupRequest = serde_json::from_str(json).unwrap();
+        let request: MobileTestTrackSignupRequest = serde_json::from_str(json).unwrap();
         assert!(!request.ios);
         assert!(!request.android);
     }
 
     #[test]
-    fn test_authenticated_beta_signup_response_serialization() {
-        let response = BetaSignupResponse {
-            opt_in_test_track_ios: true,
-            opt_in_test_track_android: false,
+    fn test_authenticated_mobile_test_track_signup_response_serialization() {
+        let response = MobileTestTrackSignupResponse {
+            opt_in_mobile_test_track_ios: true,
+            opt_in_mobile_test_track_android: false,
         };
         let json = serde_json::to_string(&response).unwrap();
-        assert!(json.contains("\"optInTestTrackIos\":true"));
-        assert!(json.contains("\"optInTestTrackAndroid\":false"));
+        assert!(json.contains("\"optInMobileTestTrackIos\":true"));
+        assert!(json.contains("\"optInMobileTestTrackAndroid\":false"));
     }
 }

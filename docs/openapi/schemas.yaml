@@ -593,10 +593,10 @@ IssueReportResponse:
       example: "https://github.com/hannahscovill/wordles-with-friends-client-web/issues/42"
 
 # -----------------------------------------------------------------------------
-# Beta Signup Schemas
+# Mobile Test Track Signup Schemas
 # -----------------------------------------------------------------------------
 
-BetaSignupRequest:
+MobileTestTrackSignupRequest:
   type: object
   description: At least one of `ios`/`android` must be true.
   properties:
@@ -609,22 +609,22 @@ BetaSignupRequest:
       default: false
       description: Opt into the Android internal test track
 
-BetaSignupResponse:
+MobileTestTrackSignupResponse:
   type: object
   required:
-    - optInTestTrackIos
-    - optInTestTrackAndroid
+    - optInMobileTestTrackIos
+    - optInMobileTestTrackAndroid
   properties:
-    optInTestTrackIos:
+    optInMobileTestTrackIos:
       type: boolean
       description: Whether the user is currently opted into the iOS test track
       example: true
-    optInTestTrackAndroid:
+    optInMobileTestTrackAndroid:
       type: boolean
       description: Whether the user is currently opted into the Android test track
       example: false
 
-AnonymousBetaSignupRequest:
+AnonymousMobileTestTrackSignupRequest:
   type: object
   description: At least one of `ios`/`android` must be true.
   required:

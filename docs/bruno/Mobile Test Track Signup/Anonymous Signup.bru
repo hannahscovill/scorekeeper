@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{protocol}}://{{baseUrl}}/beta-signup
+  url: {{protocol}}://{{baseUrl}}/mobile-test-track-signup
   body: json
   auth: none
 }
@@ -29,7 +29,7 @@ docs {
   Opts an anonymous visitor into the internal mobile test track by email,
   without requiring an account. Creates (or finds) a passwordless Auth0
   "email" connection user and writes the same opt-in fields used by the
-  authenticated `/profile/beta-signup` endpoint.
+  authenticated `/profile/mobile-test-track-signup` endpoint.
 
   Idempotent per email/platform — resubmitting a platform already opted
   into is a no-op. Notifies via the same GitHub issue mechanism as the
@@ -66,8 +66,8 @@ docs {
   - `200`: Opt-in state reflects the email's current overall opt-in status
     ```json
     {
-      "optInTestTrackIos": true,
-      "optInTestTrackAndroid": false
+      "optInMobileTestTrackIos": true,
+      "optInMobileTestTrackAndroid": false
     }
     ```
   - `400`: Invalid email, or neither `ios` nor `android` was true

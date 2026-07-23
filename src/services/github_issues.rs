@@ -83,7 +83,8 @@ struct GitHubIssueResponse {
 const TEMPLATE_BUG: &str = include_str!("../../templates/bug.md");
 const TEMPLATE_FEATURE: &str = include_str!("../../templates/feature.md");
 const TEMPLATE_QUESTION: &str = include_str!("../../templates/question.md");
-const TEMPLATE_BETA_SIGNUP: &str = include_str!("../../templates/beta_signup.md");
+const TEMPLATE_MOBILE_TEST_TRACK_SIGNUP: &str =
+    include_str!("../../templates/mobile_test_track_signup.md");
 const TEMPLATE_FOOTER: &str = include_str!("../../templates/footer.md");
 
 struct IssueTemplate {
@@ -127,7 +128,7 @@ fn get_template(issue_type: &str) -> IssueTemplate {
     let raw = match issue_type {
         "bug" => TEMPLATE_BUG,
         "feature" => TEMPLATE_FEATURE,
-        "beta_signup" => TEMPLATE_BETA_SIGNUP,
+        "mobile_test_track_signup" => TEMPLATE_MOBILE_TEST_TRACK_SIGNUP,
         _ => TEMPLATE_QUESTION,
     };
     parse_template(raw)
@@ -145,10 +146,10 @@ struct IssueBodyParams<'a> {
     client_commit_hash: Option<&'a str>,
     server_environment_name: Option<&'a str>,
     server_commit_hash: Option<&'a str>,
-    /// `Some(bool)` fills the `{opt_in_test_track_ios}` checkbox placeholder
-    /// (only present in the beta_signup template); `None` leaves it untouched.
+    /// `Some(bool)` fills the `{opt_in_mobile_test_track_ios}` checkbox placeholder
+    /// (only present in the mobile_test_track_signup template); `None` leaves it untouched.
     ios: Option<bool>,
-    /// Same as `ios`, for the `{opt_in_test_track_android}` placeholder.
+    /// Same as `ios`, for the `{opt_in_mobile_test_track_android}` placeholder.
     android: Option<bool>,
 }
 
@@ -156,11 +157,14 @@ fn build_issue_body(params: &IssueBodyParams) -> String {
     let template = get_template(params.issue_type);
     let mut body = template.body.replace("{description}", params.description);
     if let Some(ios) = params.ios {
-        body = body.replace("{opt_in_test_track_ios}", if ios { "x" } else { " " });
+        body = body.replace(
+            "{opt_in_mobile_test_track_ios}",
+            if ios { "x" } else { " " },
+        );
     }
     if let Some(android) = params.android {
         body = body.replace(
-            "{opt_in_test_track_android}",
+            "{opt_in_mobile_test_track_android}",
             if android { "x" } else { " " },
         );
     }
@@ -463,10 +467,10 @@ impl GitHubIssueService {
     /// user ID (and display name, if the caller has one) so the signup can
     /// be looked up directly in the Auth0 dashboard. No Turnstile
     /// verification and no free-text user input reach this path — it's only
-    /// reachable from the authenticated `/profile/beta-signup` route and the
-    /// CAPTCHA-gated `/beta-signup` route, never directly from an
+    /// reachable from the authenticated `/profile/mobile-test-track-signup` route and the
+    /// CAPTCHA-gated `/mobile-test-track-signup` route, never directly from an
     /// unauthenticated, unverified request.
-    pub async fn notify_beta_signup(
+    pub async fn notify_mobile_test_track_signup(
         &self,
         reporter_display_name: Option<&str>,
         reporter_user_id: &str,
@@ -482,12 +486,12 @@ impl GitHubIssueService {
 
         let full_title = format!(
             "{} New signup ({})",
-            issue_title_prefix("beta_signup"),
+            issue_title_prefix("mobile_test_track_signup"),
             platforms_label
         );
 
         let body = build_issue_body(&IssueBodyParams {
-            issue_type: "beta_signup",
+            issue_type: "mobile_test_track_signup",
             description: "", // this template has no {description} placeholder
             reporter_display_name,
             reporter_user_id,
@@ -502,14 +506,14 @@ impl GitHubIssueService {
             android: Some(android),
         });
 
-        let label = issue_label("beta_signup");
+        let label = issue_label("mobile_test_track_signup");
 
         self.post_issue(full_title, body, label).await
     }
 
     /// Resolve a GitHub token, POST the issue, and parse the response.
     /// Shared by `create_issue` (public bug-report form, Turnstile-verified)
-    /// and `notify_beta_signup` (already-authenticated/CAPTCHA-gated caller).
+    /// and `notify_mobile_test_track_signup` (already-authenticated/CAPTCHA-gated caller).
     async fn post_issue(
         &self,
         title: String,
@@ -609,32 +613,32 @@ mod tests {
     }
 
     #[test]
-    fn beta_signup_template_has_required_fields() {
-        let template = get_template("beta_signup");
+    fn mobile_test_track_signup_template_has_required_fields() {
+        let template = get_template("mobile_test_track_signup");
         assert!(
             !template.title_prefix.is_empty(),
-            "beta_signup template missing title_prefix"
+            "mobile_test_track_signup template missing title_prefix"
         );
         assert!(
             !template.label.is_empty(),
-            "beta_signup template missing label"
+            "mobile_test_track_signup template missing label"
         );
         assert!(
-            template.body.contains("{opt_in_test_track_ios}"),
-            "beta_signup template missing {{opt_in_test_track_ios}} placeholder"
+            template.body.contains("{opt_in_mobile_test_track_ios}"),
+            "mobile_test_track_signup template missing {{opt_in_mobile_test_track_ios}} placeholder"
         );
         assert!(
-            template.body.contains("{opt_in_test_track_android}"),
-            "beta_signup template missing {{opt_in_test_track_android}} placeholder"
+            template.body.contains("{opt_in_mobile_test_track_android}"),
+            "mobile_test_track_signup template missing {{opt_in_mobile_test_track_android}} placeholder"
         );
     }
 
     #[test]
-    fn beta_signup_template_does_not_use_description_placeholder() {
-        let template = get_template("beta_signup");
+    fn mobile_test_track_signup_template_does_not_use_description_placeholder() {
+        let template = get_template("mobile_test_track_signup");
         assert!(
             !template.body.contains("{description}"),
-            "beta_signup template should not use the {{description}} placeholder"
+            "mobile_test_track_signup template should not use the {{description}} placeholder"
         );
     }
 
@@ -936,11 +940,11 @@ mod tests {
     }
 
     #[test]
-    fn beta_signup_issue_type_does_not_fall_back_to_question() {
-        let beta_signup = get_template("beta_signup");
+    fn mobile_test_track_signup_issue_type_does_not_fall_back_to_question() {
+        let mobile_test_track_signup = get_template("mobile_test_track_signup");
         let question = get_template("question");
-        assert_ne!(beta_signup.label, question.label);
-        assert_ne!(beta_signup.title_prefix, question.title_prefix);
+        assert_ne!(mobile_test_track_signup.label, question.label);
+        assert_ne!(mobile_test_track_signup.title_prefix, question.title_prefix);
     }
 
     #[test]
@@ -951,8 +955,8 @@ mod tests {
             get_template("feature").title_prefix
         );
         assert_eq!(
-            issue_title_prefix("beta_signup"),
-            get_template("beta_signup").title_prefix
+            issue_title_prefix("mobile_test_track_signup"),
+            get_template("mobile_test_track_signup").title_prefix
         );
     }
 
@@ -961,15 +965,15 @@ mod tests {
         assert_eq!(issue_label("bug"), get_template("bug").label);
         assert_eq!(issue_label("feature"), get_template("feature").label);
         assert_eq!(
-            issue_label("beta_signup"),
-            get_template("beta_signup").label
+            issue_label("mobile_test_track_signup"),
+            get_template("mobile_test_track_signup").label
         );
     }
 
     #[test]
-    fn build_issue_body_for_beta_signup_renders_checkboxes_and_omits_client_section() {
+    fn build_issue_body_for_mobile_test_track_signup_renders_checkboxes_and_omits_client_section() {
         let body = build_issue_body(&IssueBodyParams {
-            issue_type: "beta_signup",
+            issue_type: "mobile_test_track_signup",
             description: "",
             reporter_display_name: None,
             reporter_user_id: "email|abc123",
@@ -1006,18 +1010,18 @@ mod tests {
         );
         assert!(
             !body.contains("### Client"),
-            "client subsection should never appear for beta_signup (no client data collected)"
+            "client subsection should never appear for mobile_test_track_signup (no client data collected)"
         );
         assert!(
             !body.contains('@'),
-            "beta_signup issue body must never contain an email address"
+            "mobile_test_track_signup issue body must never contain an email address"
         );
     }
 
     #[test]
-    fn build_issue_body_for_beta_signup_both_platforms_checked() {
+    fn build_issue_body_for_mobile_test_track_signup_both_platforms_checked() {
         let body = build_issue_body(&IssueBodyParams {
-            issue_type: "beta_signup",
+            issue_type: "mobile_test_track_signup",
             description: "",
             reporter_display_name: Some("hscov"),
             reporter_user_id: "auth0|xyz",
@@ -1037,8 +1041,8 @@ mod tests {
     }
 
     #[test]
-    fn notify_beta_signup_platforms_label_covers_all_combinations() {
-        // Mirrors the match in GitHubIssueService::notify_beta_signup — this
+    fn notify_mobile_test_track_signup_platforms_label_covers_all_combinations() {
+        // Mirrors the match in GitHubIssueService::notify_mobile_test_track_signup — this
         // test documents the expected title text for each combination
         // without needing network access.
         let label = |ios: bool, android: bool| match (ios, android) {

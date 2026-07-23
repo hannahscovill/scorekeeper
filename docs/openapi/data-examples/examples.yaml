@@ -139,23 +139,23 @@ IssueReportResponse:
     $ref: "./IssueReportResponse.json"
 
 # -----------------------------------------------------------------------------
-# Beta Signup Examples
+# Mobile Test Track Signup Examples
 # -----------------------------------------------------------------------------
 
-BetaSignupRequest:
-  summary: Authenticated beta signup request
+MobileTestTrackSignupRequest:
+  summary: Authenticated mobile test track signup request
   value:
-    $ref: "./BetaSignupRequest.json"
+    $ref: "./MobileTestTrackSignupRequest.json"
 
-BetaSignupResponse:
-  summary: Beta signup response
+MobileTestTrackSignupResponse:
+  summary: Mobile test track signup response
   value:
-    $ref: "./BetaSignupResponse.json"
+    $ref: "./MobileTestTrackSignupResponse.json"
 
-AnonymousBetaSignupRequest:
-  summary: Anonymous beta signup request
+AnonymousMobileTestTrackSignupRequest:
+  summary: Anonymous mobile test track signup request
   value:
-    $ref: "./AnonymousBetaSignupRequest.json"
+    $ref: "./AnonymousMobileTestTrackSignupRequest.json"
 
 # -----------------------------------------------------------------------------
 # Team Examples

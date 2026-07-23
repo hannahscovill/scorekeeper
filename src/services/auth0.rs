@@ -59,13 +59,13 @@ struct UserMetadataUpdate {
     #[serde(skip_serializing_if = "Option::is_none")]
     pronouns: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    opt_in_test_track_ios: Option<bool>,
+    opt_in_mobile_test_track_ios: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    opt_in_test_track_ios_at: Option<String>,
+    opt_in_mobile_test_track_ios_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    opt_in_test_track_android: Option<bool>,
+    opt_in_mobile_test_track_android: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    opt_in_test_track_android_at: Option<String>,
+    opt_in_mobile_test_track_android_at: Option<String>,
 }
 
 /// User metadata from Auth0.
@@ -80,13 +80,13 @@ pub struct UserMetadata {
     #[serde(default)]
     pub pronouns: Option<String>,
     #[serde(default)]
-    pub opt_in_test_track_ios: bool,
+    pub opt_in_mobile_test_track_ios: bool,
     #[serde(default)]
-    pub opt_in_test_track_ios_at: Option<String>,
+    pub opt_in_mobile_test_track_ios_at: Option<String>,
     #[serde(default)]
-    pub opt_in_test_track_android: bool,
+    pub opt_in_mobile_test_track_android: bool,
     #[serde(default)]
-    pub opt_in_test_track_android_at: Option<String>,
+    pub opt_in_mobile_test_track_android_at: Option<String>,
 }
 
 /// A single Auth0 identity (one per linked connection, e.g. "email" passwordless,
@@ -270,10 +270,10 @@ impl Auth0ManagementService {
                 avatar_url: avatar_url.map(|s| s.to_string()),
                 name: name.map(|s| s.to_string()),
                 pronouns: pronouns.map(|s| s.to_string()),
-                opt_in_test_track_ios: None,
-                opt_in_test_track_ios_at: None,
-                opt_in_test_track_android: None,
-                opt_in_test_track_android_at: None,
+                opt_in_mobile_test_track_ios: None,
+                opt_in_mobile_test_track_ios_at: None,
+                opt_in_mobile_test_track_android: None,
+                opt_in_mobile_test_track_android_at: None,
             },
         };
 
@@ -323,7 +323,7 @@ impl Auth0ManagementService {
     /// email-connection lookup/creation) — this is the one place that
     /// actually writes opt-in state, regardless of how the user_id was
     /// obtained.
-    pub async fn set_test_track_opt_in(
+    pub async fn set_mobile_test_track_opt_in(
         &self,
         user_id: &str,
         ios: Option<&str>,
@@ -343,10 +343,10 @@ impl Auth0ManagementService {
                 avatar_url: None,
                 name: None,
                 pronouns: None,
-                opt_in_test_track_ios: ios.map(|_| true),
-                opt_in_test_track_ios_at: ios.map(|s| s.to_string()),
-                opt_in_test_track_android: android.map(|_| true),
-                opt_in_test_track_android_at: android.map(|s| s.to_string()),
+                opt_in_mobile_test_track_ios: ios.map(|_| true),
+                opt_in_mobile_test_track_ios_at: ios.map(|s| s.to_string()),
+                opt_in_mobile_test_track_android: android.map(|_| true),
+                opt_in_mobile_test_track_android_at: android.map(|s| s.to_string()),
             },
         };
 
@@ -463,10 +463,10 @@ impl Auth0ManagementService {
                 avatar_url: None,
                 name: None,
                 pronouns: None,
-                opt_in_test_track_ios: ios.map(|_| true),
-                opt_in_test_track_ios_at: ios.map(|s| s.to_string()),
-                opt_in_test_track_android: android.map(|_| true),
-                opt_in_test_track_android_at: android.map(|s| s.to_string()),
+                opt_in_mobile_test_track_ios: ios.map(|_| true),
+                opt_in_mobile_test_track_ios_at: ios.map(|s| s.to_string()),
+                opt_in_mobile_test_track_android: android.map(|_| true),
+                opt_in_mobile_test_track_android_at: android.map(|s| s.to_string()),
             },
         };
 
@@ -529,10 +529,10 @@ mod tests {
             avatar_url: Some("https://example.com/avatar.png".to_string()),
             name: Some("Test Name".to_string()),
             pronouns: Some("they/them".to_string()),
-            opt_in_test_track_ios: None,
-            opt_in_test_track_ios_at: None,
-            opt_in_test_track_android: None,
-            opt_in_test_track_android_at: None,
+            opt_in_mobile_test_track_ios: None,
+            opt_in_mobile_test_track_ios_at: None,
+            opt_in_mobile_test_track_android: None,
+            opt_in_mobile_test_track_android_at: None,
         };
         let json = serde_json::to_string(&metadata).unwrap();
         assert!(json.contains("display_name"));
@@ -543,7 +543,7 @@ mod tests {
         assert!(json.contains("Test Name"));
         assert!(json.contains("pronouns"));
         assert!(json.contains("they/them"));
-        assert!(!json.contains("opt_in_test_track"));
+        assert!(!json.contains("opt_in_mobile_test_track"));
 
         // Test with None - should be omitted
         let metadata = UserMetadataUpdate {
@@ -551,10 +551,10 @@ mod tests {
             avatar_url: None,
             name: None,
             pronouns: None,
-            opt_in_test_track_ios: None,
-            opt_in_test_track_ios_at: None,
-            opt_in_test_track_android: None,
-            opt_in_test_track_android_at: None,
+            opt_in_mobile_test_track_ios: None,
+            opt_in_mobile_test_track_ios_at: None,
+            opt_in_mobile_test_track_android: None,
+            opt_in_mobile_test_track_android_at: None,
         };
         let json = serde_json::to_string(&metadata).unwrap();
         assert!(!json.contains("display_name"));
@@ -564,21 +564,21 @@ mod tests {
     }
 
     #[test]
-    fn test_user_metadata_update_serialization_with_beta_fields() {
+    fn test_user_metadata_update_serialization_with_mobile_test_track_fields() {
         let metadata = UserMetadataUpdate {
             display_name: None,
             avatar_url: None,
             name: None,
             pronouns: None,
-            opt_in_test_track_ios: Some(true),
-            opt_in_test_track_ios_at: Some("2026-07-22T10:00:00+00:00".to_string()),
-            opt_in_test_track_android: None,
-            opt_in_test_track_android_at: None,
+            opt_in_mobile_test_track_ios: Some(true),
+            opt_in_mobile_test_track_ios_at: Some("2026-07-22T10:00:00+00:00".to_string()),
+            opt_in_mobile_test_track_android: None,
+            opt_in_mobile_test_track_android_at: None,
         };
         let json = serde_json::to_string(&metadata).unwrap();
-        assert!(json.contains("opt_in_test_track_ios"));
+        assert!(json.contains("opt_in_mobile_test_track_ios"));
         assert!(json.contains("2026-07-22T10:00:00+00:00"));
-        assert!(!json.contains("opt_in_test_track_android"));
+        assert!(!json.contains("opt_in_mobile_test_track_android"));
         assert!(!json.contains("display_name"));
         assert!(!json.contains("avatar_url"));
         assert!(!json.contains("\"name\""));
@@ -586,13 +586,13 @@ mod tests {
     }
 
     #[test]
-    fn test_user_metadata_deserialization_defaults_beta_fields_when_absent() {
+    fn test_user_metadata_deserialization_defaults_mobile_test_track_fields_when_absent() {
         let json = r#"{"display_name": "hscov"}"#;
         let metadata: UserMetadata = serde_json::from_str(json).unwrap();
-        assert!(!metadata.opt_in_test_track_ios);
-        assert_eq!(metadata.opt_in_test_track_ios_at, None);
-        assert!(!metadata.opt_in_test_track_android);
-        assert_eq!(metadata.opt_in_test_track_android_at, None);
+        assert!(!metadata.opt_in_mobile_test_track_ios);
+        assert_eq!(metadata.opt_in_mobile_test_track_ios_at, None);
+        assert!(!metadata.opt_in_mobile_test_track_android);
+        assert_eq!(metadata.opt_in_mobile_test_track_android_at, None);
     }
 
     #[test]
@@ -636,26 +636,26 @@ mod tests {
     }
 
     #[test]
-    fn test_auth0_user_deserialization_with_beta_opt_in() {
+    fn test_auth0_user_deserialization_with_mobile_test_track_opt_in() {
         let json = r#"{
             "user_id": "auth0|123",
             "user_metadata": {
-                "opt_in_test_track_ios": true,
-                "opt_in_test_track_ios_at": "2026-07-22T10:00:00+00:00",
-                "opt_in_test_track_android": true,
-                "opt_in_test_track_android_at": "2026-07-23T09:00:00+00:00"
+                "opt_in_mobile_test_track_ios": true,
+                "opt_in_mobile_test_track_ios_at": "2026-07-22T10:00:00+00:00",
+                "opt_in_mobile_test_track_android": true,
+                "opt_in_mobile_test_track_android_at": "2026-07-23T09:00:00+00:00"
             }
         }"#;
         let user: Auth0User = serde_json::from_str(json).unwrap();
         let meta = user.user_metadata.unwrap();
-        assert!(meta.opt_in_test_track_ios);
+        assert!(meta.opt_in_mobile_test_track_ios);
         assert_eq!(
-            meta.opt_in_test_track_ios_at,
+            meta.opt_in_mobile_test_track_ios_at,
             Some("2026-07-22T10:00:00+00:00".to_string())
         );
-        assert!(meta.opt_in_test_track_android);
+        assert!(meta.opt_in_mobile_test_track_android);
         assert_eq!(
-            meta.opt_in_test_track_android_at,
+            meta.opt_in_mobile_test_track_android_at,
             Some("2026-07-23T09:00:00+00:00".to_string())
         );
     }
@@ -711,17 +711,17 @@ mod tests {
                 avatar_url: None,
                 name: None,
                 pronouns: None,
-                opt_in_test_track_ios: Some(true),
-                opt_in_test_track_ios_at: Some("2026-07-22T10:00:00+00:00".to_string()),
-                opt_in_test_track_android: None,
-                opt_in_test_track_android_at: None,
+                opt_in_mobile_test_track_ios: Some(true),
+                opt_in_mobile_test_track_ios_at: Some("2026-07-22T10:00:00+00:00".to_string()),
+                opt_in_mobile_test_track_android: None,
+                opt_in_mobile_test_track_android_at: None,
             },
         };
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"connection\":\"email\""));
         assert!(json.contains("\"email\":\"lead@example.com\""));
         assert!(json.contains("\"email_verified\":false"));
-        assert!(json.contains("opt_in_test_track_ios"));
-        assert!(!json.contains("opt_in_test_track_android"));
+        assert!(json.contains("opt_in_mobile_test_track_ios"));
+        assert!(!json.contains("opt_in_mobile_test_track_android"));
     }
 }

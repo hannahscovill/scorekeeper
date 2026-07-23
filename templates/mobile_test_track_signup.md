@@ -4,5 +4,5 @@ label: mobile-test-user-opt-in
 ---
 
 ## Platforms Opted In
-- [{opt_in_test_track_android}] Android
-- [{opt_in_test_track_ios}] iOS
+- [{opt_in_mobile_test_track_android}] Android
+- [{opt_in_mobile_test_track_ios}] iOS
