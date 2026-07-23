@@ -25,9 +25,9 @@ use db::{
 use middleware::auth::JwtAuth;
 use routes::convert_session::convert_session;
 use routes::{
-    clear_puzzle_cache, create_games, create_issue, get_game, get_games, get_history, get_profile,
-    get_puzzle_by_date, get_puzzles, health_check, list_games, set_puzzle, submit_guess,
-    update_profile, upload_avatar,
+    anonymous_mobile_test_track_signup, authenticated_mobile_test_track_signup, clear_puzzle_cache,
+    create_games, create_issue, get_game, get_games, get_history, get_profile, get_puzzle_by_date,
+    get_puzzles, health_check, list_games, set_puzzle, submit_guess, update_profile, upload_avatar,
 };
 use services::{
     Auth0ManagementService, CommonWordsService, CommonWordsSource, GitHubIssueService, RateLimiter,
@@ -257,6 +257,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     let issue_rate_limiter = web::Data::new(RateLimiter::new());
+    let mobile_test_track_signup_rate_limiter = web::Data::new(RateLimiter::new());
 
     let config_for_tls = config.clone();
     let config = web::Data::new(config);
@@ -328,9 +329,21 @@ async fn main() -> std::io::Result<()> {
             if let Some(ref s3) = s3_avatar_service {
                 app = app.app_data(s3.clone());
             }
-            app = app.service(get_profile).service(update_profile);
+            app = app
+                .service(get_profile)
+                .service(update_profile)
+                .service(authenticated_mobile_test_track_signup);
             if s3_avatar_service.is_some() {
                 app = app.service(upload_avatar);
+            }
+            // The anonymous signup form needs GitHub (required for Turnstile
+            // verification, not optional the way the notification is for the
+            // authenticated flow) in addition to Auth0 — its app_data is
+            // already registered above when github_issue_service is Some.
+            if github_issue_service.is_some() {
+                app = app
+                    .app_data(mobile_test_track_signup_rate_limiter.clone())
+                    .service(anonymous_mobile_test_track_signup);
             }
         }
 

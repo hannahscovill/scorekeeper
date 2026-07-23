@@ -1,0 +1,76 @@
+meta {
+  name: Anonymous Signup
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{protocol}}://{{baseUrl}}/mobile-test-track-signup
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Origin: http://localhost:3000
+}
+
+body:json {
+  {
+    "email": "test@example.com",
+    "ios": true,
+    "android": false,
+    "turnstileToken": "0.test-token",
+    "website": ""
+  }
+}
+
+docs {
+  Opts an anonymous visitor into the internal mobile test track by email,
+  without requiring an account. Creates (or finds) a passwordless Auth0
+  "email" connection user and writes the same opt-in fields used by the
+  authenticated `/profile/mobile-test-track-signup` endpoint.
+
+  Idempotent per email/platform — resubmitting a platform already opted
+  into is a no-op. Notifies via the same GitHub issue mechanism as the
+  authenticated flow (label `mobile-test-user-opt-in`) — the issue includes
+  only the Auth0 user ID, **never the email or any hint of it**.
+
+  Public/unauthenticated, so it's gated the same way `/issues` is:
+  - Turnstile CAPTCHA verification (required, not best-effort)
+  - Per-IP rate limiting (5 requests/hour, separate quota from `/issues`)
+  - Honeypot field (`website`) — if non-empty, silently returns a fake
+    success without creating anything
+
+  ## Authentication
+  None — this endpoint requires no login.
+
+  ## Prerequisites
+  - Auth0 tenant must have the "email" passwordless connection enabled
+    (with it turned OFF for any real user-facing application, so it never
+    appears as a login option for real users)
+  - The Auth0 M2M application needs `create:users` scope in addition to
+    `read:users`/`update:users`
+  - GitHub credentials must be configured (required here, not optional,
+    since Turnstile verification is the only anti-abuse gate)
+
+  ## Request Body
+  - `email` (string, required): Must contain "@"
+  - `ios` (boolean, optional, default false): Opt into the iOS test track
+  - `android` (boolean, optional, default false): Opt into the Android test track
+  - At least one of `ios`/`android` must be true
+  - `turnstileToken` (string, required): Cloudflare Turnstile CAPTCHA token
+  - `website` (string, optional): Honeypot field — should always be empty
+
+  ## Responses
+  - `200`: Opt-in state reflects the email's current overall opt-in status
+    ```json
+    {
+      "mobileTestTrackOptInIos": true,
+      "mobileTestTrackOptInAndroid": false
+    }
+    ```
+  - `400`: Invalid email, or neither `ios` nor `android` was true
+  - `403`: Turnstile verification failed
+  - `429`: Rate limit exceeded (5 signups per IP per hour)
+}

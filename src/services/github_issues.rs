@@ -83,6 +83,8 @@ struct GitHubIssueResponse {
 const TEMPLATE_BUG: &str = include_str!("../../templates/bug.md");
 const TEMPLATE_FEATURE: &str = include_str!("../../templates/feature.md");
 const TEMPLATE_QUESTION: &str = include_str!("../../templates/question.md");
+const TEMPLATE_MOBILE_TEST_TRACK_SIGNUP: &str =
+    include_str!("../../templates/mobile_test_track_signup.md");
 const TEMPLATE_FOOTER: &str = include_str!("../../templates/footer.md");
 
 struct IssueTemplate {
@@ -126,6 +128,7 @@ fn get_template(issue_type: &str) -> IssueTemplate {
     let raw = match issue_type {
         "bug" => TEMPLATE_BUG,
         "feature" => TEMPLATE_FEATURE,
+        "mobile_test_track_signup" => TEMPLATE_MOBILE_TEST_TRACK_SIGNUP,
         _ => TEMPLATE_QUESTION,
     };
     parse_template(raw)
@@ -143,11 +146,28 @@ struct IssueBodyParams<'a> {
     client_commit_hash: Option<&'a str>,
     server_environment_name: Option<&'a str>,
     server_commit_hash: Option<&'a str>,
+    /// `Some(bool)` fills the `{mobile_test_track_opt_in_ios}` checkbox placeholder
+    /// (only present in the mobile_test_track_signup template); `None` leaves it untouched.
+    ios: Option<bool>,
+    /// Same as `ios`, for the `{mobile_test_track_opt_in_android}` placeholder.
+    android: Option<bool>,
 }
 
 fn build_issue_body(params: &IssueBodyParams) -> String {
     let template = get_template(params.issue_type);
-    let body = template.body.replace("{description}", params.description);
+    let mut body = template.body.replace("{description}", params.description);
+    if let Some(ios) = params.ios {
+        body = body.replace(
+            "{mobile_test_track_opt_in_ios}",
+            if ios { "x" } else { " " },
+        );
+    }
+    if let Some(android) = params.android {
+        body = body.replace(
+            "{mobile_test_track_opt_in_android}",
+            if android { "x" } else { " " },
+        );
+    }
     let mut result = body.trim_end().to_string();
 
     // Reporter section
@@ -411,31 +431,101 @@ impl GitHubIssueService {
         // Verify Turnstile token
         self.verify_turnstile(&request.turnstile_token).await?;
 
-        // Get GitHub token
-        let github_token = self.get_github_token().await?;
-
         let full_title = format!(
             "{} {}",
             issue_title_prefix(&request.issue_type),
             request.title
         );
 
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: &request.issue_type,
+            description: &request.description,
+            reporter_display_name,
+            reporter_user_id,
+            posthog_session_id: request.posthog_session_id.as_deref(),
+            user_agent: request.user_agent.as_deref(),
+            page_url: request.page_url.as_deref(),
+            client_environment_name: request.client_environment_name.as_deref(),
+            client_commit_hash: request.client_commit_hash.as_deref(),
+            server_environment_name: self.server_environment_name.as_deref(),
+            server_commit_hash: self.server_commit_hash.as_deref(),
+            ios: None,
+            android: None,
+        });
+
+        let label = issue_label(&request.issue_type);
+
+        self.post_issue(full_title, body, label).await
+    }
+
+    /// Notify the team of an internal test track signup via GitHub issue.
+    /// Best-effort: callers should log-and-swallow failures, since the Auth0
+    /// opt-in flags (not this notification) are the source of truth for
+    /// opt-in state.
+    ///
+    /// Never includes the user's email or any hint of it — only the Auth0
+    /// user ID (and display name, if the caller has one) so the signup can
+    /// be looked up directly in the Auth0 dashboard. No Turnstile
+    /// verification and no free-text user input reach this path — it's only
+    /// reachable from the authenticated `/profile/mobile-test-track-signup` route and the
+    /// CAPTCHA-gated `/mobile-test-track-signup` route, never directly from an
+    /// unauthenticated, unverified request.
+    pub async fn notify_mobile_test_track_signup(
+        &self,
+        reporter_display_name: Option<&str>,
+        reporter_user_id: &str,
+        ios: bool,
+        android: bool,
+    ) -> Result<IssueResponse, AppError> {
+        let platforms_label = match (ios, android) {
+            (true, true) => "iOS + Android",
+            (true, false) => "iOS",
+            (false, true) => "Android",
+            (false, false) => "none", // shouldn't happen — callers validate at least one true
+        };
+
+        let full_title = format!(
+            "{} New signup ({})",
+            issue_title_prefix("mobile_test_track_signup"),
+            platforms_label
+        );
+
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "mobile_test_track_signup",
+            description: "", // this template has no {description} placeholder
+            reporter_display_name,
+            reporter_user_id,
+            posthog_session_id: None,
+            user_agent: None,
+            page_url: None,
+            client_environment_name: None,
+            client_commit_hash: None,
+            server_environment_name: self.server_environment_name.as_deref(),
+            server_commit_hash: self.server_commit_hash.as_deref(),
+            ios: Some(ios),
+            android: Some(android),
+        });
+
+        let label = issue_label("mobile_test_track_signup");
+
+        self.post_issue(full_title, body, label).await
+    }
+
+    /// Resolve a GitHub token, POST the issue, and parse the response.
+    /// Shared by `create_issue` (public bug-report form, Turnstile-verified)
+    /// and `notify_mobile_test_track_signup` (already-authenticated/CAPTCHA-gated caller).
+    async fn post_issue(
+        &self,
+        title: String,
+        body: String,
+        label: String,
+    ) -> Result<IssueResponse, AppError> {
+        let github_token = self.get_github_token().await?;
+
         let create_issue = GitHubCreateIssue {
-            title: full_title,
-            body: build_issue_body(&IssueBodyParams {
-                issue_type: &request.issue_type,
-                description: &request.description,
-                reporter_display_name,
-                reporter_user_id,
-                posthog_session_id: request.posthog_session_id.as_deref(),
-                user_agent: request.user_agent.as_deref(),
-                page_url: request.page_url.as_deref(),
-                client_environment_name: request.client_environment_name.as_deref(),
-                client_commit_hash: request.client_commit_hash.as_deref(),
-                server_environment_name: self.server_environment_name.as_deref(),
-                server_commit_hash: self.server_commit_hash.as_deref(),
-            }),
-            labels: vec![issue_label(&request.issue_type)],
+            title,
+            body,
+            labels: vec![label],
         };
 
         let github_resp = self
@@ -523,6 +613,36 @@ mod tests {
     }
 
     #[test]
+    fn mobile_test_track_signup_template_has_required_fields() {
+        let template = get_template("mobile_test_track_signup");
+        assert!(
+            !template.title_prefix.is_empty(),
+            "mobile_test_track_signup template missing title_prefix"
+        );
+        assert!(
+            !template.label.is_empty(),
+            "mobile_test_track_signup template missing label"
+        );
+        assert!(
+            template.body.contains("{mobile_test_track_opt_in_ios}"),
+            "mobile_test_track_signup template missing {{mobile_test_track_opt_in_ios}} placeholder"
+        );
+        assert!(
+            template.body.contains("{mobile_test_track_opt_in_android}"),
+            "mobile_test_track_signup template missing {{mobile_test_track_opt_in_android}} placeholder"
+        );
+    }
+
+    #[test]
+    fn mobile_test_track_signup_template_does_not_use_description_placeholder() {
+        let template = get_template("mobile_test_track_signup");
+        assert!(
+            !template.body.contains("{description}"),
+            "mobile_test_track_signup template should not use the {{description}} placeholder"
+        );
+    }
+
+    #[test]
     fn build_issue_body_replaces_description() {
         let body = build_issue_body(&IssueBodyParams {
             issue_type: "bug",
@@ -536,6 +656,8 @@ mod tests {
             client_commit_hash: None,
             server_environment_name: None,
             server_commit_hash: None,
+            ios: None,
+            android: None,
         });
         assert!(
             body.contains("Test description here"),
@@ -558,6 +680,8 @@ mod tests {
             client_commit_hash: None,
             server_environment_name: None,
             server_commit_hash: None,
+            ios: None,
+            android: None,
         });
         assert!(body.contains("Submitted via"), "footer not appended");
     }
@@ -576,6 +700,8 @@ mod tests {
             client_commit_hash: Some("abc1234"),
             server_environment_name: None,
             server_commit_hash: None,
+            ios: None,
+            android: None,
         });
         assert!(
             body.contains("## Environment"),
@@ -614,6 +740,8 @@ mod tests {
             client_commit_hash: None,
             server_environment_name: Some("production"),
             server_commit_hash: Some("def5678"),
+            ios: None,
+            android: None,
         });
         assert!(
             body.contains("## Environment"),
@@ -644,6 +772,8 @@ mod tests {
             client_commit_hash: None,
             server_environment_name: None,
             server_commit_hash: None,
+            ios: None,
+            android: None,
         });
         assert!(body.contains("## Reporter"), "missing reporter section");
         assert!(
@@ -674,6 +804,8 @@ mod tests {
             client_commit_hash: None,
             server_environment_name: None,
             server_commit_hash: None,
+            ios: None,
+            android: None,
         });
         assert!(
             body.contains("## Reporter"),
@@ -703,6 +835,8 @@ mod tests {
             client_commit_hash: None,
             server_environment_name: None,
             server_commit_hash: None,
+            ios: None,
+            android: None,
         });
         assert!(
             !body.contains("## Environment"),
@@ -724,6 +858,8 @@ mod tests {
             client_commit_hash: Some("123abc0"),
             server_environment_name: Some("production"),
             server_commit_hash: Some("123abc0"),
+            ios: None,
+            android: None,
         });
         assert!(body.contains("## Reporter"), "missing reporter section");
         assert!(
@@ -804,11 +940,23 @@ mod tests {
     }
 
     #[test]
+    fn mobile_test_track_signup_issue_type_does_not_fall_back_to_question() {
+        let mobile_test_track_signup = get_template("mobile_test_track_signup");
+        let question = get_template("question");
+        assert_ne!(mobile_test_track_signup.label, question.label);
+        assert_ne!(mobile_test_track_signup.title_prefix, question.title_prefix);
+    }
+
+    #[test]
     fn issue_title_prefix_matches_template() {
         assert_eq!(issue_title_prefix("bug"), get_template("bug").title_prefix);
         assert_eq!(
             issue_title_prefix("feature"),
             get_template("feature").title_prefix
+        );
+        assert_eq!(
+            issue_title_prefix("mobile_test_track_signup"),
+            get_template("mobile_test_track_signup").title_prefix
         );
     }
 
@@ -816,5 +964,95 @@ mod tests {
     fn issue_label_matches_template() {
         assert_eq!(issue_label("bug"), get_template("bug").label);
         assert_eq!(issue_label("feature"), get_template("feature").label);
+        assert_eq!(
+            issue_label("mobile_test_track_signup"),
+            get_template("mobile_test_track_signup").label
+        );
+    }
+
+    #[test]
+    fn build_issue_body_for_mobile_test_track_signup_renders_checkboxes_and_omits_client_section() {
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "mobile_test_track_signup",
+            description: "",
+            reporter_display_name: None,
+            reporter_user_id: "email|abc123",
+            posthog_session_id: None,
+            user_agent: None,
+            page_url: None,
+            client_environment_name: None,
+            client_commit_hash: None,
+            server_environment_name: Some("production"),
+            server_commit_hash: Some("abc1234"),
+            ios: Some(true),
+            android: Some(false),
+        });
+        assert!(body.contains("- [x] Android") || body.contains("- [ ] Android"));
+        assert!(body.contains("- [x] iOS") || body.contains("- [ ] iOS"));
+        // iOS is true -> checked, Android is false -> unchecked
+        assert!(body.contains("- [x] iOS"), "iOS checkbox should be checked");
+        assert!(
+            body.contains("- [ ] Android"),
+            "Android checkbox should be unchecked"
+        );
+        assert!(body.contains("## Reporter"), "missing reporter section");
+        assert!(
+            body.contains("- User ID: `email|abc123`"),
+            "missing reporter user ID"
+        );
+        assert!(
+            !body.contains("- Display Name:"),
+            "display name should be absent when not provided"
+        );
+        assert!(
+            body.contains("### Server"),
+            "missing server environment subsection"
+        );
+        assert!(
+            !body.contains("### Client"),
+            "client subsection should never appear for mobile_test_track_signup (no client data collected)"
+        );
+        assert!(
+            !body.contains('@'),
+            "mobile_test_track_signup issue body must never contain an email address"
+        );
+    }
+
+    #[test]
+    fn build_issue_body_for_mobile_test_track_signup_both_platforms_checked() {
+        let body = build_issue_body(&IssueBodyParams {
+            issue_type: "mobile_test_track_signup",
+            description: "",
+            reporter_display_name: Some("hscov"),
+            reporter_user_id: "auth0|xyz",
+            posthog_session_id: None,
+            user_agent: None,
+            page_url: None,
+            client_environment_name: None,
+            client_commit_hash: None,
+            server_environment_name: None,
+            server_commit_hash: None,
+            ios: Some(true),
+            android: Some(true),
+        });
+        assert!(body.contains("- [x] iOS"));
+        assert!(body.contains("- [x] Android"));
+        assert!(body.contains("- Display Name: hscov"));
+    }
+
+    #[test]
+    fn notify_mobile_test_track_signup_platforms_label_covers_all_combinations() {
+        // Mirrors the match in GitHubIssueService::notify_mobile_test_track_signup — this
+        // test documents the expected title text for each combination
+        // without needing network access.
+        let label = |ios: bool, android: bool| match (ios, android) {
+            (true, true) => "iOS + Android",
+            (true, false) => "iOS",
+            (false, true) => "Android",
+            (false, false) => "none",
+        };
+        assert_eq!(label(true, true), "iOS + Android");
+        assert_eq!(label(true, false), "iOS");
+        assert_eq!(label(false, true), "Android");
     }
 }

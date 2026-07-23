@@ -139,6 +139,55 @@ IssueReportResponse:
     $ref: "./IssueReportResponse.json"
 
 # -----------------------------------------------------------------------------
+# Mobile Test Track Signup Examples
+# -----------------------------------------------------------------------------
+
+MobileTestTrackSignupRequestIos:
+  summary: Authenticated signup — iOS only
+  value:
+    $ref: "./MobileTestTrackSignupRequestIos.json"
+
+MobileTestTrackSignupRequestAndroid:
+  summary: Authenticated signup — Android only
+  value:
+    $ref: "./MobileTestTrackSignupRequestAndroid.json"
+
+MobileTestTrackSignupRequestBoth:
+  summary: Authenticated signup — both platforms
+  value:
+    $ref: "./MobileTestTrackSignupRequestBoth.json"
+
+MobileTestTrackSignupResponseIos:
+  summary: Signup response — iOS only
+  value:
+    $ref: "./MobileTestTrackSignupResponseIos.json"
+
+MobileTestTrackSignupResponseAndroid:
+  summary: Signup response — Android only
+  value:
+    $ref: "./MobileTestTrackSignupResponseAndroid.json"
+
+MobileTestTrackSignupResponseBoth:
+  summary: Signup response — both platforms
+  value:
+    $ref: "./MobileTestTrackSignupResponseBoth.json"
+
+AnonymousMobileTestTrackSignupRequestIos:
+  summary: Anonymous signup — iOS only
+  value:
+    $ref: "./AnonymousMobileTestTrackSignupRequestIos.json"
+
+AnonymousMobileTestTrackSignupRequestAndroid:
+  summary: Anonymous signup — Android only
+  value:
+    $ref: "./AnonymousMobileTestTrackSignupRequestAndroid.json"
+
+AnonymousMobileTestTrackSignupRequestBoth:
+  summary: Anonymous signup — both platforms
+  value:
+    $ref: "./AnonymousMobileTestTrackSignupRequestBoth.json"
+
+# -----------------------------------------------------------------------------
 # Team Examples
 # -----------------------------------------------------------------------------
 

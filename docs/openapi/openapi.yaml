@@ -26,6 +26,8 @@ tags:
     description: Issue reporting (requires authentication)
   - name: Users
     description: User profile management
+  - name: Mobile Test Track Signup
+    description: Internal mobile test track signup (authenticated and anonymous)
 
 paths:
   /guess:
@@ -486,6 +488,118 @@ paths:
                 $ref: "schemas.yaml#/ErrorResponse"
               example:
                 message: "Failed to upload avatar"
+
+  /profile/mobile-test-track-signup:
+    post:
+      summary: Opt into the internal mobile test track (authenticated)
+      description: |
+        Opts the authenticated user into the iOS and/or Android internal test
+        track, writing directly to their Auth0 user_metadata.
+
+        Idempotent per platform — resubmitting a platform that's already
+        opted in is a no-op (no Auth0 write, no GitHub notification).
+
+        Notifies via a GitHub issue (label `mobile-test-user-opt-in`)
+        containing the user's display name and Auth0 user ID only — the
+        email is never included, even though it's a field on the account.
+        GitHub notification is best-effort: if GitHub credentials aren't
+        configured, the opt-in still succeeds and the notification is
+        silently skipped.
+
+        **No Turnstile token required** — a valid JWT already proves the
+        request is from a real logged-in user, so CAPTCHA verification
+        (required on the anonymous `POST /mobile-test-track-signup` below) would be
+        redundant here.
+      operationId: mobileTestTrackSignup
+      tags:
+        - Mobile Test Track Signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "schemas.yaml#/MobileTestTrackSignupRequest"
+            examples:
+              ios:
+                $ref: "data-examples/examples.yaml#/MobileTestTrackSignupRequestIos"
+              android:
+                $ref: "data-examples/examples.yaml#/MobileTestTrackSignupRequestAndroid"
+              both:
+                $ref: "data-examples/examples.yaml#/MobileTestTrackSignupRequestBoth"
+      responses:
+        "200":
+          description: Current opt-in state after the call
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/MobileTestTrackSignupResponse"
+              examples:
+                ios:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseIos"
+                android:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseAndroid"
+                both:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseBoth"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /mobile-test-track-signup:
+    post:
+      summary: Opt into the internal mobile test track (anonymous)
+      description: |
+        Opts an anonymous visitor into the iOS and/or Android internal test
+        track by email, without requiring an account. Creates (or finds) a
+        passwordless Auth0 "email" connection lead and writes the same
+        opt-in fields used by `POST /profile/mobile-test-track-signup`.
+
+        Idempotent per email/platform — resubmitting a platform already
+        opted into is a no-op. Notifies via the same GitHub issue mechanism
+        as the authenticated endpoint — the issue includes only the Auth0
+        user ID, **never the email or any hint of it**.
+
+        Public and unauthenticated, so it's gated the same way `/issues`
+        is: Turnstile CAPTCHA verification (required, not best-effort),
+        per-IP rate limiting (5 requests per hour, separate quota from
+        `/issues`), and a honeypot field.
+      operationId: anonymousMobileTestTrackSignup
+      tags:
+        - Mobile Test Track Signup
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "schemas.yaml#/AnonymousMobileTestTrackSignupRequest"
+            examples:
+              ios:
+                $ref: "data-examples/examples.yaml#/AnonymousMobileTestTrackSignupRequestIos"
+              android:
+                $ref: "data-examples/examples.yaml#/AnonymousMobileTestTrackSignupRequestAndroid"
+              both:
+                $ref: "data-examples/examples.yaml#/AnonymousMobileTestTrackSignupRequestBoth"
+      responses:
+        "200":
+          description: Current opt-in state after the call
+          content:
+            application/json:
+              schema:
+                $ref: "schemas.yaml#/MobileTestTrackSignupResponse"
+              examples:
+                ios:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseIos"
+                android:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseAndroid"
+                both:
+                  $ref: "data-examples/examples.yaml#/MobileTestTrackSignupResponseBoth"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
 components:
   securitySchemes:
