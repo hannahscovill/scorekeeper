@@ -146,10 +146,10 @@ struct IssueBodyParams<'a> {
     client_commit_hash: Option<&'a str>,
     server_environment_name: Option<&'a str>,
     server_commit_hash: Option<&'a str>,
-    /// `Some(bool)` fills the `{opt_in_mobile_test_track_ios}` checkbox placeholder
+    /// `Some(bool)` fills the `{mobile_test_track_opt_in_ios}` checkbox placeholder
     /// (only present in the mobile_test_track_signup template); `None` leaves it untouched.
     ios: Option<bool>,
-    /// Same as `ios`, for the `{opt_in_mobile_test_track_android}` placeholder.
+    /// Same as `ios`, for the `{mobile_test_track_opt_in_android}` placeholder.
     android: Option<bool>,
 }
 
@@ -158,13 +158,13 @@ fn build_issue_body(params: &IssueBodyParams) -> String {
     let mut body = template.body.replace("{description}", params.description);
     if let Some(ios) = params.ios {
         body = body.replace(
-            "{opt_in_mobile_test_track_ios}",
+            "{mobile_test_track_opt_in_ios}",
             if ios { "x" } else { " " },
         );
     }
     if let Some(android) = params.android {
         body = body.replace(
-            "{opt_in_mobile_test_track_android}",
+            "{mobile_test_track_opt_in_android}",
             if android { "x" } else { " " },
         );
     }
@@ -624,12 +624,12 @@ mod tests {
             "mobile_test_track_signup template missing label"
         );
         assert!(
-            template.body.contains("{opt_in_mobile_test_track_ios}"),
-            "mobile_test_track_signup template missing {{opt_in_mobile_test_track_ios}} placeholder"
+            template.body.contains("{mobile_test_track_opt_in_ios}"),
+            "mobile_test_track_signup template missing {{mobile_test_track_opt_in_ios}} placeholder"
         );
         assert!(
-            template.body.contains("{opt_in_mobile_test_track_android}"),
-            "mobile_test_track_signup template missing {{opt_in_mobile_test_track_android}} placeholder"
+            template.body.contains("{mobile_test_track_opt_in_android}"),
+            "mobile_test_track_signup template missing {{mobile_test_track_opt_in_android}} placeholder"
         );
     }
 

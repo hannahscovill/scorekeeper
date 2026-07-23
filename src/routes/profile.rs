@@ -60,8 +60,8 @@ pub struct MobileTestTrackSignupRequest {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MobileTestTrackSignupResponse {
-    pub opt_in_mobile_test_track_ios: bool,
-    pub opt_in_mobile_test_track_android: bool,
+    pub mobile_test_track_opt_in_ios: bool,
+    pub mobile_test_track_opt_in_android: bool,
 }
 
 /// Response from avatar upload endpoint.
@@ -203,10 +203,10 @@ pub async fn authenticated_mobile_test_track_signup(
     let existing_user = auth0_service.get_user(&user_id).await?;
     let existing_metadata = existing_user.user_metadata.as_ref();
     let existing_ios = existing_metadata
-        .map(|m| m.opt_in_mobile_test_track_ios)
+        .map(|m| m.mobile_test_track_opt_in_ios)
         .unwrap_or(false);
     let existing_android = existing_metadata
-        .map(|m| m.opt_in_mobile_test_track_android)
+        .map(|m| m.mobile_test_track_opt_in_android)
         .unwrap_or(false);
 
     let newly_ios = body.ios && !existing_ios;
@@ -214,8 +214,8 @@ pub async fn authenticated_mobile_test_track_signup(
 
     if !newly_ios && !newly_android {
         return Ok(HttpResponse::Ok().json(MobileTestTrackSignupResponse {
-            opt_in_mobile_test_track_ios: existing_ios,
-            opt_in_mobile_test_track_android: existing_android,
+            mobile_test_track_opt_in_ios: existing_ios,
+            mobile_test_track_opt_in_android: existing_android,
         }));
     }
 
@@ -240,11 +240,11 @@ pub async fn authenticated_mobile_test_track_signup(
             let metadata = refreshed.user_metadata;
             let ios = metadata
                 .as_ref()
-                .map(|m| m.opt_in_mobile_test_track_ios)
+                .map(|m| m.mobile_test_track_opt_in_ios)
                 .unwrap_or(existing_ios || newly_ios);
             let android = metadata
                 .as_ref()
-                .map(|m| m.opt_in_mobile_test_track_android)
+                .map(|m| m.mobile_test_track_opt_in_android)
                 .unwrap_or(existing_android || newly_android);
             let name = metadata.map(|m| m.display_name).filter(|n| !n.is_empty());
             (ios, android, name)
@@ -291,8 +291,8 @@ pub async fn authenticated_mobile_test_track_signup(
     }
 
     Ok(HttpResponse::Ok().json(MobileTestTrackSignupResponse {
-        opt_in_mobile_test_track_ios: final_ios,
-        opt_in_mobile_test_track_android: final_android,
+        mobile_test_track_opt_in_ios: final_ios,
+        mobile_test_track_opt_in_android: final_android,
     }))
 }
 
@@ -457,11 +457,11 @@ mod tests {
     #[test]
     fn test_authenticated_mobile_test_track_signup_response_serialization() {
         let response = MobileTestTrackSignupResponse {
-            opt_in_mobile_test_track_ios: true,
-            opt_in_mobile_test_track_android: false,
+            mobile_test_track_opt_in_ios: true,
+            mobile_test_track_opt_in_android: false,
         };
         let json = serde_json::to_string(&response).unwrap();
-        assert!(json.contains("\"optInMobileTestTrackIos\":true"));
-        assert!(json.contains("\"optInMobileTestTrackAndroid\":false"));
+        assert!(json.contains("\"mobileTestTrackOptInIos\":true"));
+        assert!(json.contains("\"mobileTestTrackOptInAndroid\":false"));
     }
 }

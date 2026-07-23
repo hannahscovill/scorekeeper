@@ -612,14 +612,14 @@ MobileTestTrackSignupRequest:
 MobileTestTrackSignupResponse:
   type: object
   required:
-    - optInMobileTestTrackIos
-    - optInMobileTestTrackAndroid
+    - mobileTestTrackOptInIos
+    - mobileTestTrackOptInAndroid
   properties:
-    optInMobileTestTrackIos:
+    mobileTestTrackOptInIos:
       type: boolean
       description: Whether the user is currently opted into the iOS test track
       example: true
-    optInMobileTestTrackAndroid:
+    mobileTestTrackOptInAndroid:
       type: boolean
       description: Whether the user is currently opted into the Android test track
       example: false

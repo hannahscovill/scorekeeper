@@ -37,8 +37,8 @@ pub struct AnonymousMobileTestTrackSignupRequest {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnonymousMobileTestTrackSignupResponse {
-    pub opt_in_mobile_test_track_ios: bool,
-    pub opt_in_mobile_test_track_android: bool,
+    pub mobile_test_track_opt_in_ios: bool,
+    pub mobile_test_track_opt_in_android: bool,
 }
 
 /// POST /mobile-test-track-signup - Opt an anonymous visitor into the internal test track
@@ -84,8 +84,8 @@ pub async fn anonymous_mobile_test_track_signup(
         tracing::info!("Honeypot triggered from IP {}", source_ip);
         return Ok(
             HttpResponse::Ok().json(AnonymousMobileTestTrackSignupResponse {
-                opt_in_mobile_test_track_ios: false,
-                opt_in_mobile_test_track_android: false,
+                mobile_test_track_opt_in_ios: false,
+                mobile_test_track_opt_in_android: false,
             }),
         );
     }
@@ -115,10 +115,10 @@ pub async fn anonymous_mobile_test_track_signup(
         Some(existing) => {
             let metadata = existing.user_metadata.as_ref();
             let existing_ios = metadata
-                .map(|m| m.opt_in_mobile_test_track_ios)
+                .map(|m| m.mobile_test_track_opt_in_ios)
                 .unwrap_or(false);
             let existing_android = metadata
-                .map(|m| m.opt_in_mobile_test_track_android)
+                .map(|m| m.mobile_test_track_opt_in_android)
                 .unwrap_or(false);
 
             let newly_ios = body.ios && !existing_ios;
@@ -174,8 +174,8 @@ pub async fn anonymous_mobile_test_track_signup(
 
     Ok(
         HttpResponse::Ok().json(AnonymousMobileTestTrackSignupResponse {
-            opt_in_mobile_test_track_ios: final_ios,
-            opt_in_mobile_test_track_android: final_android,
+            mobile_test_track_opt_in_ios: final_ios,
+            mobile_test_track_opt_in_android: final_android,
         }),
     )
 }
@@ -198,12 +198,12 @@ mod tests {
     #[test]
     fn test_anonymous_mobile_test_track_signup_response_serialization() {
         let response = AnonymousMobileTestTrackSignupResponse {
-            opt_in_mobile_test_track_ios: true,
-            opt_in_mobile_test_track_android: false,
+            mobile_test_track_opt_in_ios: true,
+            mobile_test_track_opt_in_android: false,
         };
         let json = serde_json::to_string(&response).unwrap();
-        assert!(json.contains("\"optInMobileTestTrackIos\":true"));
-        assert!(json.contains("\"optInMobileTestTrackAndroid\":false"));
+        assert!(json.contains("\"mobileTestTrackOptInIos\":true"));
+        assert!(json.contains("\"mobileTestTrackOptInAndroid\":false"));
     }
 
     #[test]

@@ -1,4 +1,4 @@
 {
-  "optInMobileTestTrackIos": true,
-  "optInMobileTestTrackAndroid": true
+  "mobileTestTrackOptInIos": true,
+  "mobileTestTrackOptInAndroid": true
 }
