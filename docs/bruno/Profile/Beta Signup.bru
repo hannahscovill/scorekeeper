@@ -1,0 +1,64 @@
+meta {
+  name: Beta Signup
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{protocol}}://{{baseUrl}}/profile/beta-signup
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Origin: http://localhost:3000
+}
+
+auth:bearer {
+  token: {{jwt}}
+}
+
+body:json {
+  {
+    "ios": true,
+    "android": false
+  }
+}
+
+docs {
+  Opts the currently authenticated user into the internal mobile test track
+  (iOS and/or Android), writing directly to their Auth0 user_metadata.
+
+  Idempotent per platform — resubmitting a platform that's already opted in
+  is a no-op (no Auth0 write, no GitHub notification). Notifies via a GitHub
+  issue (label `mobile-test-user-opt-in`) that includes the user's display
+  name and Auth0 user ID only — never their email.
+
+  ## Authentication
+  Requires a valid Bearer token (inherited from collection).
+
+  ## Prerequisites
+  The server must be configured with Auth0 M2M credentials:
+  - `AUTH0_M2M_CLIENT_ID`
+  - `AUTH0_M2M_CLIENT_SECRET`
+
+  GitHub notification is best-effort — the endpoint still works without
+  GitHub credentials configured, it just skips the notification.
+
+  ## Request Body
+  - `ios` (boolean, optional, default false): Opt into the iOS test track
+  - `android` (boolean, optional, default false): Opt into the Android test track
+  - At least one of `ios`/`android` must be true
+
+  ## Responses
+  - `200`: Opt-in state reflects the user's current overall opt-in status
+    ```json
+    {
+      "optInTestTrackIos": true,
+      "optInTestTrackAndroid": false
+    }
+    ```
+  - `400`: Neither `ios` nor `android` was true
+  - `401`: Authentication required or invalid token
+}
