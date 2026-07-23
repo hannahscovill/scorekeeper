@@ -139,6 +139,25 @@ IssueReportResponse:
     $ref: "./IssueReportResponse.json"
 
 # -----------------------------------------------------------------------------
+# Beta Signup Examples
+# -----------------------------------------------------------------------------
+
+BetaSignupRequest:
+  summary: Authenticated beta signup request
+  value:
+    $ref: "./BetaSignupRequest.json"
+
+BetaSignupResponse:
+  summary: Beta signup response
+  value:
+    $ref: "./BetaSignupResponse.json"
+
+AnonymousBetaSignupRequest:
+  summary: Anonymous beta signup request
+  value:
+    $ref: "./AnonymousBetaSignupRequest.json"
+
+# -----------------------------------------------------------------------------
 # Team Examples
 # -----------------------------------------------------------------------------
 

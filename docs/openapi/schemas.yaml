@@ -593,6 +593,66 @@ IssueReportResponse:
       example: "https://github.com/hannahscovill/wordles-with-friends-client-web/issues/42"
 
 # -----------------------------------------------------------------------------
+# Beta Signup Schemas
+# -----------------------------------------------------------------------------
+
+BetaSignupRequest:
+  type: object
+  description: At least one of `ios`/`android` must be true.
+  properties:
+    ios:
+      type: boolean
+      default: false
+      description: Opt into the iOS internal test track
+    android:
+      type: boolean
+      default: false
+      description: Opt into the Android internal test track
+
+BetaSignupResponse:
+  type: object
+  required:
+    - optInTestTrackIos
+    - optInTestTrackAndroid
+  properties:
+    optInTestTrackIos:
+      type: boolean
+      description: Whether the user is currently opted into the iOS test track
+      example: true
+    optInTestTrackAndroid:
+      type: boolean
+      description: Whether the user is currently opted into the Android test track
+      example: false
+
+AnonymousBetaSignupRequest:
+  type: object
+  description: At least one of `ios`/`android` must be true.
+  required:
+    - email
+    - turnstileToken
+  properties:
+    email:
+      type: string
+      format: email
+      description: Email address to opt in — stored as a passwordless Auth0 "email" connection lead, never exposed as a login option
+      example: "player@example.com"
+    ios:
+      type: boolean
+      default: false
+      description: Opt into the iOS internal test track
+    android:
+      type: boolean
+      default: false
+      description: Opt into the Android internal test track
+    turnstileToken:
+      type: string
+      description: Cloudflare Turnstile CAPTCHA token
+    website:
+      type: string
+      description: Honeypot field (should be empty for real users)
+      default: ""
+
+# -----------------------------------------------------------------------------
 # Session Conversion Schemas
 # -----------------------------------------------------------------------------
 

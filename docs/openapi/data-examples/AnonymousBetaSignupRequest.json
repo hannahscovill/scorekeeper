@@ -1,0 +1,6 @@
+{
+  "email": "player@example.com",
+  "ios": true,
+  "turnstileToken": "0.test-token",
+  "website": ""
+}
