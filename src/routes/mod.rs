@@ -1,5 +1,6 @@
 //! Route handlers for the scorekeeper API.
 
+pub mod beta_signup;
 pub mod convert_session;
 pub mod game;
 pub mod games;
@@ -10,11 +11,12 @@ pub mod issues;
 pub mod profile;
 pub mod puzzle;
 
+pub use beta_signup::anonymous_beta_signup;
 pub use game::get_game;
 pub use games::{create_games, get_games, list_games};
 pub use guess::submit_guess;
 pub use health::*;
 pub use history::get_history;
 pub use issues::create_issue;
-pub use profile::{get_profile, update_profile, upload_avatar};
+pub use profile::{authenticated_beta_signup, get_profile, update_profile, upload_avatar};
 pub use puzzle::{clear_puzzle_cache, get_puzzle_by_date, get_puzzles, set_puzzle};

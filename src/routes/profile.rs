@@ -10,7 +10,7 @@ use tracing::instrument;
 
 use crate::middleware::auth::Claims;
 use crate::models::error::AppError;
-use crate::services::{Auth0ManagementService, S3AvatarService};
+use crate::services::{Auth0ManagementService, GitHubIssueService, S3AvatarService};
 
 /// Request body for updating a profile.
 /// All fields are optional - only provided fields will be updated.
@@ -42,6 +42,26 @@ pub struct ProfileResponse {
     pub pronouns: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
+}
+
+/// Request body for the internal test track signup endpoint.
+/// At least one of `ios`/`android` must be true.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BetaSignupRequest {
+    #[serde(default)]
+    pub ios: bool,
+    #[serde(default)]
+    pub android: bool,
+}
+
+/// Response from the internal test track signup endpoint. Reflects the
+/// user's current overall opt-in state after the call.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BetaSignupResponse {
+    pub opt_in_test_track_ios: bool,
+    pub opt_in_test_track_android: bool,
 }
 
 /// Response from avatar upload endpoint.
@@ -147,6 +167,127 @@ pub async fn update_profile(
         name,
         pronouns,
         email: user.email,
+    }))
+}
+
+/// POST /profile/beta-signup - Opt the current user into the internal test track.
+///
+/// Idempotent: if the user has already opted into the requested platform(s),
+/// returns success immediately without re-writing Auth0 or re-notifying
+/// GitHub (avoids duplicate/spammy issues on repeat clicks). GitHub
+/// notification is best-effort — the Auth0 opt-in flags are the source of
+/// truth, so a notification failure never fails the request. The GitHub
+/// issue body includes display name and Auth0 user ID only — never email.
+#[post("/profile/beta-signup")]
+#[instrument(
+    name = "authenticated_beta_signup",
+    skip(body, auth0_service, github_issue_service),
+    fields(user_id = %claims.sub)
+)]
+pub async fn authenticated_beta_signup(
+    claims: Claims,
+    body: web::Json<BetaSignupRequest>,
+    auth0_service: web::Data<Auth0ManagementService>,
+    github_issue_service: Option<web::Data<GitHubIssueService>>,
+) -> Result<HttpResponse, AppError> {
+    if !body.ios && !body.android {
+        return Err(AppError::bad_request(
+            "At least one of ios or android must be true",
+        ));
+    }
+
+    let user_id = claims.sub.clone();
+
+    // Idempotency check — must happen before any write, so a repeat click
+    // short-circuits before touching Auth0 or GitHub at all.
+    let existing_user = auth0_service.get_user(&user_id).await?;
+    let existing_metadata = existing_user.user_metadata.as_ref();
+    let existing_ios = existing_metadata
+        .map(|m| m.opt_in_test_track_ios)
+        .unwrap_or(false);
+    let existing_android = existing_metadata
+        .map(|m| m.opt_in_test_track_android)
+        .unwrap_or(false);
+
+    let newly_ios = body.ios && !existing_ios;
+    let newly_android = body.android && !existing_android;
+
+    if !newly_ios && !newly_android {
+        return Ok(HttpResponse::Ok().json(BetaSignupResponse {
+            opt_in_test_track_ios: existing_ios,
+            opt_in_test_track_android: existing_android,
+        }));
+    }
+
+    let opted_in_at = chrono::Utc::now().to_rfc3339();
+
+    // Auth0 write must succeed — it's the source of truth for opt-in state.
+    auth0_service
+        .set_test_track_opt_in(
+            &user_id,
+            newly_ios.then_some(opted_in_at.as_str()),
+            newly_android.then_some(opted_in_at.as_str()),
+        )
+        .await?;
+
+    // Re-fetch for a reliable display_name and final opt-in state — the
+    // PATCH response may omit user_metadata fields (same caveat as
+    // update_profile above). Best-effort: a failure here only degrades the
+    // GitHub issue's "Display Name" line and falls back to the pre-write
+    // state for the response, so log and continue rather than fail.
+    let (final_ios, final_android, display_name) = match auth0_service.get_user(&user_id).await {
+        Ok(refreshed) => {
+            let metadata = refreshed.user_metadata;
+            let ios = metadata
+                .as_ref()
+                .map(|m| m.opt_in_test_track_ios)
+                .unwrap_or(existing_ios || newly_ios);
+            let android = metadata
+                .as_ref()
+                .map(|m| m.opt_in_test_track_android)
+                .unwrap_or(existing_android || newly_android);
+            let name = metadata.map(|m| m.display_name).filter(|n| !n.is_empty());
+            (ios, android, name)
+        }
+        Err(e) => {
+            tracing::warn!(
+                "Failed to refetch profile after beta opt-in for {}: {}",
+                user_id,
+                e
+            );
+            (
+                existing_ios || newly_ios,
+                existing_android || newly_android,
+                None,
+            )
+        }
+    };
+
+    // Best-effort GitHub notification — never blocks or fails the response.
+    match github_issue_service {
+        Some(gh) => {
+            if let Err(e) = gh
+                .notify_beta_signup(display_name.as_deref(), &user_id, final_ios, final_android)
+                .await
+            {
+                tracing::warn!(
+                    "Failed to notify GitHub of beta signup for {}: {}",
+                    user_id,
+                    e
+                );
+            }
+        }
+        None => {
+            tracing::info!(
+                "GitHub Issue service not configured; skipping beta signup notification for {}",
+                user_id
+            );
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(BetaSignupResponse {
+        opt_in_test_track_ios: final_ios,
+        opt_in_test_track_android: final_android,
     }))
 }
 
@@ -287,5 +428,35 @@ mod tests {
         assert!(!json.contains("\"name\""));
         assert!(!json.contains("pronouns"));
         assert!(!json.contains("email"));
+    }
+
+    #[test]
+    fn test_authenticated_beta_signup_request_deserialization() {
+        let json = r#"{"ios": true}"#;
+        let request: BetaSignupRequest = serde_json::from_str(json).unwrap();
+        assert!(request.ios);
+        assert!(!request.android);
+
+        let json = r#"{"ios": true, "android": true}"#;
+        let request: BetaSignupRequest = serde_json::from_str(json).unwrap();
+        assert!(request.ios);
+        assert!(request.android);
+
+        // Missing fields default to false
+        let json = r#"{}"#;
+        let request: BetaSignupRequest = serde_json::from_str(json).unwrap();
+        assert!(!request.ios);
+        assert!(!request.android);
+    }
+
+    #[test]
+    fn test_authenticated_beta_signup_response_serialization() {
+        let response = BetaSignupResponse {
+            opt_in_test_track_ios: true,
+            opt_in_test_track_android: false,
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"optInTestTrackIos\":true"));
+        assert!(json.contains("\"optInTestTrackAndroid\":false"));
     }
 }
