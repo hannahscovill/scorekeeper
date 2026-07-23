@@ -11,6 +11,61 @@ API backend for the Scorekeeper word puzzle game.
 
 See [AGENTS.md](./AGENTS.md) for development guidelines.
 
+### Recommended Installations
+
+- [Rust toolchain](https://doc.rust-lang.org/book/ch01-01-installation.html) - **not** needed to run the app (that's Docker's job, see [Running Locally](#running-locally)), but required on the host for `cargo fmt`/`cargo clippy`/`cargo test` to run directly, which the pre-commit hook (see [Pre-commit Hooks](#pre-commit-hooks)) and `AGENTS.md`'s quality gates both assume
+  ```bash
+  curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+  ```
+  The default rustup profile already includes `rustfmt` and `clippy`; verify with:
+  ```bash
+  cargo fmt --version && cargo clippy --version
+  ```
+- [mkcert](https://github.com/FiloSottile/mkcert) - generates locally-trusted TLS certs (see [Local HTTPS Certs](#local-https-certs) below)
+  ```bash
+  brew install mkcert
+  ```
+- [Bruno](https://www.usebruno.com/) - API client for exercising endpoints during local dev
+  ```bash
+  brew install --cask bruno
+  ```
+
+### Running Locally
+
+```bash
+docker compose -f docker-compose.dev.yml up
+```
+
+This starts DynamoDB Local + admin UI (seeded automatically) and the API via `Dockerfile.dev` with hot reload, served at `https://localhost:8080`. The DynamoDB admin UI is at `http://localhost:8001`.
+
+If the stack is already running in another terminal/session, bring it down first with `docker compose -f docker-compose.dev.yml down` before starting a fresh copy.
+
+### Pre-commit Hooks
+
+Run `npm install` at the repo root after cloning. This installs [husky](https://typicode.github.io/husky/) via the `prepare` script and points git's `core.hooksPath` at `.husky`, which is what activates the pre-commit hook (`cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, and the CDK tests). Without this step, commits will succeed locally even if those checks would fail in CI.
+
+### Local HTTPS Certs
+
+The dev server runs with TLS enabled (`certs/cert.pem` / `certs/key.pem`, mounted into the container per `docker-compose.dev.yml`). These files are gitignored and **not** checked in — each developer generates their own.
+
+Without a proper cert, browsers and strict HTTP clients will reject `https://localhost:8080` (self-signed cert not trusted, or missing Subject Alternative Names). Fix this with `mkcert`, which installs a local CA into your system/browser trust stores so `localhost` certs are trusted automatically:
+
+```bash
+# One-time: install mkcert's local CA into your system trust store
+mkcert -install
+
+# Generate the dev cert (run from the certs/ directory)
+cd certs
+mkcert -cert-file cert.pem -key-file key.pem localhost 127.0.0.1 ::1
+cd ..
+```
+
+Restart the stack (`docker compose -f docker-compose.dev.yml down && docker compose -f docker-compose.dev.yml up`) after generating new certs so the container picks them up. You can then curl without `-k`:
+
+```bash
+curl https://localhost:8080/health
+```
+
 ## DynamoDB Schema
 
 The application uses a single-table design in DynamoDB with composite primary keys (partition key `pk` and sort key `sk`).

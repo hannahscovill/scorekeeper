@@ -2,6 +2,14 @@
 
 echo "Running pre-commit checks..."
 
+# Keep husky/tooling deps current so the hook doesn't silently go stale
+echo "Checking npm dependencies..."
+npm install --silent
+if [ $? -ne 0 ]; then
+    echo "npm install failed."
+    exit 1
+fi
+
 # Check Rust formatting
 echo "Checking formatting..."
 cargo fmt --check
@@ -28,7 +36,7 @@ fi
 
 # Run CDK tests
 echo "Running CDK tests..."
-cd infra && npm test
+cd infra && npm install --silent && npm test
 if [ $? -ne 0 ]; then
     echo "CDK tests failed."
     exit 1

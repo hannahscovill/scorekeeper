@@ -4,6 +4,7 @@ pub mod auth0;
 pub mod common_words;
 pub mod github_issues;
 pub mod grading;
+pub mod puzzle_creation;
 pub mod s3_avatar;
 
 use crate::models::{Game, GameCreate};
@@ -13,6 +14,7 @@ pub use auth0::Auth0ManagementService;
 pub use common_words::{CommonWordsService, CommonWordsSource};
 pub use github_issues::{GitHubIssueService, RateLimiter};
 pub use grading::{grade_guess, is_winning_guess};
+pub use puzzle_creation::create_random_puzzle;
 pub use s3_avatar::S3AvatarService;
 
 /// Service for managing games.

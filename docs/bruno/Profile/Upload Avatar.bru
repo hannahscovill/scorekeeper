@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: http://{{baseUrl}}/profile/avatar
+  url: {{protocol}}://{{baseUrl}}/profile/avatar
   body: multipartForm
   auth: bearer
 }
@@ -24,22 +24,22 @@ body:multipart-form {
 
 docs {
   Uploads an avatar image for the currently authenticated user.
-
+  
   The image is uploaded to S3 and the URL is stored in Auth0 user_metadata.
-
+  
   ## Authentication
   Requires a valid Bearer token (inherited from collection).
-
+  
   ## Prerequisites
   The server must be configured with:
   - `AUTH0_M2M_CLIENT_ID` and `AUTH0_M2M_CLIENT_SECRET`
   - `S3_AVATAR_BUCKET`
-
+  
   ## Request Body
   - `avatar` (file, required): Image file to upload
     - Allowed types: JPEG, PNG
     - Maximum size: 2MB
-
+  
   ## Responses
   - `200`: Avatar uploaded successfully
     ```json
