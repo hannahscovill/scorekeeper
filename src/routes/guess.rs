@@ -96,6 +96,11 @@ pub async fn submit_guess(
         return Err(AppError::bad_request("Game is already complete"));
     }
 
+    // Reject duplicate guesses
+    if game_state.guesses.contains(&guess) {
+        return Err(AppError::bad_request("You already guessed that word"));
+    }
+
     // Grade the guess
     let graded = grade_guess(&guess, &answer);
     let won = is_winning_guess(&graded);
